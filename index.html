@@ -237,11 +237,22 @@ const [gameTopic, setGameTopic] = useState('');
 const [gameResult, setGameResult] = useState(null);
 const [isGeneratingGame, setIsGeneratingGame] = useState(false);
 
-// YENİ MODÜL: CV Oluşturucu Stateleri
-const [cvInfo, setCvInfo] = useState('');
-const [cvResult, setCvResult] = useState(null);
-const [cvPhoto, setCvPhoto] = useState(null);
-const [isGeneratingCV, setIsGeneratingCV] = useState(false);
+// KOLEJ VE YOKLAMA ARAÇLARI STATELERİ
+const [prTopic, setPrTopic] = useState('');
+const [prResult, setPrResult] = useState(null);
+const [isGeneratingPR, setIsGeneratingPR] = useState(false);
+
+const [clubStudentInfo, setClubStudentInfo] = useState('');
+const [clubResult, setClubResult] = useState(null);
+const [isGeneratingClub, setIsGeneratingClub] = useState(false);
+
+const [meetingContext, setMeetingContext] = useState('');
+const [meetingResult, setMeetingResult] = useState(null);
+const [isGeneratingMeeting, setIsGeneratingMeeting] = useState(false);
+
+const [absentStudentName, setAbsentStudentName] = useState('');
+const [attendanceResult, setAttendanceResult] = useState(null);
+const [isGeneratingAttendance, setIsGeneratingAttendance] = useState(false);
 
 const [pickedStudent, setPickedStudent] = useState(null);
 
@@ -1023,33 +1034,84 @@ setNewsletterResult(JSON.parse(data.candidates[0].content.parts[0].text));
 setIsGeneratingNewsletter(false);
 };
 
-// YENİ MODÜL: PROFESYONEL CV OLUŞTURUCU AI
-const generateCV = async () => {
-if (!apiKey || !cvInfo.trim()) { showToast("CV için bilgi girmelisiniz."); return; }
-setIsGeneratingCV(true);
+// KOLEJ ARACI 1: KURUMSAL PR & SOSYAL MEDYA
+const generatePR = async () => {
+if (!apiKey || !prTopic.trim()) return;
+setIsGeneratingPR(true);
 try {
 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
-systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi Kariyer Danışmanı ve Eğitim İK Uzmanısın. Öğretmenler için çok şık, kurumsal ve etkileyici CV'ler tasarlarsın." }] },
-contents: [{ parts: [{ text: `Aşağıdaki dağınık bilgileri toparlayıp profesyonel bir CV oluştur:\n${cvInfo}` }] }],
-generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { ad_soyad: { type: "STRING" }, unvan: { type: "STRING" }, iletisim: { type: "ARRAY", items: { type: "STRING" } }, hakkimda_ozet: { type: "STRING" }, deneyimler: { type: "ARRAY", items: { type: "OBJECT", properties: { kurum: { type: "STRING" }, pozisyon: { type: "STRING" }, sure: { type: "STRING" }, aciklama: { type: "STRING" } } } }, egitim: { type: "ARRAY", items: { type: "STRING" } }, yetenekler: { type: "ARRAY", items: { type: "STRING" } }, sertifikalar: { type: "ARRAY", items: { type: "STRING" } } }, required: ["ad_soyad", "unvan", "iletisim", "hakkimda_ozet", "deneyimler", "egitim", "yetenekler"] } }
+systemInstruction: { parts: [{ text: "Sen Değişim Koleji'nin üst düzey kurumsal iletişim direktörü ve sosyal medya uzmanısın. Basit sınıf içi aktiviteleri, velileri etkileyecek şık, pedagojik ve vizyoner Instagram/Facebook gönderilerine çevirirsin." }] },
+contents: [{ parts: [{ text: `Aktivite: ${prTopic}\nBu aktivite için Değişim Koleji markasını öne çıkaran, veliye güven veren, bol emojili ve hashtagli (örn: #DeğişimKoleji #GeleceğinLiderleri) bir sosyal medya gönderisi yaz.` }] }],
+generationConfig: { responseMimeType: "text/plain" }
 })
 });
 const data = await response.json();
-setCvResult(JSON.parse(data.candidates[0].content.parts[0].text));
-showToast("CV Başarıyla Oluşturuldu! 📄");
-} catch(err) { handleApiError(err); }
-setIsGeneratingCV(false);
+setPrResult(data.candidates[0].content.parts[0].text.trim());
+showToast("Sosyal Medya Postu Hazır! 📸");
+} catch(err) {}
+setIsGeneratingPR(false);
 };
 
-// CV FOTOĞRAF YÜKLEME HANDLER
-const handleCvPhotoUpload = (e) => {
-  const file = e.target.files[0];
-  if (file) {
-    setCvPhoto(URL.createObjectURL(file));
-    showToast("Vesikalık fotoğraf yüklendi!");
-  }
+// KOLEJ ARACI 2: AKILLI KULÜP VE YETENEK YÖNLENDİRİCİ
+const generateClub = async () => {
+if (!apiKey || !clubStudentInfo.trim()) return;
+setIsGeneratingClub(true);
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde bir yetenek avcısı ve eğitim danışmanısın. Öğrencilerin küçük özelliklerine bakarak onları okulun ücretli kulüplerine (Robotik, Satranç, İngilizce Drama, Jimnastik, Piyano vb.) yönlendiren bilimsel, ikna edici resmi bir analiz raporu yazarsın." }] },
+contents: [{ parts: [{ text: `Öğrenci Hakkında: ${clubStudentInfo}\nBu öğrenciyi analiz et ve Değişim Koleji'ndeki hangi ders dışı kulübe/atölyeye katılması gerektiğine dair veliyi ikna edecek resmi bir 'Yetenek Keşif Raporu' hazırla.` }] }],
+generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { rapor_basligi: { type: "STRING" }, bilissel_analiz: { type: "STRING" }, tavsiye_edilen_kulup: { type: "STRING" }, kulubun_cocuga_faydalari: { type: "ARRAY", items: { type: "STRING" } }, veliye_cagri: { type: "STRING" } }, required: ["rapor_basligi", "bilissel_analiz", "tavsiye_edilen_kulup", "kulubun_cocuga_faydalari", "veliye_cagri"] } }
+})
+});
+const data = await response.json();
+setClubResult(JSON.parse(data.candidates[0].content.parts[0].text));
+showToast("Kulüp Yönlendirme Raporu Hazır! 💰");
+} catch(err) {}
+setIsGeneratingClub(false);
+};
+
+// KOLEJ ARACI 3: KRİZ SAVAR VELİ TOPLANTISI STRATEJİSTİ
+const generateMeeting = async () => {
+if (!apiKey || !meetingContext.trim()) return;
+setIsGeneratingMeeting(true);
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen dünyanın en iyi okul müdürü ve kriz yönetimi uzmanısın. Öğretmenlere, zorlu veli toplantılarını yönetmeleri için sandviç metoduyla (İyi-Gelişim Alanı-İyi) strateji hazırlarsın." }] },
+contents: [{ parts: [{ text: `Öğrenci/Veli Durumu: ${meetingContext}\nBu veli toplantısı için öğretmene bir konuşma senaryosu ve olası itirazlara karşı şık, kurumsal savunma cevapları hazırla.` }] }],
+generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { toplanti_amaci: { type: "STRING" }, sandvic_metodu_acilis: { type: "STRING" }, asil_konu_nasil_soylenmeli: { type: "STRING" }, olasi_veli_itirazlari: { type: "ARRAY", items: { type: "OBJECT", properties: { veli_diyebilir_ki: { type: "STRING" }, ogretmen_demeli_ki: { type: "STRING" } } } }, kapanis_ve_isbirligi: { type: "STRING" } }, required: ["toplanti_amaci", "sandvic_metodu_acilis", "asil_konu_nasil_soylenmeli", "olasi_veli_itirazlari", "kapanis_ve_isbirligi"] } }
+})
+});
+const data = await response.json();
+setMeetingResult(JSON.parse(data.candidates[0].content.parts[0].text));
+showToast("Toplantı Stratejisi Hazır! 🤝");
+} catch(err) {}
+setIsGeneratingMeeting(false);
+};
+
+// YENİ ARAÇ: AKILLI YOKLAMA BİLDİRİMİ
+const generateAttendance = async () => {
+if (!apiKey || !absentStudentName.trim()) return;
+setIsGeneratingAttendance(true);
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen Değişim Koleji'nin kurumsal ve şefkatli öğrenci işleri koordinatörüsün. Sınıfa gelmeyen öğrencilerin velilerine gönderilecek, endişe yaratmayan ama ilgili, şefkatli ve resmi bir WhatsApp/SMS mesajı tasarlarsın." }] },
+contents: [{ parts: [{ text: `Öğrenci Adı: ${absentStudentName}\nLütfen veliye öğrencinin bugün okulda olmadığını bildiren, geçmiş olsun dileklerini ileten ve kurumsal bir dille yazılmış kısa bir bilgilendirme mesajı hazırla.` }] }],
+generationConfig: { responseMimeType: "text/plain" }
+})
+});
+const data = await response.json();
+setAttendanceResult(data.candidates[0].content.parts[0].text.trim());
+showToast("Yoklama Mesajı Hazır! 📲");
+} catch(err) {}
+setIsGeneratingAttendance(false);
 };
 
 const expandObservation = async () => {
@@ -1946,84 +2008,139 @@ const file = e.target.files[0];
 )}
 </div>
 
-{/* YENİ MODÜL: MİNİ ARAÇ 10: PROFESYONEL CV OLUŞTURUCU */}
-<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col lg:col-span-2" id="tool-printable-cv">
-<div className="bg-slate-800 p-4 text-white flex items-center"><i className="fa-solid fa-user-tie text-3xl mr-3"></i><div><h3 className="font-bold text-lg">Profesyonel CV Oluşturucu</h3><p className="text-slate-300 text-xs">Öğretmenler için AI destekli şık ve kurumsal özgeçmiş.</p></div></div>
+{/* YENİ ARAÇ: AKILLI YOKLAMA VE DEVAMSIZLIK BİLDİRİMİ */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" id="tool-printable-attendance">
+<div className="bg-yellow-500 p-4 text-white flex items-center"><i className="fa-solid fa-clipboard-user text-3xl mr-3"></i><div><h3 className="font-bold text-lg text-yellow-900">Akıllı Yoklama Bildirimi</h3><p className="text-yellow-800 text-xs font-medium">Gelmeyen öğrenciler için kurumsal veli mesajı.</p></div></div>
 <div className="p-5 flex-1 flex flex-col gap-4 no-print">
-<div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-<label className="block text-xs font-bold text-slate-700 mb-2"><i className="fa-solid fa-camera mr-1"></i> Vesikalık Fotoğraf (Opsiyonel)</label>
-<input type="file" accept="image/*" onChange={handleCvPhotoUpload} className="text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 transition cursor-pointer"/>
-</div>
-<div><textarea value={cvInfo} onChange={(e) => setCvInfo(e.target.value)} rows="5" placeholder="Bilgilerinizi dağınık yazın. Örn: Adım Barış İlkan, 10 yıllık okul öncesi öğretmeniyim. Değişim Kolejinde çalıştım. Robotik ve satranç biliyorum. Telefon: 0555..." className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea></div>
-<button onClick={generateCV} disabled={isGeneratingCV || !cvInfo.trim()} className="w-full bg-slate-800 text-white hover:bg-slate-900 py-3 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center shadow-md">
-{isGeneratingCV ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>} CV'yi Tasarla ✨
+<div><input type="text" value={absentStudentName} onChange={(e) => setAbsentStudentName(e.target.value)} placeholder="Gelmeyen Öğrenci Kim? Örn: Ayşe Yılmaz" className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm font-medium" /></div>
+<button onClick={generateAttendance} disabled={isGeneratingAttendance || !absentStudentName.trim()} className="w-full bg-yellow-100 text-yellow-800 hover:bg-yellow-200 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center shadow-sm">
+{isGeneratingAttendance ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-paper-plane mr-2"></i>} Mesaj Hazırla ✨
 </button>
 </div>
-{cvResult && (
+{attendanceResult && (
+<div className="p-5 pt-0 mt-auto break-inside-avoid">
+<div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl text-sm text-gray-800 whitespace-pre-wrap relative shadow-inner">
+{attendanceResult}
+<div className="mt-4 flex space-x-2 no-print">
+<button onClick={() => {navigator.clipboard.writeText(attendanceResult); showToast("Kopyalandı! WhatsApp'tan gönderebilirsiniz.");}} className="flex-1 bg-green-500 text-white font-bold py-2 rounded-lg hover:bg-green-600 transition shadow-sm"><i className="fa-brands fa-whatsapp mr-2"></i>Kopyala & Gönder</button>
+</div>
+</div>
+</div>
+)}
+</div>
+
+{/* KOLEJ ARACI 1: KURUMSAL PR & SOSYAL MEDYA */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" id="tool-printable-pr">
+<div className="bg-gradient-to-r from-pink-500 to-orange-400 p-4 text-white flex items-center"><i className="fa-brands fa-instagram text-3xl mr-3"></i><div><h3 className="font-bold text-lg">Kurumsal PR Uzmanı</h3><p className="text-white/80 text-xs">Sınıf etkinliklerini sosyal medya gönderisine çevirin.</p></div></div>
+<div className="p-5 flex-1 flex flex-col gap-4 no-print">
+<div><textarea value={prTopic} onChange={(e) => setPrTopic(e.target.value)} rows="3" placeholder="Bugün sınıfta ne yaptınız? Örn: Çocuklarla hamurdan güneş sistemi yaptık..." className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea></div>
+<button onClick={generatePR} disabled={isGeneratingPR || !prTopic.trim()} className="w-full bg-orange-50 text-orange-700 hover:bg-orange-100 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center">
+{isGeneratingPR ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-hashtag mr-2"></i>} Post Hazırla ✨
+</button>
+</div>
+{prResult && (
+<div className="p-5 pt-0 mt-auto break-inside-avoid">
+<div className="bg-gray-50 border border-gray-200 p-4 rounded-xl text-sm text-gray-800 whitespace-pre-wrap relative shadow-inner">
+<div className="flex items-center mb-3 pb-2 border-b border-gray-200">
+<div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-600 to-purple-700 text-white flex items-center justify-center text-xs font-bold mr-2">DK</div>
+<span className="font-bold text-gray-900">degisimkoleji</span>
+</div>
+{prResult}
+<div className="mt-4 flex space-x-2 no-print">
+<button onClick={() => {navigator.clipboard.writeText(prResult); showToast("Kopyalandı! Instagram'a yapıştırabilirsiniz.");}} className="flex-1 bg-indigo-100 text-indigo-700 font-bold py-2 rounded-lg hover:bg-indigo-200 transition"><i className="fa-regular fa-copy mr-2"></i>Metni Kopyala</button>
+</div>
+</div>
+</div>
+)}
+</div>
+
+{/* KOLEJ ARACI 2: AKILLI KULÜP VE YETENEK YÖNLENDİRİCİ */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col lg:col-span-2" id="tool-printable-club">
+<div className="bg-cyan-600 p-4 text-white flex items-center"><i className="fa-solid fa-chart-pie text-3xl mr-3"></i><div><h3 className="font-bold text-lg">Yetenek & Kulüp Radarı</h3><p className="text-cyan-100 text-xs">Okul kulüplerine yönlendiren resmi yapay zeka analizi.</p></div></div>
+<div className="p-5 flex-1 flex flex-col gap-4 no-print">
+<div><textarea value={clubStudentInfo} onChange={(e) => setClubStudentInfo(e.target.value)} rows="3" placeholder="Öğrencinin öne çıkan 2 özelliği nedir? Örn: Çok hareketli, ritim duygusu var..." className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea></div>
+<button onClick={generateClub} disabled={isGeneratingClub || !clubStudentInfo.trim()} className="w-full bg-cyan-50 text-cyan-700 hover:bg-cyan-100 py-3 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center shadow-sm">
+{isGeneratingClub ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-microscope mr-2"></i>} Bilimsel Rapor Çıkar ✨
+</button>
+</div>
+{clubResult && (
+<div className="p-5 pt-0 mt-auto print-card break-inside-avoid">
+<div className="flex justify-end mb-2 no-print">
+<button onClick={() => downloadAsPDF('tool-printable-club', 'Yetenek_Raporu')} className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded font-bold"><i className="fa-solid fa-file-pdf mr-1"></i> PDF İndir</button>
+<button onClick={handlePrint} className="text-xs bg-gray-800 text-white px-3 py-1 rounded font-bold ml-2"><i className="fa-solid fa-print mr-1"></i> Yazdır</button>
+</div>
+<div className="bg-cyan-50 border border-cyan-200 p-6 md:p-8 rounded-xl print-high-contrast relative shadow-sm">
+<h3 className="text-center font-black text-xl text-cyan-900 mb-6 border-b-2 border-cyan-300 pb-3 uppercase tracking-widest">{clubResult.rapor_basligi}</h3>
+<div className="mb-5">
+<span className="font-bold text-cyan-800 block mb-2 text-lg"><i className="fa-solid fa-brain mr-2"></i> Bilişsel Analiz:</span>
+<p className="text-sm text-gray-800 leading-relaxed italic bg-white p-4 rounded-lg border border-cyan-100">"{clubResult.bilissel_analiz}"</p>
+</div>
+<div className="bg-gradient-to-r from-cyan-600 to-blue-600 p-4 rounded-lg shadow-md mb-5 text-center text-white">
+<span className="text-xs font-bold text-cyan-100 uppercase block mb-1">Tavsiye Edilen Okul İçi Kulüp</span>
+<span className="text-2xl font-black uppercase tracking-wider">{clubResult.tavsiye_edilen_kulup}</span>
+</div>
+<div className="mb-5">
+<span className="font-bold text-green-700 block mb-2 text-lg"><i className="fa-solid fa-arrow-trend-up mr-2"></i> Kulübün Öğrenciye Katkıları:</span>
+<ul className="list-disc pl-6 text-sm text-gray-800 space-y-2 font-medium">{clubResult.kulubun_cocuga_faydalari.map((f,i)=><li key={i}>{f}</li>)}</ul>
+</div>
+<div className="bg-slate-900 text-white p-4 rounded-lg text-sm text-center font-bold shadow-lg border-l-4 border-yellow-400 mt-6">
+{clubResult.veliye_cagri}
+</div>
+</div>
+<BrandFooter />
+</div>
+)}
+</div>
+
+{/* KOLEJ ARACI 3: KRİZ SAVAR VELİ TOPLANTISI STRATEJİSTİ */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col lg:col-span-2" id="tool-printable-meeting">
+<div className="bg-slate-800 p-4 text-white flex items-center"><i className="fa-solid fa-handshake-angle text-3xl mr-3"></i><div><h3 className="font-bold text-lg">Kriz Savar Veli Toplantısı Stratejisti</h3><p className="text-slate-300 text-xs">Öğretmenler için zorlu veli görüşmelerini yönetme rehberi.</p></div></div>
+<div className="p-5 flex-1 flex flex-col gap-4 no-print">
+<div><textarea value={meetingContext} onChange={(e) => setMeetingContext(e.target.value)} rows="3" placeholder="Toplantının konusu nedir? Örn: Öğrenci hiç ödev yapmıyor ve veli sürekli okulu suçluyor..." className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea></div>
+<button onClick={generateMeeting} disabled={isGeneratingMeeting || !meetingContext.trim()} className="w-full bg-slate-100 text-slate-800 hover:bg-slate-200 py-3 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center shadow-sm">
+{isGeneratingMeeting ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>} Strateji ve Senaryo Üret ✨
+</button>
+</div>
+{meetingResult && (
 <div className="p-5 pt-0 mt-auto print-card break-inside-avoid">
 <div className="flex justify-end mb-4 no-print">
-<button onClick={() => downloadAsPDF('tool-printable-cv', 'Baris_Ogretmen_CV')} className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded font-bold"><i className="fa-solid fa-file-pdf mr-1"></i> PDF İndir</button>
+<button onClick={() => downloadAsPDF('tool-printable-meeting', 'Toplanti_Senaryosu')} className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded font-bold"><i className="fa-solid fa-file-pdf mr-1"></i> PDF İndir</button>
 <button onClick={handlePrint} className="text-xs bg-slate-800 text-white px-3 py-1 rounded font-bold ml-2"><i className="fa-solid fa-print mr-1"></i> Yazdır</button>
 </div>
-<div className="bg-white border border-slate-200 p-6 md:p-10 rounded-xl print-high-contrast shadow-sm relative text-slate-800">
-{/* CV Header */}
-<div className="flex flex-col md:flex-row items-center md:items-start gap-6 border-b-2 border-slate-800 pb-6 mb-6">
-{cvPhoto && <img src={cvPhoto} alt="CV Foto" className="w-32 h-32 object-cover rounded-full border-4 border-slate-100 shadow-md print-high-contrast"/>}
-<div className="text-center md:text-left flex-1">
-<h1 className="text-3xl font-black text-slate-900 uppercase tracking-wider mb-1">{cvResult.ad_soyad}</h1>
-<h2 className="text-lg font-bold text-slate-500 uppercase tracking-widest mb-4">{cvResult.unvan}</h2>
-<div className="flex flex-wrap gap-x-4 gap-y-2 text-sm justify-center md:justify-start font-medium">
-{cvResult.iletisim.map((item, i) => <span key={i}><i className="fa-solid fa-circle text-[8px] text-slate-300 mr-2"></i>{item}</span>)}
+<div className="bg-slate-50 border border-slate-200 p-6 md:p-8 rounded-xl print-high-contrast shadow-sm text-slate-800 space-y-5">
+<h2 className="text-xl font-black text-slate-900 border-b-2 border-slate-300 pb-2 uppercase"><i className="fa-solid fa-clipboard-user mr-2 text-slate-600"></i> Görüşme Rehberi: {meetingResult.toplanti_amaci}</h2>
+
+<div className="bg-green-50 border-l-4 border-green-500 p-3 rounded-r">
+<span className="font-bold text-green-800 block mb-1">1. Adım: Pozitif Açılış (Sandviç Metodu)</span>
+<p className="text-sm italic">"{meetingResult.sandvic_metodu_acilis}"</p>
 </div>
+<div className="bg-yellow-50 border-l-4 border-yellow-500 p-3 rounded-r">
+<span className="font-bold text-yellow-800 block mb-1">2. Adım: Asıl Sorunun İletilmesi (Suçlamadan)</span>
+<p className="text-sm italic">"{meetingResult.asil_konu_nasil_soylenmeli}"</p>
 </div>
+<div>
+<span className="font-bold text-slate-800 block mb-3 text-lg"><i className="fa-solid fa-shield-halved mr-2 text-indigo-500"></i> 3. Adım: Olası İtirazlar ve Kurumsal Savunma</span>
+<div className="space-y-3">
+{meetingResult.olasi_veli_itirazlari.map((itiraz, i) => (
+<div key={i} className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+<div className="flex gap-3 items-start mb-2">
+<i className="fa-solid fa-user text-red-400 mt-1"></i>
+<p className="text-sm font-semibold text-red-900"><span className="text-xs text-red-500 block">Veli Diyebilir ki:</span> {itiraz.veli_diyebilir_ki}</p>
 </div>
-{/* CV Body */}
-<div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-<div className="md:col-span-2 space-y-6">
-<section>
-<h3 className="text-lg font-bold text-slate-900 border-b border-slate-300 pb-1 mb-3 uppercase tracking-wider">Hakkımda</h3>
-<p className="text-sm leading-relaxed text-justify">{cvResult.hakkimda_ozet}</p>
-</section>
-<section>
-<h3 className="text-lg font-bold text-slate-900 border-b border-slate-300 pb-1 mb-3 uppercase tracking-wider">İş Deneyimi</h3>
-<div className="space-y-4">
-{cvResult.deneyimler.map((den, i) => (
-<div key={i}>
-<div className="flex justify-between items-baseline mb-1">
-<h4 className="font-bold text-slate-800">{den.pozisyon}</h4>
-<span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{den.sure}</span>
+<div className="flex gap-3 items-start ml-4 border-l-2 border-indigo-200 pl-4 mt-3">
+<i className="fa-solid fa-chalkboard-user text-indigo-500 mt-1"></i>
+<p className="text-sm font-semibold text-indigo-900"><span className="text-xs text-indigo-500 block">Öğretmen Demeli ki:</span> "{itiraz.ogretmen_demeli_ki}"</p>
 </div>
-<div className="text-sm font-semibold text-indigo-700 mb-1">{den.kurum}</div>
-<p className="text-xs leading-relaxed text-slate-600">{den.aciklama}</p>
 </div>
 ))}
 </div>
-</section>
 </div>
-<div className="space-y-6">
-<section>
-<h3 className="text-lg font-bold text-slate-900 border-b border-slate-300 pb-1 mb-3 uppercase tracking-wider">Eğitim</h3>
-<ul className="space-y-2 text-sm">
-{cvResult.egitim.map((eg, i) => <li key={i} className="leading-snug"><i className="fa-solid fa-graduation-cap text-slate-400 mr-2"></i>{eg}</li>)}
-</ul>
-</section>
-<section>
-<h3 className="text-lg font-bold text-slate-900 border-b border-slate-300 pb-1 mb-3 uppercase tracking-wider">Yetenekler</h3>
-<div className="flex flex-wrap gap-2">
-{cvResult.yetenekler.map((yet, i) => <span key={i} className="text-xs font-bold bg-slate-100 text-slate-700 px-2 py-1 rounded">{yet}</span>)}
-</div>
-</section>
-{cvResult.sertifikalar && cvResult.sertifikalar.length > 0 && (
-<section>
-<h3 className="text-lg font-bold text-slate-900 border-b border-slate-300 pb-1 mb-3 uppercase tracking-wider">Sertifikalar</h3>
-<ul className="space-y-2 text-sm">
-{cvResult.sertifikalar.map((ser, i) => <li key={i} className="leading-snug"><i className="fa-solid fa-certificate text-slate-400 mr-2"></i>{ser}</li>)}
-</ul>
-</section>
-)}
+<div className="bg-indigo-50 border-l-4 border-indigo-500 p-3 rounded-r mt-4">
+<span className="font-bold text-indigo-800 block mb-1">4. Adım: Kapanış ve İşbirliği Sözü</span>
+<p className="text-sm italic">"{meetingResult.kapanis_ve_isbirligi}"</p>
 </div>
 </div>
-</div>
+<BrandFooter />
 </div>
 )}
 </div>
