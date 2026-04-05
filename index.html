@@ -522,27 +522,44 @@ const generateReport = async () => {
 if (!apiKey) { setActiveTab('settings'); showToast("API anahtarınızı girin."); return; }
 if (!studentName.trim() || !observation.trim()) { showToast('Ad ve gözlem boş olamaz.'); return; }
 setLoading(true); setEditableResult(null);
+
+// KURAL SETLERİ - KOLEJ VİZYONUNA GÜNCELLENDİ (Özel Eğitim İptal)
 const hitapPrompt = parentName.trim() ? `Veli Adı/Hitap: ${parentName}` : "Veli Adı/Hitap: Genel";
 const hitapKurali = parentName.trim() ? `veli_mesaji doğrudan "${parentName}" ismiyle nazik bir hitapla başlasın.` : `veli_mesaji "Kıymetli Velimiz" hitabıyla başlasın.`;
-const dinamikOdevKurali = "DİKKAT: Gözlem notuna göre ödev ver. Eğer çocuk teknoloji ve satrançta yetenekliyse ufku açan zenginleştirici görevler, desteğe ihtiyacı varsa çok eğlenceli motive edici oyunlar yaz.";
-const systemInstruction = "Sen Değişim Koleji'nin ordinaryüs profesör seviyesinde, en vizyoner Bilişim, Robotik ve Satranç öğretmeni ve eğitim koçusun. Raporlarında kurumun vizyonunu ve teknolojik liderliğini yansıtırsın.";
-const userPrompt = `Öğrenci Adı: ${studentName} - Veli: ${parentName} - Kademe: ${category}\nGözlem Notu: ${observation}\n\nGÖREV: Bu verileri kullanarak bir Değişim Koleji Bilişim & Satranç Raporu hazırla.\nKURALLAR:\n1- ${hitapKurali}\n2- gelisim_puani mutlaka 1 ile 10 arasında bir sayı olsun.\n3- ${dinamikOdevKurali}\n4- mini_test kısmına 3 adet çoktan seçmeli, klasik_sorular kısmına 2 adet açık uçlu soru ekle. Sorular bilişim, robotik veya satrançla ilgili olsun.\n5- JSON formatı dışında hiçbir açıklama metni yazma!`;
+const dinamikOdevKurali = "DİKKAT: Gözlem notuna göre ödev ver. Çocuğun analitik ve teknolojik yeteneklerini destekleyen, geleceğin liderine yakışır vizyoner görevler yaz.";
+
+const systemInstruction = "Sen Değişim Koleji'nin ordinaryüs profesör seviyesinde, en vizyoner Bilişim, Robotik ve Satranç öğretmeni ve eğitim koçusun. Raporlarında kurumun vizyonunu ve teknolojik liderliğini yansıtırsın. ASLA ÇİFT TIRNAK KULLANMA.";
+const userPrompt = `Öğrenci Adı: ${studentName}\n${hitapPrompt}\nTarih: ${date}\nKademe: ${category}\nGözlem: ${observation}\nKurallar:\n1) ${hitapKurali}\n2) gelisim_puani 1-10 arası olmalı.\n3) ${dinamikOdevKurali}\n4) mini_test (3 adet) ve klasik_sorular (2 adet) kısmını bilişim, satranç ve mantık muhakeme üzerine kurgula.\n5) Çift tırnak (") işaretini metinlerin içinde KESİNLİKLE KULLANMA!`;
+
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
-method: 'POST', headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({
-systemInstruction: { parts: [{ text: systemInstruction }] },
-contents: [{ parts: [{ text: userPrompt }] }],
-generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { veli_mesaji: { type: "STRING" }, pedagojik_amac: { type: "STRING" }, gelisim_puani: { type: "INTEGER" }, hayatin_icinden_odev: { type: "ARRAY", items: { type: "STRING" } }, akademik_odev: { type: "ARRAY", items: { type: "STRING" } }, ogrenci_notu: { type: "STRING" }, klasik_sorular: { type: "ARRAY", items: { type: "STRING" } }, mini_test: { type: "ARRAY", items: { type: "OBJECT", properties: { soru: { type: "STRING" }, a: { type: "STRING" }, b: { type: "STRING" }, c: { type: "STRING" }, d: { type: "STRING" }, dogru_cevap: { type: "STRING" } } } } }, required: ["veli_mesaji", "pedagojik_amac", "gelisim_puani", "hayatin_icinden_odev", "akademik_odev", "ogrenci_notu", "klasik_sorular", "mini_test"] } }
-})
-});
-if (!response.ok) throw new Error(response.status === 429 ? '429' : 'API Error');
-const data = await response.json();
-if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-setEditableResult(JSON.parse(data.candidates[0].content.parts[0].text));
-showToast("Rapor üretildi! ✨");
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+            contents: [{ parts: [{ text: userPrompt }] }],
+            generationConfig: { 
+                responseMimeType: "application/json", 
+                maxOutputTokens: 8192, // KELİME KESİLME LİMİTİ ARŞA ÇIKARILDI
+                temperature: 0.8,
+                responseSchema: { type: "OBJECT", properties: { veli_mesaji: { type: "STRING" }, pedagojik_amac: { type: "STRING" }, gelisim_puani: { type: "INTEGER" }, hayatin_icinden_odev: { type: "ARRAY", items: { type: "STRING" } }, akademik_odev: { type: "ARRAY", items: { type: "STRING" } }, ogrenci_notu: { type: "STRING" }, klasik_sorular: { type: "ARRAY", items: { type: "STRING" } }, mini_test: { type: "ARRAY", items: { type: "OBJECT", properties: { soru: { type: "STRING" }, a: { type: "STRING" }, b: { type: "STRING" }, c: { type: "STRING" }, d: { type: "STRING" }, dogru_cevap: { type: "STRING" } } } } }, required: ["veli_mesaji", "pedagojik_amac", "gelisim_puani", "hayatin_icinden_odev", "akademik_odev", "ogrenci_notu", "klasik_sorular", "mini_test"] } 
+            }
+        })
+    });
+
+    if (!response.ok) throw new Error(response.status === 429 ? '429' : 'API Error');
+    const data = await response.json();
+    
+    if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        let aiMetni = data.candidates[0].content.parts[0].text;
+        // JSON Zırhı (Fazla kodları ve tırnak hatalarını temizler)
+        aiMetni = aiMetni.replace(/```json/gi, '').replace(/```/gi, '').trim();
+        setEditableResult(JSON.parse(aiMetni));
+        showToast("Rapor üretildi! ✨");
+    }
+} catch (err) { 
+    console.error("Hata Detayı:", err);
+    showToast("❌ Yapay Zeka Raporu yazarken bir hata oluştu veya süre aşımı oldu!"); 
 }
-} catch (err) { handleApiError(err); }
 setLoading(false);
 };
 
