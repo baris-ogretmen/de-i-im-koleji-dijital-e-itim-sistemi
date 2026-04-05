@@ -1,0 +1,2811 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Değişim Koleji - Eğitim & Gelişim Ekosistemi</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+window.FirebaseSDK = {
+initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged,
+getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc
+};
+window.dispatchEvent(new Event('firebase-sdk-ready'));
+</script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap');
+
+body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #1f2937; -webkit-tap-highlight-color: transparent; }
+.textarea-auto { display: block; width: 100%; overflow: hidden; resize: none; min-height: 40px; line-height: 1.5; }
+.font-serif { font-family: 'Merriweather', serif; }
+
+/* GÜÇLENDİRİLMİŞ YAZDIRMA MOTORU - Marka Footer ve Cevap Anahtarı Renk Koruması */
+@media print {
+    body { background-color: white !important; color: black !important; margin: 0; padding: 0; }
+    .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    
+    /* Renkleri zorla koruma komutu (Cevap anahtarı ve rubrikler için hayati) */
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+
+    .print-container { box-shadow: none !important; padding: 0 !important; margin: 0 !important; border: none !important; }
+    .print-card { border: 1px solid #d1d5db !important; box-shadow: none !important; break-inside: avoid; margin-bottom: 1rem !important; page-break-inside: avoid; }
+
+    .print-container h1, .print-container h2, .print-container h3, .print-container h4, .print-container h5,
+    .print-container p, .print-container span, .print-container div, .print-container li, .print-high-contrast,
+    .print-container table, .print-container td, .print-container th { color: #000000 !important; font-weight: 600 !important; }
+
+    /* Özel Cevap Anahtarı Başlık Koruması - AÇIK RENK/OKUNAKLI */
+    .cevap-anahtari-baslik { background-color: #fef08a !important; color: #1e3a8a !important; border: 2px solid #1e3a8a !important; }
+    .cevap-anahtari-baslik * { color: #1e3a8a !important; }
+
+    textarea, input { border: none !important; background: transparent !important; resize: none !important; padding: 0 !important; box-shadow: none !important; color: #000000 !important; outline: none !important; font-weight: 700 !important; }
+
+    @page { margin: 1cm; }
+    h1, h2, h3, h4, h5 { page-break-after: avoid; }
+    .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
+    .page-break-before { page-break-before: always !important; break-before: page !important; }
+
+    .brand-footer { display: block !important; width: 100%; text-align: center; margin-top: 40px; padding-top: 15px; border-top: 3px solid #000; font-size: 14px; font-weight: 900; color: #000; break-inside: avoid; }
+}
+
+.brand-footer { display: block; width: 100%; text-align: center; margin-top: 40px; padding-top: 15px; border-top: 2px solid #e5e7eb; font-size: 12px; color: #6b7280; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: #c7c7cc; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+.pb-safe { padding-bottom: 80px; }
+
+/* Medya Yükleme Alanı CSS'i */
+.media-gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; mt-4; }
+.media-item { position: relative; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb; background: #000; display: flex; align-items: center; justify-content: center; height: 120px; }
+.media-item img, .media-item video { width: 100%; height: 100%; object-fit: cover; }
+.media-delete-btn { position: absolute; top: 4px; right: 4px; background: rgba(255,0,0,0.8); color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; }
+[class*="soru"], p {
+    white-space: pre-wrap !important;
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useMemo } = React;
+
+const CATEGORIES = [
+{ id: 'anaokulu_kucuk', name: 'Anaokulu (3-4 Yaş)', icon: 'fa-shapes', color: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100', activeColor: 'bg-blue-600 text-white border-blue-600', reportTitle: 'Değişim Anaokulu Gelişim Raporu' },
+{ id: 'anaokulu_hazirlik', name: 'Anaokulu (5-6 Yaş)', icon: 'fa-puzzle-piece', color: 'bg-pink-50 text-pink-700 border-pink-200 hover:bg-pink-100', activeColor: 'bg-pink-600 text-white border-pink-600', reportTitle: 'Değişim Hazırlık Grubu Raporu' },
+{ id: 'ilkokul_1', name: '1. Sınıf (İlk Okuma)', icon: 'fa-pencil', color: 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100', activeColor: 'bg-green-600 text-white border-green-600', reportTitle: 'Değişim 1. Sınıf Gelişim Raporu' },
+{ id: 'ilkokul_2_3', name: '2. ve 3. Sınıf', icon: 'fa-book-open', color: 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100', activeColor: 'bg-orange-600 text-white border-orange-600', reportTitle: 'Değişim İlkokul Değerlendirme Raporu' },
+{ id: 'ilkokul_4', name: '4. Sınıf', icon: 'fa-school', color: 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100', activeColor: 'bg-red-600 text-white border-red-600', reportTitle: 'Değişim 4. Sınıf Akademik Raporu' },
+{ id: 'ortaokul_5_6', name: '5. ve 6. Sınıf', icon: 'fa-flask', color: 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100', activeColor: 'bg-teal-600 text-white border-teal-600', reportTitle: 'Değişim Ortaokul İlerleme Raporu' },
+{ id: 'ortaokul_7', name: '7. Sınıf (LGS Ön Hazırlık)', icon: 'fa-microscope', color: 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100', activeColor: 'bg-purple-600 text-white border-purple-600', reportTitle: 'Değişim 7. Sınıf LGS Ön Hazırlık Raporu' },
+{ id: 'ortaokul_8', name: '8. Sınıf (LGS)', icon: 'fa-graduation-cap', color: 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100', activeColor: 'bg-yellow-600 text-white border-yellow-600', reportTitle: 'Değişim 8. Sınıf LGS Koçluk Raporu' }
+];
+
+const COLOR_MAP = {
+blue: 'bg-blue-100 border-blue-400 text-blue-900', green: 'bg-green-100 border-green-400 text-green-900',
+purple: 'bg-purple-100 border-purple-400 text-purple-900', orange: 'bg-orange-100 border-orange-400 text-orange-900',
+rose: 'bg-rose-100 border-rose-400 text-rose-900', yellow: 'bg-yellow-100 border-yellow-400 text-yellow-900',
+teal: 'bg-teal-100 border-teal-400 text-teal-900', red: 'bg-red-100 border-red-400 text-red-900'
+};
+
+const AutoResizeTextarea = ({ value, onChange, className, placeholder }) => {
+const textareaRef = useRef(null);
+useEffect(() => {
+if (textareaRef.current) {
+textareaRef.current.style.height = 'auto';
+textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+}
+}, [value]);
+return <textarea ref={textareaRef} value={value} onChange={onChange} placeholder={placeholder} className={`textarea-auto w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 rounded p-1 transition-all ${className}`} />;
+};
+
+const BrandFooter = () => (
+<div className="brand-footer">
+<i className="fa-solid fa-graduation-cap mr-2"></i> DEĞİŞİM KOLEJİ EĞİTİM & GELİŞİM DOKÜMANI <br/>
+<span style={{fontWeight: 'bold', marginTop: '5px', display: 'inline-block', color: '#000'}}>🌐 https://baris-ogretmen.github.io/site-1/</span>
+</div>
+);
+
+const ProgressChart = ({ reports }) => {
+const data = reports.slice(0, 7).reverse().map(r => ({
+date: r.date.split('-').slice(1).join('.'),
+score: r.result?.gelisim_puani || 0
+}));
+const maxScore = 10;
+const barWidth = 100 / Math.max(data.length, 1);
+return (
+<div className="flex items-end justify-between h-40 bg-gray-50 rounded-xl p-4 border border-gray-200">
+{data.map((d, i) => {
+const height = (d.score / maxScore) * 100;
+return (
+<div key={i} className="flex flex-col items-center" style={{ width: `${barWidth}%` }}>
+<div className="relative w-full flex justify-center">
+<div className="w-8 bg-gradient-to-t from-indigo-500 to-purple-500 rounded-t-lg transition-all hover:from-indigo-600 hover:to-purple-600" style={{ height: `${height}%`, minHeight: '4px' }}></div>
+<div className="absolute -top-6 text-xs font-bold text-indigo-700 bg-white px-1.5 py-0.5 rounded shadow">{d.score}</div>
+</div>
+<span className="text-[10px] text-gray-500 mt-2">{d.date}</span>
+</div>
+);
+})}
+{data.length === 0 && <p className="text-gray-400 text-sm">Henüz veri yok.</p>}
+</div>
+);
+};const App = () => {
+const [activeTab, setActiveTab] = useState('new_report');
+const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
+const [modelName, setModelName] = useState(localStorage.getItem('gemini_model_name') || 'gemini-2.5-pro');
+const [toastMessage, setToastMessage] = useState('');
+const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+const [db, setDb] = useState(null);
+const [user, setUser] = useState(null);
+const [appId, setAppId] = useState('baris-ogretmen-app');
+const [isFbReady, setIsFbReady] = useState(false);
+const [savedReports, setSavedReports] = useState([]);
+const [contacts, setContacts] = useState([]);
+const [notes, setNotes] = useState([]);
+const [localMedia, setLocalMedia] = useState([]); // YENİ MODÜL: Medya Galerisi İçin
+
+const [editingReportId, setEditingReportId] = useState(null);
+const [studentName, setStudentName] = useState('');
+const [parentName, setParentName] = useState('');
+const [parentPhone, setParentPhone] = useState('');
+const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+const [category, setCategory] = useState(CATEGORIES[0].name);
+const [observation, setObservation] = useState('');
+const [editableResult, setEditableResult] = useState(null);
+const [loading, setLoading] = useState(false);
+const [isExpanding, setIsExpanding] = useState(false);
+
+const [searchQuery, setSearchQuery] = useState('');
+const [selectedStudent, setSelectedStudent] = useState(null);
+const [isAnalyzing, setIsAnalyzing] = useState(false);
+const [aiAnalysisResult, setAiAnalysisResult] = useState(null);
+
+const [newContact, setNewContact] = useState({ studentName: '', parentName: '', phone: '', group: '' });
+const [bulkGroup, setBulkGroup] = useState('');
+const [bulkMessageTemplate, setBulkMessageTemplate] = useState('');
+const [bulkMessages, setBulkMessages] = useState([]);
+const [isGeneratingBulk, setIsGeneratingBulk] = useState(false);
+
+const [activityCategory, setActivityCategory] = useState('Fark Etmez (Yapay Zeka Seçsin)');
+
+const [materialTopic, setMaterialTopic] = useState('');
+const [materialType, setMaterialType] = useState('Fark Etmez (Yapay Zeka Seçsin)');
+const [materialResult, setMaterialResult] = useState(null);
+const [isGeneratingMaterial, setIsGeneratingMaterial] = useState(false);
+const [matStudentName, setMatStudentName] = useState('');
+const [matInterests, setMatInterests] = useState('');
+const [matDifficulty, setMatDifficulty] = useState('Fark Etmez (Yapay Zeka Belirlesin)');
+const [matQuestionCount, setMatQuestionCount] = useState('Fark Etmez (Yapay Zeka Belirlesin)');
+const [showAnswerKey, setShowAnswerKey] = useState(true);
+
+const [parentMessage, setParentMessage] = useState('');
+const [selectedStudentForMsg, setSelectedStudentForMsg] = useState('');
+const [parentReply, setParentReply] = useState('');
+const [isGeneratingReply, setIsGeneratingReply] = useState(false);
+
+const [activityTopic, setActivityTopic] = useState('');
+const [activityResult, setActivityResult] = useState(null);
+const [isGeneratingActivity, setIsGeneratingActivity] = useState(false);
+
+const [behaviorIssue, setBehaviorIssue] = useState('');
+const [behaviorResult, setBehaviorResult] = useState(null);
+const [isGeneratingBehavior, setIsGeneratingBehavior] = useState(false);
+
+const [targetSkill, setTargetSkill] = useState('');
+const [studentCurrentLevel, setStudentCurrentLevel] = useState('');
+const [bepResult, setBepResult] = useState(null);
+const [isGeneratingBep, setIsGeneratingBep] = useState(false);
+
+const [graderQuestion, setGraderQuestion] = useState('');
+const [graderAnswer, setGraderAnswer] = useState('');
+const [graderResult, setGraderResult] = useState(null);
+const [isGeneratingGrader, setIsGeneratingGrader] = useState(false);
+
+const [lessonTopic, setLessonTopic] = useState('');
+const [lessonResult, setLessonResult] = useState(null);
+const [isGeneratingLesson, setIsGeneratingLesson] = useState(false);
+
+const [storyTheme, setStoryTheme] = useState('');
+const [storyResult, setStoryResult] = useState(null);
+const [isGeneratingStory, setIsGeneratingStory] = useState(false);
+
+const [rubricTopic, setRubricTopic] = useState('');
+const [rubricResult, setRubricResult] = useState(null);
+const [isGeneratingRubric, setIsGeneratingRubric] = useState(false);
+
+const [newsletterTopics, setNewsletterTopics] = useState('');
+const [newsletterResult, setNewsletterResult] = useState(null);
+const [isGeneratingNewsletter, setIsGeneratingNewsletter] = useState(false);
+
+const [gameTopic, setGameTopic] = useState('');
+const [gameResult, setGameResult] = useState(null);
+const [isGeneratingGame, setIsGeneratingGame] = useState(false);
+
+// YENİ MODÜL: CV Oluşturucu Stateleri
+const [cvInfo, setCvInfo] = useState('');
+const [cvResult, setCvResult] = useState(null);
+const [cvPhoto, setCvPhoto] = useState(null);
+const [isGeneratingCV, setIsGeneratingCV] = useState(false);
+
+const [pickedStudent, setPickedStudent] = useState(null);
+
+const [noteTitle, setNoteTitle] = useState('');
+const [noteContent, setNoteContent] = useState('');
+const [noteDate, setNoteDate] = useState(new Date().toISOString().split('T')[0]);
+
+const [timerActive, setTimerActive] = useState(false);
+const [timeLeft, setTimeLeft] = useState(2400);
+
+useEffect(() => {
+if (apiKey) localStorage.setItem('gemini_api_key', apiKey);
+localStorage.setItem('gemini_model_name', modelName);
+if (modelName) localStorage.setItem('gemini_model_name', modelName);
+}, [apiKey, modelName]);
+
+useEffect(() => {
+let interval = null;
+if (timerActive && timeLeft > 0) {
+interval = setInterval(() => setTimeLeft(t => t - 1), 1000);
+} else if (timeLeft === 0 && timerActive) {
+setTimerActive(false);
+showToast("⏳ Ders Süresi Bitti!");
+}
+return () => clearInterval(interval);
+}, [timerActive, timeLeft]);
+
+const formatTime = (seconds) => {
+const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+const s = (seconds % 60).toString().padStart(2, '0');
+return `${m}:${s}`;
+};
+
+useEffect(() => {
+const setupFirebase = async () => {
+try {
+const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore } = window.FirebaseSDK;
+const finalConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+apiKey: "AIzaSyAqeO-yQyQPnLsOqKmSNvVH23WPvneIjaU",
+authDomain: "shaped-totem-481514-c5.firebaseapp.com",
+projectId: "shaped-totem-481514-c5",
+storageBucket: "shaped-totem-481514-c5.firebasestorage.app",
+messagingSenderId: "519295049418",
+appId: "1:519295049418:web:7d04e18c4ea36bc088de33"
+};
+if (typeof __app_id !== 'undefined') setAppId(__app_id);
+const app = initializeApp(finalConfig);
+const auth = getAuth(app);
+const firestore = getFirestore(app);
+setDb(firestore);
+if (typeof __firebase_config === 'undefined' && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+await signInWithCustomToken(auth, __initial_auth_token);
+} else {
+await signInAnonymously(auth);
+}
+onAuthStateChanged(auth, (u) => { setUser(u); setIsFbReady(true); });
+} catch (err) { showToast("Veritabanı bağlantısı kurulamadı."); }
+};
+if (window.FirebaseSDK) setupFirebase();
+else {
+const listener = () => setupFirebase();
+window.addEventListener('firebase-sdk-ready', listener);
+return () => window.removeEventListener('firebase-sdk-ready', listener);
+}
+}, []);
+
+useEffect(() => {
+if (!isFbReady || !user || !db) return;
+const { collection, onSnapshot } = window.FirebaseSDK;
+const unsubReports = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'reports'), (snapshot) => {
+const reps = []; 
+snapshot.forEach((doc) => {
+    const data = doc.data();
+    // EĞER "SİLİNDİ" ETİKETİ YOKSA EKRANA GETİR (Yumuşak Silme Filtresi)
+    if (!data.isDeleted) { 
+        reps.push({ id: doc.id, ...data });
+    }
+});
+reps.sort((a, b) => new Date(b.date) - new Date(a.date));
+setSavedReports(reps);
+});
+const unsubContacts = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'contacts'), (snapshot) => {
+const conts = []; snapshot.forEach((doc) => conts.push({ id: doc.id, ...doc.data() }));
+setContacts(conts);
+});
+const unsubNotes = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'notes'), (snapshot) => {
+const nts = []; snapshot.forEach((doc) => nts.push({ id: doc.id, ...doc.data() }));
+nts.sort((a, b) => new Date(b.date) - new Date(a.date));
+setNotes(nts);
+});
+return () => { unsubReports(); unsubContacts(); unsubNotes(); };
+}, [isFbReady, user, db, appId]);
+const [isApiValid, setIsApiValid] = useState(false);
+
+React.useEffect(() => {
+    if (apiKey && apiKey.length > 10) {
+        setIsApiValid(true);
+    }
+}, [apiKey]);
+const verifyAndSaveSettings = async () => {
+    if (!apiKey) { showToast("API Anahtarı boş olamaz!"); return; }
+    showToast("Bağlantı test ediliyor, lütfen bekleyin...");
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}?key=${apiKey}`);
+        if (response.ok) {
+            setIsApiValid(true);
+            localStorage.setItem('gemini_api_key', apiKey);
+            localStorage.setItem('gemini_model_name', modelName);
+            showToast("✅ Bağlantı Başarılı! AI Motoru Aktif.");
+        } else {
+            setIsApiValid(false);
+            showToast("❌ Hata: API Anahtarı geçersiz veya Model desteklenmiyor!");
+        }
+    } catch (err) {
+        setIsApiValid(false);
+        showToast("❌ Bağlantı hatası! Lütfen internetinizi kontrol edin.");
+    }
+};
+
+const showToast = (msg) => { setToastMessage(msg); setTimeout(() => setToastMessage(''), 4000); };
+const handleApiError = (err) => {
+console.error("API Hatası:", err);
+if (err.message && err.message.includes('429')) showToast("🛑 API limitine ulaştınız. Lütfen 1 dakika bekleyin.");
+else showToast("❌ Yapay zeka iletişim hatası. API anahtarınızı kontrol edin.");
+};
+const handlePrint = () => { showToast("🖨️ Yazdırılıyor..."); window.print(); };
+
+const downloadAsPDF = async (elementId, filename) => {
+const element = document.getElementById(elementId);
+if (!element) return;
+setIsDownloadingPdf(true);
+showToast("PDF hazırlanıyor, lütfen bekleyin...");
+const noPrintElements = element.querySelectorAll('.no-print');
+noPrintElements.forEach(el => el.style.display = 'none');
+const printOnlyElements = element.querySelectorAll('.print-only');
+printOnlyElements.forEach(el => {
+el.classList.remove('print-only');
+el.setAttribute('data-pdf-restored', 'true');
+});
+const opt = {
+margin:       [10, 10, 10, 10],
+filename:     `${filename.replace(/[^a-z0-9ğüşöçİĞÜŞÖÇ]/gi, '_')}.pdf`,
+image:        { type: 'jpeg', quality: 0.98 },
+html2canvas:  { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff', scrollY: 0 },
+jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+};
+try {
+await html2pdf().set(opt).from(element).save();
+showToast("PDF başarıyla indirildi! 📥");
+} catch(e) { showToast("PDF oluşturulurken bir hata oluştu."); console.error(e); } 
+finally {
+noPrintElements.forEach(el => el.style.display = '');
+const restoredElements = element.querySelectorAll('[data-pdf-restored="true"]');
+restoredElements.forEach(el => { el.classList.add('print-only'); el.removeAttribute('data-pdf-restored'); });
+setIsDownloadingPdf(false);
+}
+};
+
+const groupedStudents = useMemo(() => {
+const groups = {};
+savedReports.forEach(r => {
+const name = r.studentName.toUpperCase();
+if (!groups[name]) groups[name] = [];
+groups[name].push(r);
+});
+return groups;
+}, [savedReports]);
+const uniqueGroups = useMemo(() => [...new Set(contacts.map(c => c.group).filter(Boolean))], [contacts]);
+const filteredStudents = Object.keys(groupedStudents).filter(name => name.includes(searchQuery.toUpperCase()));
+
+const handleContactSelect = (e) => {
+const selectedId = e.target.value;
+if (!selectedId) return;
+const contact = contacts.find(c => c.id === selectedId);
+if (contact) { setStudentName(contact.studentName); setParentName(contact.parentName); setParentPhone(contact.phone); }
+};
+const addContact = async () => {
+if (!newContact.studentName || !newContact.parentName) { showToast("Öğrenci ve Veli adı zorunludur!"); return; }
+if (!isFbReady || !user || !db) return;
+try {
+await window.FirebaseSDK.addDoc(window.FirebaseSDK.collection(db, 'artifacts', appId, 'users', user.uid, 'contacts'), newContact);
+showToast("Kişi rehbere eklendi!");
+setNewContact({ studentName: '', parentName: '', phone: '', group: '' });
+} catch (err) { showToast("Hata oluştu."); console.error(err); }
+};
+const deleteContact = async (id) => {
+if (!isFbReady || !user || !db || !window.confirm("Bu kişiyi silmek istediğinize emin misiniz?")) return;
+try { await window.FirebaseSDK.deleteDoc(window.FirebaseSDK.doc(db, 'artifacts', appId, 'users', user.uid, 'contacts', id)); showToast("Kişi silindi."); } 
+catch (err) { showToast("Silme başarısız."); console.error(err); }
+};
+
+// YENİLENDİ: Arşiv Silme Hatası Kesin Çözümü (Hata Yakalama Zırhlı)
+const deleteReport = async (id) => {
+    if (!isFbReady || !user || !db) return;
+    if (!window.confirm("Bu raporu arşivden kaldırmak istediğinize emin misiniz?")) return;
+    
+    try { 
+        // YENİ TAKTİK: Veritabanı DELETE komutunu reddediyorsa, UPDATE ile dosyayı "isDeleted: true" yaparak gizliyoruz.
+        const reportRef = window.FirebaseSDK.doc(db, 'artifacts', appId, 'users', user.uid, 'reports', id);
+        await window.FirebaseSDK.updateDoc(reportRef, { isDeleted: true }); 
+        
+        showToast("Rapor başarıyla arşivden kaldırıldı. 🗑️"); 
+        
+        // ÇÖKME ENGELLEYİCİ
+        const remainingReports = savedReports.filter(r => r.id !== id);
+        if (selectedStudent) {
+            const studentStillHasReports = remainingReports.some(r => r.studentName.toUpperCase() === selectedStudent.toUpperCase() && !r.isDeleted);
+            if (!studentStillHasReports) {
+                setSelectedStudent(null);
+            }
+        }
+    } catch (err) { 
+        console.error("Firebase Silme Hatası:", err);
+        showToast("Hata: Sistem bu dosyayı arşivden kaldıramadı."); 
+    }
+};
+
+const editReport = (report) => {
+setEditingReportId(report.id); setStudentName(report.studentName); setParentName(report.parentName || '');
+setParentPhone(report.parentPhone || ''); setDate(report.date); setCategory(report.category);
+setObservation(report.observation); setEditableResult(report.result); setActiveTab('new_report');
+showToast("Düzenleme modundasınız.");
+};
+const toggleHomeworkStatus = async (reportId, currentStatus) => {
+if (!isFbReady || !user || !db) return;
+try {
+const reportRef = window.FirebaseSDK.doc(db, 'artifacts', appId, 'users', user.uid, 'reports', reportId);
+await window.FirebaseSDK.updateDoc(reportRef, { homeworkCompleted: !currentStatus });
+showToast(currentStatus ? "Ödev tamamlanmadı." : "Ödev yapıldı. ✅");
+} catch(e) { showToast("Güncellenemedi."); }
+};
+
+const saveNote = async () => {
+if (!isFbReady || !user || !db) return;
+if (!noteTitle.trim() || !noteContent.trim()) { showToast("Başlık ve içerik boş olamaz."); return; }
+try {
+await window.FirebaseSDK.addDoc(window.FirebaseSDK.collection(db, 'artifacts', appId, 'users', user.uid, 'notes'), { title: noteTitle, content: noteContent, date: noteDate, timestamp: new Date().toISOString() });
+showToast("Not kaydedildi!"); setNoteTitle(''); setNoteContent('');
+} catch (err) { showToast("Kaydedilemedi."); }
+};
+const deleteNote = async (id) => {
+if (!isFbReady || !user || !db || !window.confirm("Bu notu silmek istediğinize emin misiniz?")) return;
+try { await window.FirebaseSDK.deleteDoc(window.FirebaseSDK.doc(db, 'artifacts', appId, 'users', user.uid, 'notes', id)); showToast("Not silindi."); } 
+catch (err) { showToast("Başarısız."); }
+};
+
+// YENİ MODÜL: Yerel Medya Yükleme (Fotoğraf/Video)
+const handleMediaUpload = (e) => {
+  const files = Array.from(e.target.files);
+  const newMedia = files.map(file => {
+    return {
+      id: Date.now() + Math.random().toString(),
+      url: URL.createObjectURL(file),
+      type: file.type.startsWith('video/') ? 'video' : 'image',
+      name: file.name
+    };
+  });
+  setLocalMedia(prev => [...prev, ...newMedia]);
+  showToast(`${files.length} dosya galerine eklendi!`);
+};
+
+const removeMedia = (id) => {
+  setLocalMedia(prev => prev.filter(m => m.id !== id));
+};
+const generateReport = async () => {
+if (!apiKey) { setActiveTab('settings'); showToast("API anahtarınızı girin."); return; }
+if (!studentName.trim() || !observation.trim()) { showToast('Ad ve gözlem boş olamaz.'); return; }
+setLoading(true); setEditableResult(null);
+const hitapPrompt = parentName.trim() ? `Veli Adı/Hitap: ${parentName}` : "Veli Adı/Hitap: Genel";
+const hitapKurali = parentName.trim() ? `veli_mesaji doğrudan "${parentName}" ismiyle nazik bir hitapla başlasın.` : `veli_mesaji "Kıymetli Velimiz" hitabıyla başlasın.`;
+const dinamikOdevKurali = "DİKKAT: Gözlem notundaki duygu durumuna göre ödevleri ayarla. Olumsuzsa motive edici, harikaysa zenginleştirici görevler ver.";
+// YAPAY ZEKA GÜNCELLEMESİ: Dünyanın en iyi öğretmeni rolü
+const systemInstruction = `Sen Değişim Koleji'nin ordinaryüs profesör seviyesinde, en vizyoner öğretmeni ve eğitim koçusun. Yazdığın her raporda 'Değişim Koleji' kurumsal kültürünü yansıtırsın. Profesyonel, şefkatli bir dil kullanırsın.`;
+const userPrompt = `Öğrenci Adı: ${studentName}\n${hitapPrompt}\nTarih: ${date}\nKademe: ${category}\nGözlem: ${observation}\nKurallar:\n1) ${hitapKurali}\n2) Özel eğitimde test boş olmalı.\n3) gelisim_puani 1-10 arası olmalı.\n4) ${dinamikOdevKurali}`;
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: systemInstruction }] },
+contents: [{ parts: [{ text: userPrompt }] }],
+generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { veli_mesaji: { type: "STRING" }, pedagojik_amac: { type: "STRING" }, gelisim_puani: { type: "INTEGER" }, hayatin_icinden_odev: { type: "ARRAY", items: { type: "STRING" } }, akademik_odev: { type: "ARRAY", items: { type: "STRING" } }, ogrenci_notu: { type: "STRING" }, klasik_sorular: { type: "ARRAY", items: { type: "STRING" } }, mini_test: { type: "ARRAY", items: { type: "OBJECT", properties: { soru: { type: "STRING" }, a: { type: "STRING" }, b: { type: "STRING" }, c: { type: "STRING" }, d: { type: "STRING" }, dogru_cevap: { type: "STRING" } } } } }, required: ["veli_mesaji", "pedagojik_amac", "gelisim_puani", "hayatin_icinden_odev", "akademik_odev", "ogrenci_notu", "klasik_sorular", "mini_test"] } }
+})
+});
+if (!response.ok) throw new Error(response.status === 429 ? '429' : 'API Error');
+const data = await response.json();
+if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+setEditableResult(JSON.parse(data.candidates[0].content.parts[0].text));
+showToast("Rapor üretildi! ✨");
+}
+} catch (err) { handleApiError(err); }
+setLoading(false);
+};
+
+const saveReportToFirebase = async () => {
+if (!isFbReady || !user || !db || !editableResult) return;
+try {
+if (editingReportId) {
+const reportRef = window.FirebaseSDK.doc(db, 'artifacts', appId, 'users', user.uid, 'reports', editingReportId);
+await window.FirebaseSDK.updateDoc(reportRef, { studentName: studentName.trim(), parentName: parentName.trim(), date, category, observation, result: editableResult, lastEdited: new Date().toISOString() });
+showToast("Rapor güncellendi!"); setEditingReportId(null);
+} else {
+await window.FirebaseSDK.addDoc(window.FirebaseSDK.collection(db, 'artifacts', appId, 'users', user.uid, 'reports'), { studentName: studentName.trim(), parentName: parentName.trim(), date, category, observation, result: editableResult, timestamp: new Date().toISOString(), homeworkCompleted: false });
+showToast("Rapor arşive kaydedildi!");
+}
+} catch (err) { showToast("Kaydedilirken hata oluştu."); }
+};
+const sendViaWhatsApp = (text, phone) => {
+const encodedText = encodeURIComponent(text);
+let url = phone ? `https://wa.me/${phone.replace(/\D/g, '').replace(/^0/, '90')}?text=${encodedText}` : `https://wa.me/?text=${encodedText}`;
+window.open(url, '_blank');
+};
+const formatReportText = (r) => {
+let text = `*${r.veli_mesaji}*\n\n`;
+if (r.hayatin_icinden_odev?.length) text += `*🏠 Hayatın İçinden Görevler:*\n${r.hayatin_icinden_odev.map(i => `• ${i}`).join('\n')}\n\n`;
+if (r.akademik_odev?.length) text += `*📚 Akademik Ödevler:*\n${r.akademik_odev.map(i => `• ${i}`).join('\n')}\n\n`;
+text += `*🌟 Öğrenciye Not:*\n${r.ogrenci_notu}\n\nİyi çalışmalar dilerim,\n*Değişim Koleji / Barış Öğretmen*`;
+return text;
+};
+
+const generateBulkMessages = () => {
+if (!bulkGroup || !bulkMessageTemplate) { showToast("Grup ve taslak seçin!"); return; }
+setIsGeneratingBulk(true);
+const targets = contacts.filter(c => c.group === bulkGroup);
+if (targets.length === 0) { showToast("Kayıtlı veli yok."); setIsGeneratingBulk(false); return; }
+const generated = targets.map(contact => {
+let msg = bulkMessageTemplate.replace(/{veli}/g, contact.parentName || 'Değerli Velimiz').replace(/{ogrenci}/g, contact.studentName || 'öğrencimiz');
+return { ...contact, preparedMessage: msg, sent: false };
+});
+setBulkMessages(generated); setIsGeneratingBulk(false); showToast(`${generated.length} veli için mesajlar hazır!`);
+};
+const markAsSent = (id) => setBulkMessages(prev => prev.map(m => m.id === id ? { ...m, sent: true } : m));
+
+// --- DEVASA MATBAA (BLOK TABANLI RENDER SİSTEMİ) ---
+// BARIŞ HOCA TİTİZ KLONLAMA VE DİNAMİK UYARLAMA MOTORU
+// BARIŞ HOCA MEGA DOSYA/PDF UYARLAMA VE DÖNÜŞTÜRME MOTORU
+// --- DEVASA MATBAA (BLOK TABANLI RENDER SİSTEMİ) ---
+// BARIŞ HOCA MEGA DOSYA/PDF UYARLAMA VE DÖNÜŞTÜRME MOTORU
+// BARIŞ HOCA MEGA DOSYA/PDF UYARLAMA VE DÖNÜŞTÜRME MOTORU
+const generatePersonalizedMaterialFromFile = async (base64Data, mimeType, kullaniciTalimati) => {
+    setIsGeneratingMaterial(true);
+    setMaterialResult(null);
+
+    let isimKurali = matStudentName ? `Öğrenci Adı: '${matStudentName}'.` : "";
+    let ozelTalimat = kullaniciTalimati && kullaniciTalimati.trim() !== '' ? `KULLANICININ ÖZEL DÖNÜŞÜM EMRİ: "${kullaniciTalimati}"` : "Sadece orijinali dijital bloklara çevir.";
+
+    const userPrompt = `## DOSYA/GÖRSEL DÖNÜŞTÜRME VE UYARLAMA MOTORU ##
+    Görev: Ekteki dosyayı (PDF veya Görsel) analiz et ve yepyeni bir dijital materyal üret.
+    1. KULLANICI EMRİ (HAYATİ): ${ozelTalimat}
+    (Eğer kullanıcı 'toplamaları çarpmaya çevir', 'hikayeyi uzaya uyarla', 'daha zor yap' gibi bir emir verdiyse, orijinal metne/sorulara KESİNLİKLE sadık kalma; içeriği kullanıcının bu emrine göre BAŞTAN YARAT ve dönüştür!)
+    2. KİŞİSELLEŞTİRME: ${isimKurali}
+    3. UZUNLUK VE KESİLME KURALI: Eğer istenen şey çok uzunsa (Örn: 20 sayfa) ve tek seferde bitiremeyeceksen, yapabildiğin kadarını 'BÖLÜM 1' olarak kusursuzca ver. Sonuna bir 'bilgi_kutusu' ekleyip "Kapasite doldu, devamı için Bölüm 2'yi isteyiniz." yaz. JSON'u ASLA yarım bırakma.
+    4. ZIRH KURALI: Çift tırnak işaretini (") metinlerde asla kullanma, hep tek tırnak (') kullan.`;
+    
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                systemInstruction: { parts: [{ text: "Sen profesyonel bir Eğitsel Mimarısın. PDF'leri ve görselleri kullanıcının emrine göre baştan yaratan bir dönüştürücüsün. Çift tırnak kullanmazsın." }] },
+                contents: [{ role: "user", parts: [ { text: userPrompt }, { inline_data: { mime_type: mimeType, data: base64Data } } ] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    temperature: 0.8,
+                    maxOutputTokens: 8192,
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            dokuman_basligi: { type: "STRING" }, alt_baslik: { type: "STRING" },
+                            icerik_bloklari: { type: "ARRAY", items: { type: "OBJECT", properties: { blok_tipi: { type: "STRING" }, icerik_metni: { type: "STRING" }, html_icerik: { type: "STRING" }, baslik: { type: "STRING" }, renk: { type: "STRING" }, soru_metni: { type: "STRING" }, secenekler: { type: "ARRAY", items: { type: "STRING" } }, sol_sutun: { type: "ARRAY", items: { type: "STRING" } }, sag_sutun_karisik: { type: "ARRAY", items: { type: "STRING" } }, sifre_islemler: { type: "ARRAY", items: { type: "STRING" } }, gizli_sifre: { type: "STRING" }, karakter1: { type: "STRING" }, karakter2: { type: "STRING" }, konusma1: { type: "STRING" }, konusma2: { type: "STRING" }, kartlar: { type: "ARRAY", items: { type: "OBJECT", properties: { on_yuz: {type: "STRING"}, arka_yuz: {type: "STRING"} } } }, merkez_kavram: { type: "STRING" }, yan_kavramlar: { type: "ARRAY", items: { type: "STRING" } }, urunler: { type: "ARRAY", items: { type: "OBJECT", properties: { urun_adi: {type: "STRING"}, fiyat: {type: "STRING"}, adet: {type: "STRING"} } } }, toplam_tutar: { type: "STRING" }, manset: { type: "STRING" }, haber_metni: { type: "STRING" }, emojiler: { type: "ARRAY", items: { type: "STRING" } }, hatali_cozum: { type: "STRING" }, malzemeler: { type: "ARRAY", items: { type: "STRING" } }, adimlar: { type: "ARRAY", items: { type: "STRING" } }, kavram1: { type: "STRING" }, kavram2: { type: "STRING" }, kavram1_ozellikler: { type: "ARRAY", items: { type: "STRING" } }, kavram2_ozellikler: { type: "ARRAY", items: { type: "STRING" } }, ortak_ozellikler: { type: "ARRAY", items: { type: "STRING" } }, ogretilecek_kavram: { type: "STRING" }, sutunlar: { type: "ARRAY", items: { type: "STRING" } }, satirlar: { type: "ARRAY", items: { type: "OBJECT", properties: { hucreler: { type: "ARRAY", items: { type: "STRING" } } } } }, kural: { type: "STRING" }, girdiler: { type: "ARRAY", items: { type: "STRING" } }, ciktilar: { type: "ARRAY", items: { type: "STRING" } }, grid_satirlari: { type: "ARRAY", items: { type: "OBJECT", properties: { hucreler: { type: "ARRAY", items: { type: "STRING" } } } } }, ipucu: { type: "STRING" }, karisik_adimlar: { type: "ARRAY", items: { type: "STRING" } }, kriterler: { type: "ARRAY", items: { type: "STRING" } }, hece_gruplari: { type: "ARRAY", items: { type: "STRING" } }, tombala_gorevleri: { type: "ARRAY", items: { type: "STRING" } }, dikte_kelimeleri: { type: "ARRAY", items: { type: "OBJECT", properties: { emoji: {type: "STRING"}, kelime: {type: "STRING"} } } }, sertifika_ogrenci: { type: "STRING" }, sertifika_metni: { type: "STRING" }, cizim_adimlari: { type: "ARRAY", items: { type: "STRING" } }, degerlendirme_kriterleri: { type: "ARRAY", items: { type: "STRING" } }, cevap_anahtari: { type: "STRING" } }, required: ["blok_tipi"] } }
+                        }, required: ["dokuman_basligi", "icerik_bloklari"]
+                    }
+                }
+            })
+        });
+
+        if (!response.ok) throw new Error(response.status === 429 ? '429' : 'API Error');
+        const data = await response.json();
+
+        if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+            let aiMetni = data.candidates[0].content.parts[0].text;
+            aiMetni = aiMetni.replace(/```json/gi, '').replace(/```/gi, '').trim();
+            let startIdx = aiMetni.indexOf('{');
+            if (startIdx !== -1) aiMetni = aiMetni.substring(startIdx);
+
+            try {
+                const ayristirilmisData = JSON.parse(aiMetni);
+                setMaterialResult(ayristirilmisData);
+                setShowAnswerKey(true);
+                showToast("Dosya başarıyla analiz edildi ve dönüştürüldü! 🔬✨");
+                setMaterialTopic('');
+            } catch (ilkHata) {
+                try {
+                    console.log("JSON Yarıda Kesildi, Terminatör Tamir Ediyor...");
+                    let onarilmis = aiMetni.replace(/[\n\r\t]/g, " "); 
+                    onarilmis = onarilmis.replace(/,\s*([\]}])/g, '$1'); 
+                    if (!onarilmis.trim().endsWith('}')) {
+                        let isQuoteOpen = (onarilmis.match(/(?<!\\)"/g) || []).length % 2 !== 0;
+                        if (isQuoteOpen) onarilmis += '"';
+                        onarilmis += '}] }'; 
+                    }
+                    const ayristirilmisData2 = JSON.parse(onarilmis);
+                    setMaterialResult(ayristirilmisData2);
+                    setShowAnswerKey(true);
+                    showToast("⚠️ Çok uzun belge: Bölüm 1 kurtarıldı. Devamını isteyebilirsiniz!");
+                    setMaterialTopic('');
+                } catch (ikinciHata) {
+                    console.error("Kurtarma Modu Aktif!", ikinciHata);
+                    setMaterialResult({
+                        dokuman_basligi: "🤖 AI Kurtarma Modu (Limit Aşıldı)",
+                        alt_baslik: "Sistem formatı bozsa da veriler kurtarıldı.",
+                        icerik_bloklari: [{ blok_tipi: "zengin_metin", html_icerik: `<div style="padding: 20px; background: #fff3cd; border-left: 5px solid #ffc107; font-family: monospace; white-space: pre-wrap; font-size: 14px;"><b>⚠️ BİLGİ:</b> İstediğiniz PDF analizi çok uzundu ve yapay zeka tam kritik bir noktada kesildiği için format bağlamadı. Ancak yazılan tüm içerik aşağıya kurtarıldı!<br><br><hr><br>${aiMetni.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` }]
+                    });
+                    setShowAnswerKey(false);
+                    showToast("⚠️ Format bozuldu ama metin kurtarıldı!");
+                    setMaterialTopic('');
+                }
+            }
+        }
+    } catch (err) { handleApiError(err); setMaterialTopic(''); }
+    setIsGeneratingMaterial(false);
+};
+
+// BARIŞ HOCA ANA MATBAA MOTORU (ÖLÜMSÜZ SÜRÜM)
+const generateMaterial = async () => {
+    if (!apiKey || !materialTopic.trim()) { showToast("Lütfen konu girin ve API anahtarınızı kontrol edin."); return; }
+    setIsGeneratingMaterial(true); setMaterialResult(null);
+
+    let kuralMetni = "";
+    const isTestType = ['Fark Etmez (Yapay Zeka Seçsin)', 'yeni_nesil_test', 'test', 'eslestirme', 'bosluk', 'dogru_yanlis', 'karma'].includes(materialType);
+    let soruKurali = "";
+    if (isTestType) {
+        let zDurum = matDifficulty.includes('Fark Etmez') ? "Zorluk seviyesini öğrenciye uygun şekilde belirle." : `Zorluk Derecesi: ${matDifficulty}.`;
+        let sDurum = matQuestionCount.toString().includes('Fark Etmez') ? "Soru sayısını optimal belirle." : `Toplam tam ${matQuestionCount} adet 'standart_soru' üret. Sorular KESİNLİKLE 1'den başlamalıdır.`;
+        soruKurali = `${zDurum} ${sDurum}`;
+    }
+    const gorselKural = " Resim çizemeyeceğin için lütfen BOLCA YÜKSEK ÇÖZÜNÜRLÜKLÜ EMOJİ kullan.";
+
+    if (materialType === 'Fark Etmez (Yapay Zeka Seçsin)') {
+        kuralMetni = `DİKKAT: Kullanıcının metin içinde talep ettiği TÜM BLOK TİPLERİNİ ('sudoku_bulmaca', 'sifre_kirici', 'sertifika', 'gorsel_dikte', 'zengin_metin' vb.) ÖZGÜRCE KULLAN! Hiçbir kısıtlama yoktur. ${soruKurali} ${gorselKural}`;
+    } else if (materialType === 'degerlendirme_formu') {
+        kuralMetni = `DİKKAT: 'degerlendirme_tablosu' bloğunu kullan. RAM raporlarına uygun profesyonel, detaylı beceri maddeleri üret.`;
+    } else if (materialType === 'basara_yontemi') {
+        kuralMetni = `DİKKAT: SADECE 'basara_hece_tablosu' ve 'okuma_parcasi' kullan. 'ba, sa, bak, ra, gel, ma, ver' gibi hecelerle yöntem metinleri oluştur.` + gorselKural;
+    } else if (materialType === '5n1k') {
+        kuralMetni = `DİKKAT: Önce 'okuma_parcasi', sonra kahraman, mekan, zaman ve olay için renkli 'bilgi_kutusu' (bunlar soru değildir!). En alta okuduğunu anlama soruları için 'standart_soru' bloklarını ekle. Soruları KESİNLİKLE 1'den başlatarak numaralandır. ${soruKurali}`;
+    } else if (materialType === 'sertifika') {
+        kuralMetni = `DİKKAT: Sadece 'sertifika' bloğunu kullan. Öğrencinin başarısını onurlandıran motive edici bir sertifika yaz.`;
+    } else if (materialType === 'yonergeli_cizim') {
+        kuralMetni = `DİKKAT: 'yonergeli_cizim' bloğunu kullan. İşitsel algı çalışması için 'Önce büyük bir ev çiz, çatısını kırmızıya boya' gibi adımlar üret.`;
+    } else if (materialType === 'konu_anlatimi') {
+        kuralMetni = `DİKKAT: Sadece 'bilgi_kutusu', 'okuma_parcasi' ve 'zihin_haritasi' bloklarını kullanarak renkli ve dikkat çekici konu özeti üret.`;
+    } else if (materialType === 'karma') {
+        kuralMetni = `DİKKAT: Önce konuyu anlatan 'bilgi_kutusu', ardından pekiştirmek için test ve quiz bloklarını karmaşık diz. ${soruKurali}`;
+    } else if (materialType === 'infografik') {
+        kuralMetni = `DİKKAT: Yazı yerine 'zihin_haritasi', 'venn_semasi', 'on_sonra_makine', 'gorsel_veri' bloklarını kullanarak konuyu grafiksel anlat.`;
+    } else if (materialType === 'veli_tombalasi') {
+        kuralMetni = `DİKKAT: 'tombala_grid' bloğunu kullan. Evde yapılacak 9 eğlenceli görevi bingo tablosunda ver.` + gorselKural;
+    } else if (materialType === 'sifre_kirici') {
+        kuralMetni = `DİKKAT: 'sifre_kirici' kullan. İşlemler içeren şifre çözme etkinliği yarat.`;
+    } else if (materialType === 'hata_dedektifi') {
+        kuralMetni = `DİKKAT: Sadece 'hatali_islem' kullan. Bilerek yanlış yapılmış hatalar ver. Doğrusunu yazmasını iste.`;
+    } else if (materialType === 'gercek_hayat_fatura') {
+        kuralMetni = `DİKKAT: 'fatura_tablosu' ve 'standart_soru' kullan. Sahte bir fiş oluştur ve problem sor.`;
+    } else if (materialType === 'labirent_pano') {
+        kuralMetni = `DİKKAT: Kutucuklu algoritmik bir oyun veya 'sudoku_bulmaca' üret.` + gorselKural;
+    } else if (materialType === 'adim_recete') {
+        kuralMetni = `DİKKAT: 'recete_adimlari' kullan. Konuyu yemek tarifi gibi anlat.`;
+    } else if (materialType === 'karikatur_diyalog') {
+        kuralMetni = `DİKKAT: 'karikatur_diyalog' ile konuyu anlatan diyalog yaz.`;
+    } else if (materialType === 'flashcard') {
+        kuralMetni = `DİKKAT: 'flashcard_grid' kullan. 6 adet bilgi kartı üret.`;
+    } else if (materialType === 'tersine_egitim') {
+        kuralMetni = `DİKKAT: 'tersine_egitim' kullan. Sen öğret mantığında alan oluştur.`;
+    } else if (materialType === 'sirala_yapistir') {
+        kuralMetni = `DİKKAT: 'sirala_yapistir' kullan. Makasla kesip sıralanacak adımlar üret.`;
+    } else if (materialType === 'haber_bulteni') {
+        kuralMetni = `DİKKAT: 'gazete_manseti' kullan. Habere dayalı problem senaryosu oluştur.`;
+    } else if (materialType === 'sosyal_hikaye') {
+        kuralMetni = "DİKKAT: Otizm/Özel Eğitim için davranış odaklı sosyal hikaye ve sorular üret.";
+    } else if (materialType === 'gorsel_fark_emoji') {
+        kuralMetni = `DİKKAT: 'emoji_matrisi' kullan. Emojiler arasına 1 farklı emoji sakla.` + gorselKural;
+    } else if (materialType === 'gorsel_dikte') {
+        kuralMetni = `DİKKAT: 'gorsel_dikte' bloğunu kullan. Devasa emojiler ver.` + gorselKural;
+    } else if (materialType === 'bosluk' || materialType === 'dogru_yanlis') {
+        kuralMetni = `DİKKAT: Boşluk doldurma veya doğru/yanlış soruları üret. ${soruKurali}`;
+    } else if (materialType === 'deneme_sinavi') {
+        kuralMetni = `DİKKAT: Tam kapsamlı, profesyonel bir DENEME SINAVI hazırla! Maksimum jeton limitini sonuna kadar kullan. Bolca 'okuma_parcasi', 'standart_soru' kullan. Soruları 1'den başlatarak numaralandır. ${soruKurali}`;
+    } else if (materialType === 'fasikul_modu') {
+        kuralMetni = `DİKKAT: EN AZ 5 SAYFA SÜRECEK DEVASA BİR FASİKÜL HAZIRLA! (Minimum 15-20 JSON bloğu kullan). 
+        YAPAY ZEKA İNİSİYATİFİ: Kullanıcı promptta az şey istese bile; konuya uygun olarak 'gorsel_dikte', 'sifre_kirici', 'sudoku_bulmaca', 'eslestirme_tablosu' ve bolca 'standart_soru' bloklarını KENDİ KENDİNE ÜRET VE FASİKÜLE EKLE!
+        UZUNLUK VE KESİLME KURALI: Eğer içerik çok uzunsa (Örn: 20 sayfa) ve limit dolarsa, yapabildiğin kadarını 'BÖLÜM 1' olarak kusursuzca ver. Sonuna 'bilgi_kutusu' ekleyip 'Kapasite doldu, Bölüm 2 isteyiniz' yaz. Kodları asla açık bırakma.`;
+    }
+
+    let kisisellestirme = matStudentName ? `\nÖNEMLİ: Öğrencimin adı ${matStudentName}. İlgi alanları: ${matInterests}. Materyali ona özel hale getir.` : "";
+    let cozumKurali = "\nÇÖZÜM MOTORU: 'cevap_anahtari' kısmında sadece şıkkı/cevabı yazıp bırakma. KESİNLİKLE kısa, öz ve pedagojik bir açıklama ekle.";
+    let baslikKurali = "\nDİKKAT: dokuman_basligi alanına konuya tam uygun, yaratıcı bir başlık koy. alt_baslik alanına ASLA klinik veya etiketleyici kelimeler YAZMA.";
+
+    let hedefKitleMetni = activityCategory === 'Fark Etmez (Yapay Zeka Seçsin)' ? 'Konunun içeriğine ve zorluğuna bakarak hedef kitleyi ve eğitim kademesini bizzat SEN analiz et ve belirle.' : activityCategory;
+
+    if (materialType === 'tekerleme_calismasi') kuralMetni = `DİKKAT: 'okuma_parcasi' ve 'bilgi_kutusu' kullanarak spesifik seslere odaklanan tekerleme, artikülasyon ve diksiyon metinleri üret.`;
+    if (materialType === 'nefes_egzersizi') kuralMetni = `DİKKAT: 'recete_adimlari' bloğunu kullanarak eğlenceli nefes egzersizleri ve fonolojik farkındalık oyunları tasarla.`;
+    if (materialType === 'blok_kodlama') kuralMetni = `DİKKAT: Scratch veya mBlock mantığıyla 'recete_adimlari' veya 'sirala_yapistir' formatında algoritmik blok kodlama görevleri üret.`;
+    if (materialType === 'algoritma_semasi') kuralMetni = `DİKKAT: 'on_sonra_makine' veya 'zihin_haritasi' bloğunu kullanarak bilgisayarsız kodlama akış şeması üret.`;
+
+    let uzunlukKurali = `UZUNLUK VE KESİLME KURALI: Eğer kullanıcı 15-20 sayfalık devasa bir materyal isterse, tek API çağrısında hepsini üretmeye çalışma. İlk etapta verebileceğin maksimum bloğu (Örn: Bölüm 1) kusursuzca ver. Sonuna 'bilgi_kutusu' ekleyip "Kapasite doldu, devamı için Bölüm 2 isteyiniz" yaz. Kodları asla açık bırakma.`;
+
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde Eğitsel İçerik Mimarısın. HAYATİ KURALLAR: 1) JSON şemasına %100 uy. 2) Metinlerde ASLA çift tırnak (\") kullanma. 3) HTML yazarken etiketleri TEK TIRNAK ile yaz (Örn: <span style='color:red'>). Tek tırnakların önüne ASLA kaçış işareti (ters eğik çizgi \\) KOYMA! 4) Metinlerin içine 'Enter' tuşuyla satır atlama, '\\n' kullan." }] },
+                contents: [{ parts: [{ text: `## EĞİTİM MATERYALİ TASLAĞI ##\nHedef Kitle: ${hedefKitleMetni}\nKonu: ${materialTopic}\nİstenen Format: ${kuralMetni}\n\n${uzunlukKurali}\n${kisisellestirme}\n${cozumKurali}\n${baslikKurali}\n\nZORUNLU KURAL: İstenen her şeyi %100 kapsayan, saf akademik içeriği JSON formatında üret.` }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    temperature: 0.8,
+                    topP: 0.8,
+                    topK: 40,
+                    maxOutputTokens: 8192,
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            dokuman_basligi: { type: "STRING" }, alt_baslik: { type: "STRING" },
+                            icerik_bloklari: {
+                                type: "ARRAY",
+                                items: {
+                                    type: "OBJECT",
+                                    properties: {
+                                        blok_tipi: { type: "STRING" }, icerik_metni: { type: "STRING" }, html_icerik: { type: "STRING" }, baslik: { type: "STRING" }, renk: { type: "STRING" }, soru_metni: { type: "STRING" },
+                                        secenekler: { type: "ARRAY", items: { type: "STRING" } }, sol_sutun: { type: "ARRAY", items: { type: "STRING" } }, sag_sutun_karisik: { type: "ARRAY", items: { type: "STRING" } },
+                                        sifre_islemler: { type: "ARRAY", items: { type: "STRING" } }, gizli_sifre: { type: "STRING" }, karakter1: { type: "STRING" }, karakter2: { type: "STRING" }, konusma1: { type: "STRING" }, konusma2: { type: "STRING" },
+                                        kartlar: { type: "ARRAY", items: { type: "OBJECT", properties: { on_yuz: {type: "STRING"}, arka_yuz: {type: "STRING"} } } }, merkez_kavram: { type: "STRING" }, yan_kavramlar: { type: "ARRAY", items: { type: "STRING" } },
+                                        urunler: { type: "ARRAY", items: { type: "OBJECT", properties: { urun_adi: {type: "STRING"}, fiyat: {type: "STRING"}, adet: {type: "STRING"} } } }, toplam_tutar: { type: "STRING" }, manset: { type: "STRING" }, haber_metni: { type: "STRING" },
+                                        emojiler: { type: "ARRAY", items: { type: "STRING" } }, hatali_cozum: { type: "STRING" }, malzemeler: { type: "ARRAY", items: { type: "STRING" } }, adimlar: { type: "ARRAY", items: { type: "STRING" } },
+                                        kavram1: { type: "STRING" }, kavram2: { type: "STRING" }, kavram1_ozellikler: { type: "ARRAY", items: { type: "STRING" } }, kavram2_ozellikler: { type: "ARRAY", items: { type: "STRING" } }, ortak_ozellikler: { type: "ARRAY", items: { type: "STRING" } },
+                                        ogretilecek_kavram: { type: "STRING" }, sutunlar: { type: "ARRAY", items: { type: "STRING" } }, satirlar: { type: "ARRAY", items: { type: "OBJECT", properties: { hucreler: { type: "ARRAY", items: { type: "STRING" } } } } },
+                                        kural: { type: "STRING" }, girdiler: { type: "ARRAY", items: { type: "STRING" } }, ciktilar: { type: "ARRAY", items: { type: "STRING" } }, grid_satirlari: { type: "ARRAY", items: { type: "OBJECT", properties: { hucreler: { type: "ARRAY", items: { type: "STRING" } } } } },
+                                        ipucu: { type: "STRING" }, karisik_adimlar: { type: "ARRAY", items: { type: "STRING" } }, kriterler: { type: "ARRAY", items: { type: "STRING" } }, hece_gruplari: { type: "ARRAY", items: { type: "STRING" } },
+                                        tombala_gorevleri: { type: "ARRAY", items: { type: "STRING" } }, dikte_kelimeleri: { type: "ARRAY", items: { type: "OBJECT", properties: { emoji: {type: "STRING"}, kelime: {type: "STRING"} } } },
+                                        sertifika_ogrenci: { type: "STRING" }, sertifika_metni: { type: "STRING" }, cizim_adimlari: { type: "ARRAY", items: { type: "STRING" } }, degerlendirme_kriterleri: { type: "ARRAY", items: { type: "STRING" } },
+                                        cevap_anahtari: { type: "STRING", description: "Bu alana yazılanlar öğretmen nüshasında çıkar. Ana dokümana asla çözüm yazma." }
+                                    },
+                                    required: ["blok_tipi"]
+                                }
+                            }
+                        },
+                        required: ["dokuman_basligi", "icerik_bloklari"]
+                    }
+                }
+            })
+        });
+
+        if (!response.ok) throw new Error(response.status === 429 ? '429' : 'API Error');
+        const data = await response.json();
+
+        if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+            let aiMetni = data.candidates[0].content.parts[0].text;
+            aiMetni = aiMetni.replace(/```json/gi, '').replace(/```/gi, '').trim();
+            let startIdx = aiMetni.indexOf('{');
+            if (startIdx !== -1) aiMetni = aiMetni.substring(startIdx);
+
+            try {
+                const ayristirilmisData = JSON.parse(aiMetni);
+                setMaterialResult(ayristirilmisData);
+                setShowAnswerKey(true);
+                showToast("Materyal başarıyla hazırlandı! ✨");
+            } catch (ilkHata) {
+                try {
+                    console.log("JSON Yarıda Kesildi, Terminatör Tamir Ediyor...");
+                    let onarilmis = aiMetni.replace(/[\n\r\t]/g, " "); 
+                    onarilmis = onarilmis.replace(/,\s*([\]}])/g, '$1'); 
+                    if (!onarilmis.trim().endsWith('}')) {
+                        let isQuoteOpen = (onarilmis.match(/(?<!\\)"/g) || []).length % 2 !== 0;
+                        if (isQuoteOpen) onarilmis += '"';
+                        onarilmis += '}] }'; 
+                    }
+                    const ayristirilmisData2 = JSON.parse(onarilmis);
+                    setMaterialResult(ayristirilmisData2);
+                    setShowAnswerKey(true);
+                    showToast("⚠️ Çok uzun materyal: Bölüm 1 kurtarıldı. Kutuya 'Bölüm 2 ile devam et' yazabilirsiniz!");
+                } catch (ikinciHata) {
+                    console.error("Kurtarma Modu Aktif!", ikinciHata);
+                    setMaterialResult({
+                        dokuman_basligi: "🤖 AI Kurtarma Modu (Limit Aşıldı)",
+                        alt_baslik: "Sistem formatı bozsa da veriler kurtarıldı.",
+                        icerik_bloklari: [{ blok_tipi: "zengin_metin", html_icerik: `<div style="padding: 20px; background: #fff3cd; border-left: 5px solid #ffc107; font-family: monospace; white-space: pre-wrap; font-size: 14px;"><b>⚠️ BİLGİ:</b> İstediğiniz materyal çok uzundu ve yapay zeka tam kritik bir noktada kesildiği için format bağlamadı. Ancak yazılan tüm içerik aşağıya kurtarıldı!<br><br><hr><br>${aiMetni.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` }]
+                    });
+                    setShowAnswerKey(false);
+                    showToast("⚠️ Format bozuldu ama metin kurtarıldı!");
+                }
+            }
+        }
+    } catch (err) { handleApiError(err); }
+    setIsGeneratingMaterial(false);
+};
+// --- MİNİ AI ARAÇLARI (GÜNCELLENMİŞ ZEKALAR) ---
+const generateStory = async () => {
+if (!apiKey || !storyTheme.trim()) { showToast("Tema yazın."); return; }
+setIsGeneratingStory(true);
+let studentContext = matStudentName ? `Hikayenin başrolünde "${matStudentName}" olsun. İlgi alanları: ${matInterests}.` : "Karakter çocuk olsun.";
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi öğretmeni ve çocuk psikolojisi uzmanısın." }] },
+contents: [{ parts: [{ text: `Hedef Kitle: ${activityCategory === 'Fark Etmez (Yapay Zeka Seçsin)' ? 'Konuya uygun yaş grubunu sen belirle' : activityCategory}\nTema: ${storyTheme}\n${studentContext}\nPedagojik hikaye yaz.` }] }],
+generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { hikaye_basligi: { type: "STRING" }, hikaye_metni: { type: "STRING" }, cikarilacak_ders: { type: "STRING" }, tartisma_sorulari: { type: "ARRAY", items: { type: "STRING" } } }, required: ["hikaye_basligi", "hikaye_metni", "cikarilacak_ders", "tartisma_sorulari"] } }
+})
+});
+const data = await response.json();
+setStoryResult(JSON.parse(data.candidates[0].content.parts[0].text));
+showToast("Hikaye üretildi! ✨");
+} catch (err) { handleApiError(err); }
+setIsGeneratingStory(false);
+};
+
+const generateGameIdeas = async () => {
+if (!apiKey || !gameTopic.trim()) return;
+setIsGeneratingGame(true);
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi öğretmeni ve yaratıcı eğitsel oyun tasarımcısısın. Sınıfta materyal olmadan oynanacak oyunlar tasarlarsın." }] },
+contents: [{ parts: [{ text: `Hedef Kitle: ${activityCategory}\nKonu: ${gameTopic}\nLütfen bu konuyu öğretmek için 2 adet yaratıcı, materyalsiz sınıf içi oyun tasarla.` }] }],
+generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { oyunlar: { type: "ARRAY", items: { type: "OBJECT", properties: { oyun_adi: { type: "STRING" }, kurallar: { type: "STRING" }, pedagojik_faydasi: { type: "STRING" } }, required: ["oyun_adi", "kurallar", "pedagojik_faydasi"] } } }, required: ["oyunlar"] } }
+})
+});
+const data = await response.json();
+setGameResult(JSON.parse(data.candidates[0].content.parts[0].text));
+showToast("Oyun fikirleri hazır! 🎲");
+} catch (err) { handleApiError(err); }
+setIsGeneratingGame(false);
+};
+
+const generateBehaviorAdvice = async () => {
+if (!apiKey || !behaviorIssue.trim()) return;
+setIsGeneratingBehavior(true);
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi öğretmeni ve uzman pedagogusun." }] },
+contents: [{ parts: [{ text: `Yaş Grubu: ${activityCategory}\nZorlayıcı Davranış: ${behaviorIssue}\nLütfen pratik stratejiler öner.` }] }]
+})
+});
+const data = await response.json();
+setBehaviorResult(data.candidates[0].content.parts[0].text.trim());
+showToast("Stratejiler hazır! ✨");
+} catch (err) { handleApiError(err); }
+setIsGeneratingBehavior(false);
+};
+
+const generateBepGoals = async () => {
+if (!apiKey || !targetSkill.trim() || !studentCurrentLevel.trim()) return;
+setIsGeneratingBep(true);
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi özel eğitimcisi ve BEP danışmanısın." }] },
+contents: [{ parts: [{ text: `Mevcut Durum: ${studentCurrentLevel}\nHedef: ${targetSkill}\nLütfen SMART kriterlerine uygun BEP taslağı hazırla.` }] }]
+})
+});
+const data = await response.json();
+setBepResult(data.candidates[0].content.parts[0].text.trim());
+showToast("BEP hedefleri oluşturuldu! ✨");
+} catch (err) { handleApiError(err); }
+setIsGeneratingBep(false);
+};
+
+const generateParentReply = async () => {
+if (!apiKey || !parentMessage.trim()) return;
+setIsGeneratingReply(true);
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi öğretmeni ve veli iletişim uzmanısın. Şefkatli ve profesyonel yanıtlar yazarsın." }] },
+contents: [{ parts: [{ text: `Veli Mesajı: ${parentMessage}` }] }],
+generationConfig: { responseMimeType: "text/plain" }
+})
+});
+const data = await response.json();
+setParentReply(data.candidates[0].content.parts[0].text.trim());
+} catch(err) {}
+setIsGeneratingReply(false);
+};
+
+const generateGraderFeedback = async () => {
+if (!apiKey || !graderQuestion.trim() || !graderAnswer.trim()) return;
+setIsGeneratingGrader(true);
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en adil ve analitik ölçme değerlendirme uzmanısın." }] },
+contents: [{ parts: [{ text: `Soru: ${graderQuestion}\nCevap: ${graderAnswer}\nDeğerlendir ve not ver.` }] }],
+generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { puan: { type: "INTEGER" }, guclu_yonler: { type: "ARRAY", items: { type: "STRING" } }, gelisim_alanlari: { type: "ARRAY", items: { type: "STRING" } }, ogrenciye_not: { type: "STRING" } }, required: ["puan", "guclu_yonler", "gelisim_alanlari", "ogrenciye_not"] } }
+})
+});
+const data = await response.json();
+setGraderResult(JSON.parse(data.candidates[0].content.parts[0].text));
+} catch (err) {}
+setIsGeneratingGrader(false);
+};
+
+const generateStudentAnalysis = async () => {
+if (!apiKey || !selectedStudent) return;
+setIsAnalyzing(true);
+const reports = groupedStudents[selectedStudent].slice(0, 5);
+const studentData = reports.map(r => `Tarih: ${r.date}, Gözlem: ${r.observation}, Puan: ${r.result?.gelisim_puani || '-'}`).join('\n');
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi eğitim koçu, yetenek avcısı ve veri analistisin. Raporlarında 'Değişim Koleji'nin vizyonunu ve öğrenciye kattığı katma değeri mutlaka coşkulu bir dille vurgularsın." }] },
+contents: [{ parts: [{ text: `Öğrenci: ${selectedStudent}\nGeçmiş Performans Verileri:\n${studentData}\nBu verileri analiz et, yeteneklerini keşfet ve bir kariyer/gelecek radarı oluştur.` }] }],
+generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { genel_degerlendirme: { type: "STRING" }, degisim_etkisi: { type: "STRING" }, kariyer_radari: { type: "STRING" }, ilerleme_skorlari: { type: "ARRAY", items: { type: "OBJECT", properties: { kategori: { type: "STRING" }, yuzde: { type: "INTEGER" }, renk: { type: "STRING" } } } }, rozetler: { type: "ARRAY", items: { type: "STRING" } }, guclu_yonler: { type: "ARRAY", items: { type: "STRING" } }, gelisim_alanlari: { type: "ARRAY", items: { type: "STRING" } }, yol_haritasi: { type: "STRING" }, kisisel_recete: { type: "ARRAY", items: { type: "STRING" } } }, required: ["genel_degerlendirme", "degisim_etkisi", "kariyer_radari", "ilerleme_skorlari", "rozetler", "guclu_yonler", "gelisim_alanlari", "yol_haritasi", "kisisel_recete"] } }
+})
+});
+const data = await response.json();
+setAiAnalysisResult(JSON.parse(data.candidates[0].content.parts[0].text));
+} catch (err) {}
+setIsAnalyzing(false);
+};
+
+const generateRubric = async () => {
+if (!apiKey || !rubricTopic.trim()) return;
+setIsGeneratingRubric(true);
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi ölçme değerlendirme uzmanısın." }] },
+contents: [{ parts: [{ text: `Konu: ${rubricTopic}\n4 seviyeli rubrik tablosu oluştur.` }] }],
+generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { baslik: { type: "STRING" }, aciklama: { type: "STRING" }, kriterler: { type: "ARRAY", items: { type: "OBJECT", properties: { kriter_adi: { type: "STRING" }, seviye_1_gelistirilmeli: { type: "STRING" }, seviye_2_yeterli: { type: "STRING" }, seviye_3_iyi: { type: "STRING" }, seviye_4_mukemmel: { type: "STRING" } }, required: ["kriter_adi", "seviye_1_gelistirilmeli", "seviye_2_yeterli", "seviye_3_iyi", "seviye_4_mukemmel"] } } }, required: ["baslik", "aciklama", "kriterler"] } }
+})
+});
+const data = await response.json();
+setRubricResult(JSON.parse(data.candidates[0].content.parts[0].text));
+} catch (err) {}
+setIsGeneratingRubric(false);
+};
+
+const generateLessonPlan = async () => {
+if (!apiKey || !lessonTopic.trim()) return;
+setIsGeneratingLesson(true);
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi ders tasarımcısı ve usta öğreticisisin." }] },
+contents: [{ parts: [{ text: `Konu: ${lessonTopic}\n40 dakikalık ders planı hazırla.` }] }],
+generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { plan_basligi: { type: "STRING" }, hedefler: { type: "ARRAY", items: { type: "STRING" } }, materyaller: { type: "STRING" }, adimlar: { type: "ARRAY", items: { type: "OBJECT", properties: { sure: { type: "STRING" }, asama_adi: { type: "STRING" }, aciklama: { type: "STRING" } }, required: ["sure", "asama_adi", "aciklama"] } }, odev_tavsiyesi: { type: "STRING" } }, required: ["plan_basligi", "hedefler", "materyaller", "adimlar", "odev_tavsiyesi"] } }
+})
+});
+const data = await response.json();
+setLessonResult(JSON.parse(data.candidates[0].content.parts[0].text));
+} catch(err) {}
+setIsGeneratingLesson(false);
+};
+
+const generateNewsletter = async () => {
+if (!apiKey || !newsletterTopics.trim()) return;
+setIsGeneratingNewsletter(true);
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en üretken ve vizyoner öğretmenisin." }] },
+contents: [{ parts: [{ text: `Konu: ${newsletterTopics}\nHaftalık bülten oluştur.` }] }],
+generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { bulten_basligi: { type: "STRING" }, haftanin_ozeti: { type: "STRING" }, ogrenilen_kavramlar: { type: "ARRAY", items: { type: "STRING" } }, velilere_tavsiye: { type: "STRING" } }, required: ["bulten_basligi", "haftanin_ozeti", "ogrenilen_kavramlar", "velilere_tavsiye"] } }
+})
+});
+const data = await response.json();
+setNewsletterResult(JSON.parse(data.candidates[0].content.parts[0].text));
+} catch(err) {}
+setIsGeneratingNewsletter(false);
+};
+
+// YENİ MODÜL: PROFESYONEL CV OLUŞTURUCU AI
+const generateCV = async () => {
+if (!apiKey || !cvInfo.trim()) { showToast("CV için bilgi girmelisiniz."); return; }
+setIsGeneratingCV(true);
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi Kariyer Danışmanı ve Eğitim İK Uzmanısın. Öğretmenler için çok şık, kurumsal ve etkileyici CV'ler tasarlarsın." }] },
+contents: [{ parts: [{ text: `Aşağıdaki dağınık bilgileri toparlayıp profesyonel bir CV oluştur:\n${cvInfo}` }] }],
+generationConfig: { responseMimeType: "application/json", responseSchema: { type: "OBJECT", properties: { ad_soyad: { type: "STRING" }, unvan: { type: "STRING" }, iletisim: { type: "ARRAY", items: { type: "STRING" } }, hakkimda_ozet: { type: "STRING" }, deneyimler: { type: "ARRAY", items: { type: "OBJECT", properties: { kurum: { type: "STRING" }, pozisyon: { type: "STRING" }, sure: { type: "STRING" }, aciklama: { type: "STRING" } } } }, egitim: { type: "ARRAY", items: { type: "STRING" } }, yetenekler: { type: "ARRAY", items: { type: "STRING" } }, sertifikalar: { type: "ARRAY", items: { type: "STRING" } } }, required: ["ad_soyad", "unvan", "iletisim", "hakkimda_ozet", "deneyimler", "egitim", "yetenekler"] } }
+})
+});
+const data = await response.json();
+setCvResult(JSON.parse(data.candidates[0].content.parts[0].text));
+showToast("CV Başarıyla Oluşturuldu! 📄");
+} catch(err) { handleApiError(err); }
+setIsGeneratingCV(false);
+};
+
+// CV FOTOĞRAF YÜKLEME HANDLER
+const handleCvPhotoUpload = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    setCvPhoto(URL.createObjectURL(file));
+    showToast("Vesikalık fotoğraf yüklendi!");
+  }
+};
+
+const expandObservation = async () => {
+if (!apiKey || !observation.trim()) return;
+setIsExpanding(true);
+try {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+method: 'POST', headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde uzman eğitimcisin. Notları pedagojik ve profesyonel dille genişlet." }] },
+contents: [{ parts: [{ text: `Gözlem: ${observation}` }] }]
+})
+});
+const data = await response.json();
+setObservation(data.candidates[0].content.parts[0].text.trim());
+} catch(err) {}
+setIsExpanding(false);
+};
+
+const pickRandomStudent = () => {
+if (Object.keys(groupedStudents).length === 0) { showToast("Önce öğrenci ekleyin!"); return; }
+const names = Object.keys(groupedStudents);
+const random = names[Math.floor(Math.random() * names.length)];
+setPickedStudent(random);
+setTimeout(() => setPickedStudent(null), 3000);
+};
+
+return (
+<div className="min-h-screen flex flex-col bg-gray-50 pb-safe md:pb-0">
+{/* Rastgele Seçilen Öğrenci Ekrani */}
+{pickedStudent && (
+<div className="fixed inset-0 flex items-center justify-center bg-black/80 z-[100] animate-fade-in no-print">
+<div className="bg-white rounded-3xl p-10 text-center transform scale-100 shadow-2xl animate-bounce">
+<div className="text-6xl mb-4">🎉</div>
+<h2 className="text-gray-500 text-lg font-bold uppercase tracking-widest mb-2">Şanslı Öğrenci</h2>
+<h1 className="text-5xl font-black text-indigo-600 mb-6">{pickedStudent}</h1>
+<button onClick={() => setPickedStudent(null)} className="text-sm bg-gray-100 px-4 py-2 rounded-lg text-gray-600">Kapat</button>
+</div>
+</div>
+)}
+{toastMessage && (
+<div className="fixed top-5 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl z-50 flex items-center space-x-2 animate-fade-in no-print font-medium text-sm w-max z-[9999]">
+<i className="fa-solid fa-bell text-green-400"></i><span>{toastMessage}</span>
+</div>
+)}
+
+{/* Üst Header */}
+<header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40 no-print">
+<div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+<div className="flex items-center space-x-3">
+<div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-xl flex items-center justify-center text-lg font-extrabold shadow-md">DK</div>
+<div>
+<h1 className="text-lg md:text-xl font-bold text-gray-900 leading-tight">Değişim Koleji</h1>
+<p className="text-[10px] md:text-xs text-indigo-600 font-semibold uppercase tracking-wider">Dijital Eğitim Ekosistemi - Barış Öğretmen</p>
+</div>
+</div>
+<div className="flex items-center space-x-4">
+<div className="hidden sm:flex items-center bg-gray-100 rounded-full px-3 py-1 shadow-inner border border-gray-200">
+<i className="fa-solid fa-stopwatch text-indigo-500 mr-2"></i>
+<span className="font-mono font-bold text-gray-800 mr-3 text-sm">{formatTime(timeLeft)}</span>
+<button onClick={() => setTimerActive(!timerActive)} className={`text-xs px-2 py-0.5 rounded font-bold transition ${timerActive ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-green-100 text-green-600 hover:bg-green-200'}`}>{timerActive ? 'Durdur' : 'Başlat'}</button>
+<button onClick={() => {setTimerActive(false); setTimeLeft(2400);}} className="text-gray-400 hover:text-gray-600 ml-2" title="Sıfırla"><i className="fa-solid fa-rotate-right"></i></button>
+</div>
+<div className="hidden lg:flex space-x-1 bg-gray-100 p-1 rounded-lg">
+<button onClick={() => {setActiveTab('new_report'); setEditingReportId(null); setEditableResult(null);}} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'new_report' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-pen-nib mr-2"></i>Rapor</button>
+<button onClick={() => setActiveTab('contacts')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'contacts' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-address-book mr-2"></i>Rehber</button>
+<button onClick={() => setActiveTab('archive')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'archive' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-users-viewfinder mr-2"></i>Arşiv</button>
+<button onClick={() => setActiveTab('tools')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'tools' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-wand-magic-sparkles mr-2"></i>Araçlar & Matbaa</button>
+<button onClick={() => setActiveTab('notepad')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'notepad' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-book-journal-whills mr-2"></i>Notlar</button>
+<button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'settings' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-gear mr-2"></i>Ayarlar</button>
+</div>
+</div>
+</div>
+</header>
+
+<main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
+
+{/* 1. RAPOR SEKMESİ */}
+{activeTab === 'new_report' && (
+<div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+<div className={`lg:col-span-4 space-y-6 no-print ${editableResult ? 'hidden lg:block' : ''}`}>
+<div className={`bg-white rounded-2xl shadow-sm border p-5 ${editingReportId ? 'border-yellow-400 bg-yellow-50' : 'border-gray-100'}`}>
+<h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center justify-between">
+<span>{editingReportId ? 'Rapor Düzenleme Modu' : 'Yeni Rapor Formu'}</span>
+{editingReportId && <button onClick={()=>{setEditingReportId(null); setEditableResult(null);}} className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200">İptal</button>}
+</h2>
+{!editingReportId && contacts.length > 0 && (
+<div className="mb-4 bg-blue-50 p-3 rounded-lg border border-blue-100">
+<label className="block text-xs font-bold text-blue-800 uppercase mb-1"><i className="fa-solid fa-address-book mr-1"></i> Rehberden Seç</label>
+<select onChange={handleContactSelect} className="w-full px-3 py-2 bg-white border border-blue-200 rounded text-sm outline-none focus:ring-2 focus:ring-blue-400">
+<option value="">(Yeni Öğrenci)</option>
+{contacts.map(c => <option key={c.id} value={c.id}>{c.studentName} - {c.parentName}</option>)}
+</select>
+</div>
+)}
+<div className="space-y-4 mb-5">
+<div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Öğrenci Adı</label><input type="text" value={studentName} onChange={(e) => setStudentName(e.target.value)} className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg outline-none font-medium shadow-sm" /></div>
+<div className="grid grid-cols-2 gap-2">
+<div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Veli Hitap</label><input type="text" value={parentName} onChange={(e) => setParentName(e.target.value)} placeholder="Ayşe Hanım" className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg outline-none font-medium text-sm text-indigo-700 shadow-sm" /></div>
+<div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Telefon</label><input type="text" value={parentPhone} onChange={(e) => setParentPhone(e.target.value)} placeholder="05..." className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg outline-none font-medium text-sm shadow-sm" /></div>
+</div>
+<div><label className="block text-xs font-bold text-gray-600 uppercase mb-1">Tarih</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg outline-none font-medium text-gray-700 shadow-sm" /></div>
+</div>
+<div className="mb-5">
+<label className="block text-xs font-bold text-gray-600 uppercase mb-2">Kademe / Branş</label>
+<div className="grid grid-cols-2 gap-2">
+{CATEGORIES.map(cat => (<button key={cat.id} onClick={() => setCategory(cat.name)} className={`text-left p-2 rounded-lg border-2 transition-all flex flex-col items-center justify-center text-center ${category === cat.name ? cat.activeColor : cat.color}`}><i className={`fa-solid ${cat.icon} mb-1 text-lg`}></i><span className="text-[10px] font-bold leading-tight">{cat.name}</span></button>))}
+</div>
+</div>
+<div className="mb-6">
+<label className="block text-xs font-bold text-gray-600 uppercase mb-1">Gözlem & Performans</label>
+<textarea value={observation} onChange={(e) => setObservation(e.target.value)} rows="3" className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg outline-none font-medium text-sm resize-y shadow-sm" placeholder="Berbat, fena değil veya harika derseniz ödevler ona göre dinamiğe bağlanır..."></textarea>
+<div className="flex justify-end mt-2"><button onClick={expandObservation} disabled={isExpanding || !observation.trim()} className="text-xs font-bold bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1.5 rounded-md transition disabled:opacity-50 flex items-center shadow-sm">{isExpanding ? <i className="fa-solid fa-spinner fa-spin mr-1"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-1"></i>}{isExpanding ? 'Yazılıyor...' : 'AI ile Genişlet ✨'}</button></div>
+</div>
+<div className="flex gap-2">
+<button onClick={generateReport} disabled={loading} className={`flex-1 py-3 rounded-xl font-bold text-white transition-all shadow-md flex items-center justify-center ${loading ? 'bg-indigo-400' : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:shadow-lg hover:-translate-y-0.5'}`}>{loading ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>}{editingReportId ? 'Raporu Yenile' : 'Rapor Üret'}</button>
+<button onClick={() => { setStudentName(''); setParentName(''); setParentPhone(''); setObservation(''); setEditableResult(null); setEditingReportId(null); }} className="w-12 bg-white border border-gray-200 text-gray-500 hover:bg-red-50 hover:text-red-500 rounded-xl flex items-center justify-center transition-colors shadow-sm"><i className="fa-solid fa-trash-can"></i></button>
+</div>
+</div>
+</div>
+<div className={`lg:col-span-8 ${!editableResult ? 'hidden lg:flex items-center justify-center bg-gray-100 rounded-2xl border-2 border-dashed border-gray-300 min-h-[500px]' : ''}`}>
+{!editableResult && (<div className="text-center text-gray-400 no-print"><i className="fa-solid fa-file-invoice text-6xl mb-4 opacity-50"></i><p className="font-medium">Rapor henüz oluşturulmadı.</p></div>)}
+{editableResult && (
+<div className="print-container bg-white rounded-2xl shadow-xl border border-gray-100 p-4 md:p-8 relative" id="printable-report-wrapper">
+<div className="no-print flex flex-col md:flex-row gap-2 mb-6 bg-gray-50 p-2 rounded-xl border border-gray-200 items-center justify-between">
+<div className="flex gap-2">
+<button onClick={() => setEditableResult(null)} className="lg:hidden px-3 py-2 text-gray-600 hover:bg-gray-200 rounded-lg font-medium text-sm"><i className="fa-solid fa-arrow-left"></i> Form</button>
+<button onClick={saveReportToFirebase} className={`${editingReportId ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'} px-4 py-2 rounded-lg font-bold text-sm flex items-center transition`}><i className="fa-solid fa-cloud-arrow-up mr-2"></i> {editingReportId ? 'Güncellemeyi Kaydet' : 'Kaydet'}</button>
+</div>
+<div className="flex gap-2 flex-wrap justify-end">
+<button onClick={() => sendViaWhatsApp(formatReportText(editableResult), parentPhone)} className="bg-green-500 text-white hover:bg-green-600 px-4 py-2 rounded-lg font-bold text-sm flex items-center transition shadow-md">
+<i className="fa-brands fa-whatsapp text-lg mr-2"></i> WhatsApp
+</button>
+<button onClick={() => downloadAsPDF('printable-report-wrapper', `${studentName}_Raporu`)} disabled={isDownloadingPdf} className="bg-indigo-500 text-white hover:bg-indigo-600 px-4 py-2 rounded-lg font-bold text-sm flex items-center transition shadow-md disabled:opacity-50">
+{isDownloadingPdf ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-file-pdf mr-2"></i>} PDF İndir
+</button>
+<button onClick={handlePrint} className="bg-gray-800 text-white hover:bg-black px-4 py-2 rounded-lg font-bold text-sm flex items-center transition"><i className="fa-solid fa-print"></i></button>
+</div>
+</div>
+<div id="printable-report">
+<div className="text-center mb-8 pb-4 border-b-2 border-gray-800 print-only">
+<h1 className="text-2xl font-extrabold uppercase tracking-widest text-gray-900 mb-2 print-high-contrast">{CATEGORIES.find(c => c.name === category)?.reportTitle || 'Eğitim Raporu'}</h1>
+<div className="flex justify-between text-base font-bold text-gray-700 mt-4 px-4">
+<span className="print-high-contrast">Öğrenci: {studentName}</span>
+<span className="print-high-contrast">Tarih: {date.split('-').reverse().join('.')}</span>
+</div>
+</div>
+<div className="space-y-6">
+<div className="print-card relative group"><div className="flex items-center text-indigo-800 mb-2 print-high-contrast"><i className="fa-solid fa-envelope-open-text mr-2 text-lg"></i><h3 className="font-bold uppercase tracking-wide text-sm">Veli Bilgilendirme Notu</h3></div><AutoResizeTextarea value={editableResult.veli_mesaji} onChange={(e) => setEditableResult({...editableResult, veli_mesaji: e.target.value})} className="text-gray-800 text-base font-medium print-high-contrast"/></div>
+<div className="print-card"><div className="flex items-center text-purple-800 mb-2 print-high-contrast"><i className="fa-solid fa-brain mr-2 text-lg"></i><h3 className="font-bold uppercase tracking-wide text-sm">Pedagojik Amaç</h3></div><AutoResizeTextarea value={editableResult.pedagojik_amac} onChange={(e) => setEditableResult({...editableResult, pedagojik_amac: e.target.value})} className="text-gray-700 text-sm print-high-contrast"/></div>
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+{(editableResult.hayatin_icinden_odev?.length > 0) && (<div className="print-card bg-orange-50/50 print-bg-transparent p-4 rounded-xl border border-orange-100"><div className="flex items-center text-orange-800 mb-3 border-b border-orange-200 pb-2 print-high-contrast"><i className="fa-solid fa-house-chimney-user mr-2 text-lg"></i><h3 className="font-bold uppercase tracking-wide text-sm">Hayatın İçinden Görevler</h3></div><div className="space-y-2">{editableResult.hayatin_icinden_odev.map((item, idx) => (<div key={idx} className="flex items-start"><span className="text-orange-500 mr-2 mt-1">•</span><AutoResizeTextarea value={item} onChange={(e) => {const newArr = [...editableResult.hayatin_icinden_odev]; newArr[idx] = e.target.value; setEditableResult({...editableResult, hayatin_icinden_odev: newArr});}} className="text-gray-800 text-sm flex-1 print-high-contrast"/></div>))}</div></div>)}
+{(editableResult.akademik_odev?.length > 0) && (<div className="print-card bg-blue-50/50 print-bg-transparent p-4 rounded-xl border border-blue-100"><div className="flex items-center text-blue-800 mb-3 border-b border-blue-200 pb-2 print-high-contrast"><i className="fa-solid fa-book-open-reader mr-2 text-lg"></i><h3 className="font-bold uppercase tracking-wide text-sm">Akademik Ödevler</h3></div><div className="space-y-2">{editableResult.akademik_odev.map((item, idx) => (<div key={idx} className="flex items-start"><span className="text-blue-500 mr-2 mt-1">•</span><AutoResizeTextarea value={item} onChange={(e) => {const newArr = [...editableResult.akademik_odev]; newArr[idx] = e.target.value; setEditableResult({...editableResult, akademik_odev: newArr});}} className="text-gray-800 text-sm flex-1 print-high-contrast"/></div>))}</div></div>)}
+</div>
+<div className="print-card mt-6"><div className="border-l-4 border-green-500 bg-green-50 print-bg-transparent p-4 rounded-r-xl italic flex"><i className="fa-solid fa-quote-left text-green-300 mr-3 text-xl"></i><AutoResizeTextarea value={editableResult.ogrenci_notu} onChange={(e) => setEditableResult({...editableResult, ogrenci_notu: e.target.value})} className="text-gray-700 font-medium text-base flex-1 print-high-contrast"/></div></div>
+</div>
+<BrandFooter />
+</div>
+</div>
+)}
+</div>
+</div>
+)}
+
+{/* 2. REHBER & DUYURU SEKMESİ */}
+{activeTab === 'contacts' && (
+<div className="animate-fade-in no-print space-y-8 pb-20">
+<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 lg:col-span-1">
+<h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i className="fa-solid fa-user-plus text-indigo-500 mr-2"></i>Yeni Kişi Ekle</h3>
+<div className="space-y-4">
+<div><label className="block text-xs font-bold text-gray-600 uppercase">Öğrenci Adı</label><input type="text" value={newContact.studentName} onChange={e=>setNewContact({...newContact, studentName: e.target.value})} className="w-full px-3 py-2 bg-gray-50 border rounded-lg outline-none text-sm"/></div>
+<div><label className="block text-xs font-bold text-gray-600 uppercase">Veli Adı (Hitap)</label><input type="text" value={newContact.parentName} onChange={e=>setNewContact({...newContact, parentName: e.target.value})} placeholder="Örn: Burcu Hanım" className="w-full px-3 py-2 bg-gray-50 border rounded-lg outline-none text-sm"/></div>
+<div><label className="block text-xs font-bold text-gray-600 uppercase">Telefon Numarası</label><input type="text" value={newContact.phone} onChange={e=>setNewContact({...newContact, phone: e.target.value})} placeholder="905..." className="w-full px-3 py-2 bg-gray-50 border rounded-lg outline-none text-sm"/></div>
+<div><label className="block text-xs font-bold text-gray-600 uppercase">Grup / Sınıf Etiketi</label><input type="text" value={newContact.group} onChange={e=>setNewContact({...newContact, group: e.target.value})} placeholder="Örn: Sabah Grubu, 8A..." className="w-full px-3 py-2 bg-gray-50 border rounded-lg outline-none text-sm"/></div>
+<button onClick={addContact} className="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold hover:bg-indigo-700 transition">Rehbere Kaydet</button>
+</div>
+</div>
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 lg:col-span-2">
+<div className="flex justify-between items-center mb-4 border-b pb-2">
+<h3 className="text-lg font-bold text-gray-800"><i className="fa-solid fa-address-book text-indigo-500 mr-2"></i>Kayıtlı Veliler ({contacts.length})</h3>
+</div>
+<div className="overflow-y-auto max-h-[300px] pr-2 space-y-2">
+{contacts.length === 0 ? <p className="text-gray-400 text-sm text-center py-4">Rehberde kayıtlı veli bulunmuyor.</p> :
+contacts.map(c => (
+<div key={c.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100 hover:border-indigo-200 transition">
+<div>
+<div className="font-bold text-gray-800 text-sm">{c.parentName} <span className="text-gray-400 font-normal text-xs ml-1">(Veli)</span></div>
+<div className="text-xs text-gray-500 mt-1">
+<i className="fa-solid fa-child text-indigo-400 mr-1"></i>{c.studentName}
+<span className="mx-2">•</span>
+<i className="fa-solid fa-phone text-green-500 mr-1"></i>{c.phone || '-'}
+</div>
+</div>
+<div className="flex items-center gap-3">
+{c.group && <span className="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase">{c.group}</span>}
+<button onClick={() => sendViaWhatsApp('Merhaba ' + c.parentName + ',', c.phone)} className="text-green-500 hover:text-green-700 p-1"><i className="fa-brands fa-whatsapp text-xl"></i></button>
+<button onClick={() => deleteContact(c.id)} className="text-red-400 hover:text-red-600 p-1"><i className="fa-solid fa-trash"></i></button>
+</div>
+</div>
+))
+}
+</div>
+</div>
+</div>
+<div className="bg-gradient-to-r from-green-600 to-teal-700 rounded-2xl shadow-lg p-6 md:p-8 text-white relative overflow-hidden mt-6">
+<i className="fa-solid fa-bullhorn absolute -right-10 -bottom-10 text-9xl text-white opacity-10"></i>
+<div className="relative z-10">
+<h2 className="text-2xl font-bold mb-2"><i className="fa-brands fa-whatsapp mr-2"></i>Toplu Duyuru Motoru</h2>
+<p className="text-green-100 text-sm mb-6">Velilerinize gruplar halinde isimlerine özel otomatik mesajlar hazırlayın.</p>
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+<div>
+<label className="block text-xs font-bold text-green-200 uppercase mb-1">Hedef Grup</label>
+<select value={bulkGroup} onChange={e=>setBulkGroup(e.target.value)} className="w-full px-3 py-2 bg-white/10 border border-green-400/30 rounded-lg text-white outline-none">
+<option value="" className="text-gray-900">Grup Seçiniz...</option>
+{uniqueGroups.map(g => <option key={g} value={g} className="text-gray-900">{g}</option>)}
+</select>
+</div>
+<div>
+<label className="block text-xs font-bold text-green-200 uppercase mb-1">Mesaj Taslağı</label>
+<textarea value={bulkMessageTemplate} onChange={e=>setBulkMessageTemplate(e.target.value)} rows="3" placeholder="Örn: Merhaba {veli}, yarın {ogrenci} için deneme sınavımız vardır..." className="w-full px-3 py-2 bg-white/10 border border-green-400/30 rounded-lg text-white outline-none placeholder-green-200/50 resize-y"></textarea>
+</div>
+</div>
+<button onClick={generateBulkMessages} disabled={isGeneratingBulk} className="bg-white text-green-800 px-6 py-3 rounded-xl font-bold hover:bg-green-50 transition shadow-md flex items-center">
+<i className="fa-solid fa-wand-magic-sparkles mr-2"></i> Gönderim Listesini Hazırla
+</button>
+</div>
+</div>
+{bulkMessages.length > 0 && (
+<div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+<h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i className="fa-solid fa-list-check text-green-600 mr-2"></i>Gönderim Kuyruğu ({bulkMessages.length} Kişi)</h3>
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+{bulkMessages.map(msg => (
+<div key={msg.id} className={`p-4 rounded-xl border ${msg.sent ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+<div className="flex justify-between items-start mb-2">
+<div className="font-bold text-gray-800 text-sm">{msg.parentName} <span className="text-gray-400 text-xs font-normal">({msg.studentName})</span></div>
+{msg.sent && <span className="bg-green-500 text-white text-[10px] px-2 py-0.5 rounded font-bold"><i className="fa-solid fa-check mr-1"></i>Gönderildi</span>}
+</div>
+<p className="text-xs text-gray-600 mb-3 bg-white p-2 rounded border border-gray-100">{msg.preparedMessage}</p>
+<button onClick={() => { sendViaWhatsApp(msg.preparedMessage, msg.phone); markAsSent(msg.id); }} className={`w-full py-2 rounded-lg text-sm font-bold flex items-center justify-center transition ${msg.sent ? 'bg-gray-200 text-gray-600' : 'bg-green-500 hover:bg-green-600 text-white shadow'}`}>
+<i className="fa-brands fa-whatsapp text-lg mr-2"></i> Gönder
+</button>
+</div>
+))}
+</div>
+</div>
+)}
+</div>
+)}
+
+{/* 3. ARŞİV SEKMESİ */}
+{activeTab === 'archive' && (
+<div className="animate-fade-in no-print pb-20">
+{!selectedStudent ? (
+<>
+<div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+<h2 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-folder-open text-indigo-600 mr-3"></i>Öğrenci Arşivi</h2>
+<div className="relative w-full sm:w-72">
+<i className="fa-solid fa-search absolute left-4 top-3.5 text-gray-400"></i>
+<input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Öğrenci Ara..." className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 outline-none shadow-sm" />
+</div>
+</div>
+{filteredStudents.length === 0 ? (
+<div className="bg-white rounded-2xl p-12 text-center border border-gray-200 shadow-sm"><i className="fa-solid fa-box-open text-5xl text-gray-300 mb-4"></i><h3 className="text-lg font-bold text-gray-600">Kayıt Bulunamadı</h3></div>
+) : (
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+{filteredStudents.map(studentNameKey => {
+const reports = groupedStudents[studentNameKey];
+const latestReport = reports[0];
+const avgScore = (reports.reduce((acc, r) => acc + (r.result?.gelisim_puani || 0), 0) / reports.length).toFixed(1);
+return (
+<div key={studentNameKey} onClick={() => setSelectedStudent(studentNameKey)} className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition cursor-pointer group">
+<div className="flex items-center space-x-4 mb-4">
+<div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xl">{studentNameKey.charAt(0)}</div>
+<div><h3 className="font-bold text-gray-800 text-lg group-hover:text-indigo-600 transition">{studentNameKey}</h3><p className="text-xs text-gray-500">{reports.length} Kayıtlı Rapor</p></div>
+</div>
+<div className="flex justify-between items-center text-sm border-t pt-3 border-gray-100"><span className="text-gray-500">Son: {latestReport.date.split('-').reverse().join('.')}</span><span className="font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">Ort. Puan: {avgScore}</span></div>
+</div>
+)
+})}
+</div>
+)}
+</>
+) : (
+<>
+<button onClick={() => setSelectedStudent(null)} className="mb-6 text-gray-500 hover:text-gray-900 font-medium flex items-center transition"><i className="fa-solid fa-arrow-left mr-2"></i> Arşive Dön</button>
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8 mb-8">
+<div className="flex items-center space-x-4 mb-6 border-b pb-6"><div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-2xl shadow-lg">{selectedStudent.charAt(0)}</div><div><h2 className="text-2xl font-bold text-gray-800">{selectedStudent}</h2><p className="text-gray-500">Gelişim ve İlerleme Analizi</p></div></div>
+<h3 className="text-lg font-bold text-gray-700 mb-4"><i className="fa-solid fa-chart-line text-indigo-500 mr-2"></i> Gelişim Puanı Grafiği (1-10)</h3>
+<ProgressChart reports={groupedStudents[selectedStudent] || []} />
+</div>
+<div className="bg-gradient-to-br from-indigo-900 to-purple-900 rounded-2xl shadow-lg p-6 mb-8 text-white relative overflow-hidden mt-6">
+<i className="fa-solid fa-brain absolute -right-4 -bottom-4 text-8xl text-white opacity-10"></i>
+<div className="relative z-10">
+<h3 className="text-xl font-bold mb-2 flex items-center"><i className="fa-solid fa-wand-magic-sparkles text-yellow-400 mr-3"></i> Yapay Zeka ile Görsel Analiz Çıkar</h3>
+<p className="text-indigo-200 text-sm mb-4">Gemini AI, geçmiş raporları analiz edip velileri etkileyecek infografik bir karne hazırlar.</p>
+{!aiAnalysisResult ? (
+<button onClick={generateStudentAnalysis} disabled={isAnalyzing} className="bg-white text-indigo-900 px-5 py-2.5 rounded-lg font-bold text-sm hover:bg-indigo-50 transition shadow-md flex items-center disabled:opacity-80 disabled:cursor-wait">{isAnalyzing ? (<><i className="fa-solid fa-circle-notch fa-spin mr-2"></i> Analiz Ediliyor...</>) : (<><i className="fa-solid fa-bolt mr-2 text-yellow-500"></i> Analizi Başlat ✨</>)}</button>
+) : (
+<div className="bg-white/10 rounded-xl p-5 backdrop-blur-sm border border-white/20 mt-4 space-y-4 animate-fade-in" id="tool-printable-analiz">
+<div className="flex justify-end mb-2 no-print">
+<button onClick={() => downloadAsPDF('tool-printable-analiz', 'Gelisim_Analizi')} className="text-xs bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded font-bold"><i className="fa-solid fa-file-pdf mr-1"></i> PDF İndir</button>
+<button onClick={handlePrint} className="text-xs bg-white text-indigo-900 px-3 py-1 rounded font-bold ml-2"><i className="fa-solid fa-print mr-1"></i> Yazdır</button>
+</div>
+<h2 className="text-2xl font-black mb-2 text-center print-only print-high-contrast">{selectedStudent}</h2>
+<h3 className="text-lg font-bold text-yellow-400 text-center mb-6 print-high-contrast">Eğitim & Gelişim İnfografik Karnesi</h3>
+<div className="break-inside-avoid bg-indigo-900/40 p-4 rounded-xl mb-4">
+<h4 className="text-yellow-400 font-bold text-sm uppercase mb-2 print-high-contrast">Genel Değerlendirme</h4>
+<p className="text-sm leading-relaxed text-gray-100 print-high-contrast">{aiAnalysisResult.genel_degerlendirme}</p>
+</div>
+<div className="bg-white/5 p-4 rounded-xl mb-4 break-inside-avoid">
+<h4 className="text-yellow-400 font-bold text-sm uppercase mb-3 print-high-contrast"><i className="fa-solid fa-chart-pie mr-2"></i>Alanlara Göre İlerleme</h4>
+<div className="space-y-3">
+{aiAnalysisResult.ilerleme_skorlari.map((skor, i) => (
+<div key={i}>
+<div className="flex justify-between text-xs font-bold mb-1 print-high-contrast"><span>{skor.kategori}</span><span>%{skor.yuzde}</span></div>
+<div className="w-full bg-gray-700 rounded-full h-2.5 print:bg-gray-300">
+<div className={`h-2.5 rounded-full`} style={{width: `${skor.yuzde}%`, backgroundColor: skor.renk === 'blue' ? '#3b82f6' : skor.renk === 'green' ? '#10b981' : skor.renk === 'orange' ? '#f97316' : '#8b5cf6'}}></div>
+</div>
+</div>
+))}
+</div>
+</div>
+<div className="mb-4 flex flex-wrap gap-2 break-inside-avoid">
+{aiAnalysisResult.rozetler.map((rozet, i) => (
+<span key={i} className="bg-yellow-400 text-yellow-900 text-xs font-black px-3 py-1.5 rounded-full shadow print-high-contrast">{rozet}</span>
+))}
+</div>
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div className="bg-green-900/40 rounded-lg p-3 break-inside-avoid">
+<h4 className="text-green-400 font-bold text-sm mb-2 print-high-contrast"><i className="fa-solid fa-arrow-trend-up mr-1"></i> Güçlü Yönler</h4>
+<ul className="list-disc pl-4 text-sm space-y-1 text-gray-100 print-high-contrast">{aiAnalysisResult.guclu_yonler.map((item, idx) => <li key={idx}>{item}</li>)}</ul>
+</div>
+<div className="bg-red-900/40 rounded-lg p-3 break-inside-avoid">
+<h4 className="text-red-400 font-bold text-sm mb-2 print-high-contrast"><i className="fa-solid fa-bullseye mr-1"></i> Gelişim Alanları</h4>
+<ul className="list-disc pl-4 text-sm space-y-1 text-gray-100 print-high-contrast">{aiAnalysisResult.gelisim_alanlari.map((item, idx) => <li key={idx}>{item}</li>)}</ul>
+</div>
+</div>
+<div className="bg-yellow-500/20 rounded-lg p-4 border border-yellow-500/50 break-inside-avoid mt-5 relative overflow-hidden">
+<i className="fa-solid fa-crown absolute -right-4 -bottom-4 text-6xl text-yellow-500/20"></i>
+<h4 className="text-yellow-400 font-black text-sm mb-2 print-high-contrast uppercase tracking-widest"><i className="fa-solid fa-award text-yellow-500 mr-2"></i> Değişim Koleji Etkisi (Kurumsal Katkı)</h4>
+<p className="text-sm font-medium leading-relaxed text-yellow-50 print-high-contrast italic relative z-10">"{aiAnalysisResult.degisim_etkisi}"</p>
+</div>
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+<div className="bg-sky-900/40 rounded-lg p-4 border border-sky-400/30 break-inside-avoid shadow-inner">
+<h4 className="text-sky-300 font-bold text-sm mb-2 print-high-contrast"><i className="fa-solid fa-satellite-dish text-sky-400 mr-2"></i> Yetenek & Kariyer Radarı</h4>
+<p className="text-sm font-medium leading-relaxed text-sky-100 print-high-contrast">{aiAnalysisResult.kariyer_radari}</p>
+</div>
+<div className="bg-indigo-900/50 rounded-lg p-4 border border-indigo-400/30 break-inside-avoid shadow-inner">
+<h4 className="text-indigo-300 font-bold text-sm mb-2 print-high-contrast"><i className="fa-solid fa-map text-indigo-400 mr-2"></i> Gelecek Ay Yol Haritası</h4>
+<p className="text-sm font-medium leading-relaxed text-indigo-100 print-high-contrast">{aiAnalysisResult.yol_haritasi}</p>
+</div>
+</div>
+
+<div className="bg-white/10 rounded-lg p-5 border border-white/20 break-inside-avoid mt-4">
+<h4 className="text-white font-black text-sm mb-3 print-high-contrast"><i className="fa-solid fa-capsules text-pink-400 mr-2"></i> Akıllı Ev Reçetesi (3 Altın Kural)</h4>
+<ul className="space-y-2">
+{aiAnalysisResult.kisisel_recete.map((recete, idx) => (
+<li key={idx} className="bg-black/30 p-2.5 rounded-lg text-sm text-gray-200 print-high-contrast flex items-start font-medium border border-white/5"><i className="fa-solid fa-circle-check text-green-400 mt-0.5 mr-3"></i> <span className="flex-1">{recete}</span></li>
+))}
+</ul>
+</div>
+<BrandFooter />
+<div className="flex justify-end pt-2 no-print"><button onClick={() => setAiAnalysisResult(null)} className="text-xs text-white/60 hover:text-white underline font-medium">Analizi Kapat</button></div>
+</div>
+)}
+</div>
+</div>
+<h3 className="text-xl font-bold text-gray-800 mb-4"><i className="fa-solid fa-history text-indigo-500 mr-2"></i> Geçmiş Raporlar ve Ödev Takibi</h3>
+<div className="space-y-4">
+{(groupedStudents[selectedStudent] || []).map((report, idx) => (
+<div key={report.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition">
+<div className="flex justify-between items-start mb-3">
+<div>
+<span className="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded uppercase tracking-wider">{report.category}</span>
+<h4 className="font-bold text-lg text-gray-800 mt-2">{report.date.split('-').reverse().join('.')}</h4>
+</div>
+<div className="flex items-center gap-3">
+<button
+onClick={() => toggleHomeworkStatus(report.id, report.homeworkCompleted)}
+className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center border ${report.homeworkCompleted ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'}`}
+title="Veli ödevi yaptıysa buraya tıklayın."
+>
+<i className={`fa-solid ${report.homeworkCompleted ? 'fa-check-circle' : 'fa-circle'} mr-1.5`}></i>
+{report.homeworkCompleted ? 'Ödev Yapıldı' : 'Ödev Durumu'}
+</button>
+<div className="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold border border-indigo-100" title="Gelişim Puanı">{report.result?.gelisim_puani || '-'}</div>
+<button onClick={() => editReport(report)} className="text-yellow-500 hover:text-yellow-600 p-1" title="Raporu Düzenle"><i className="fa-solid fa-pen-to-square"></i></button>
+{/* ARŞİV SİLME BUTONU ZIRHLANDI */}
+<button onClick={() => deleteReport(report.id)} className="text-red-400 hover:text-red-600 p-1" title="Raporu Sil"><i className="fa-solid fa-trash-can"></i></button>
+</div>
+</div>
+<p className="text-sm text-gray-600 mb-4 italic border-l-2 border-gray-300 pl-3">"{report.observation}"</p>
+<div className="flex gap-2">
+<button onClick={() => {setEditingReportId(null); setStudentName(report.studentName); setDate(report.date); setCategory(report.category); setObservation(report.observation); setEditableResult(report.result); setActiveTab('new_report');}} className="text-sm font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition"><i className="fa-solid fa-eye mr-1"></i> Görüntüle / Düzenle / Yazdır</button>
+</div>
+</div>
+))}
+</div>
+</>
+)}
+</div>
+)}
+{/* 4. ARAÇ KUTUSU & MEGA MATBAA SEKMESİ */}
+{activeTab === 'tools' && (
+<div className="animate-fade-in pb-20 space-y-8">
+<div className="text-center mb-6 no-print">
+<h2 className="text-3xl font-extrabold text-gray-800"><i className="fa-solid fa-wand-magic-sparkles text-indigo-600 mr-3"></i>Öğretmen Araç Kutusu & Matbaa</h2>
+<p className="text-gray-500 mt-2">Tüm materyallerinizi üretin ve AI asistanları kullanın.</p>
+</div>
+
+{/* BARIŞ HOCA HIZLI MEDYA VE QR KONTROL PANELİ */}
+<div className="bg-slate-800 rounded-2xl p-6 mb-8 text-white shadow-lg no-print border-2 border-slate-600">
+    <h3 className="font-bold text-lg mb-3 text-slate-200"><i className="fa-solid fa-qrcode text-yellow-400 mr-2"></i> Anında Görsel / QR Ekle (Baskı Öncesi)</h3>
+    <div className="flex flex-col md:flex-row gap-3">
+        <input type="text" id="hizliLink" placeholder="Buraya görsel URL'si veya web linki yapıştırın..." className="flex-1 px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl outline-none text-white focus:border-yellow-400 font-mono text-sm" />
+        <button onClick={() => {
+            let link = document.getElementById('hizliLink').value;
+            if(!link) return;
+            // Mevcut materialResult içine yeni bir blok itiyoruz
+            let currentMaterial = materialResult ? {...materialResult} : {dokuman_basligi: "Eklenmiş Medya", icerik_bloklari: []};
+            currentMaterial.icerik_bloklari.unshift({
+                blok_tipi: 'medya_kutusu',
+                link: link
+            });
+            setMaterialResult(currentMaterial);
+            document.getElementById('hizliLink').value = '';
+            showToast("Medya Matbaaya Eklendi! 🚀");
+        }} className="bg-yellow-500 hover:bg-yellow-600 text-slate-900 px-6 py-3 rounded-xl font-bold transition shadow-md whitespace-nowrap">
+            <i className="fa-solid fa-plus mr-2"></i> Sayfaya Bas
+        </button>
+    </div>
+</div>
+
+<div className={`mb-6 flex gap-4 overflow-x-auto pb-2 no-print ${materialResult ? 'hidden' : ''}`}>
+<div className="flex-1 min-w-[200px] max-w-sm mx-auto relative">
+<label className="block text-xs font-bold text-gray-600 uppercase mb-1 text-center">Tüm Araçlar İçin Hedef Kademe Seçimi</label>
+<select value={activityCategory} onChange={(e) => setActivityCategory(e.target.value)} className="w-full px-3 py-3 bg-white border border-gray-200 rounded-lg outline-none text-sm font-bold shadow-sm focus:ring-2 focus:ring-indigo-500 text-indigo-700 text-center">
+<option value="Fark Etmez (Yapay Zeka Seçsin)">Fark Etmez (Yapay Zeka Seçsin)</option>
+{CATEGORIES.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+</select>
+<button onClick={pickRandomStudent} className="absolute -right-12 top-6 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 w-10 h-10 rounded-full shadow-md flex items-center justify-center transition transform hover:scale-110" title="Sınıftan Rastgele Öğrenci Seç"><i className="fa-solid fa-dice"></i></button>
+</div>
+</div>
+
+<div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8 no-print ${materialResult ? 'hidden' : ''}`}>
+
+{/* MEGA ÖZELLİK: AKADEMİ MATBAASI (BLOK TABANLI) */}
+<div className="bg-gradient-to-br from-teal-700 to-emerald-900 rounded-2xl shadow-xl border border-teal-600 overflow-hidden flex flex-col lg:col-span-2 xl:col-span-3 relative">
+<i className="fa-solid fa-print absolute -right-10 -bottom-10 text-[12rem] text-white opacity-10"></i>
+<div className="p-6 md:p-8 flex-1 flex flex-col gap-5 relative z-10 text-white">
+<div>
+<h3 className="font-black text-2xl flex items-center mb-2"><i className="fa-solid fa-palette text-yellow-400 mr-3"></i> Dinamik Akademi Matbaası (V16 MEGA)</h3>
+<p className="text-teal-100 text-sm">Özel eğitimden koleje, fatura tablosundan ba-sa-ra yöntemine kadar dilediğin materyali anında üret!</p>
+</div>
+
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-2">
+<div>
+<label className="block text-xs font-bold text-teal-200 uppercase mb-2">Materyal Formatı Nedir?</label>
+<select value={materialType} onChange={e=>setMaterialType(e.target.value)} className="w-full px-4 py-3 bg-white text-teal-900 font-bold border border-teal-200 rounded-xl outline-none shadow-sm mb-4">
+<option value="Fark Etmez (Yapay Zeka Seçsin)">Fark Etmez (AI Seçsin)</option>
+<optgroup label="📋 Değerlendirme & Takip">
+<option value="degerlendirme_formu">📝 Kapsamlı İlk Değerlendirme Formu</option>
+<option value="veli_tombalasi">🎲 Ev Görevi Tombalası (Veli & Çocuk)</option>
+</optgroup>
+<optgroup label="🤖 Robotik, Kodlama & Teknoloji">
+<option value="blok_kodlama">🧩 Blok Kodlama Görevleri (Scratch/mBlock)</option>
+<option value="algoritma_semasi">🔄 Akış Şeması & Bilgisayarsız Algoritma</option>
+</optgroup>
+<optgroup label="🧩 Özel Eğitim & İlk Okuma">
+<option value="basara_yontemi">📖 Ba-Sa-Ra Hece Yöntemi Materyali</option>
+<option value="yonergeli_cizim">🎨 Yönergeli Çizim & Boyama (İşitsel Algı)</option>
+<option value="gorsel_fark_emoji">🖼️ Emoji Matrisi - Farkı Bul</option>
+<option value="sosyal_hikaye">📖 Davranış Öyküsü / Sosyal Hikaye</option>
+<option value="gorsel_dikte">✍️ Emojili Görsel Dikte Çalışması</option>
+</optgroup>
+<optgroup label="🗣️ Dil, Konuşma & Disleksi">
+<option value="tekerleme_calismasi">🗣️ Artikülasyon & Tekerleme Metinleri</option>
+<option value="nefes_egzersizi">🌬️ Nefes & Fonolojik Farkındalık Egzersizi</option>
+</optgroup>
+<optgroup label="🕵️‍♂️ Macera, Mantık & Kodlama">
+<option value="sifre_kirici">🕵️ Şifre Kırıcı / Kaçış Odası</option>
+<option value="hata_dedektifi">🔎 Hata Dedektifi (Yanlışı Bul)</option>
+<option value="sudoku_bulmaca">🧩 Mantık & Satranç Gridi (Sudoku)</option>
+<option value="labirent_pano">🗺️ Unplugged Algoritma Labirenti</option>
+</optgroup>
+<optgroup label="🛒 Günlük Yaşam & Pratik">
+<option value="gercek_hayat_fatura">🧾 Fiş & Fatura Hesabı</option>
+<option value="adim_recete">🍳 Algoritma (Yemek Tarifi vb.)</option>
+<option value="haber_bulteni">📰 Gazete Manşeti / Problem Çözme</option>
+</optgroup>
+<optgroup label="🧠 Analitik & Kavramsal">
+<option value="5n1k">🕵️‍♂️ 5N1K Okuma Anlama (Renkli Kutu)</option>
+<option value="infografik">📊 Görsel İnfografik Çalışması</option>
+<option value="zihin_haritasi">🧠 Zihin Haritası</option>
+<option value="venn_semasi">⭕ Venn Şeması (Karşılaştırma)</option>
+<option value="gorsel_veri">📈 Tablo & Veri Analizi</option>
+<option value="on_sonra_makine">⚙️ Dönüşüm Makinesi (Girdi-Çıktı)</option>
+<option value="sirala_yapistir">🔢 Sırala ve Yapıştır</option>
+</optgroup>
+<optgroup label="✨ Yaratıcı Öğrenme & Motivasyon">
+<option value="sertifika">🏆 Başarı ve Ödül Sertifikası</option>
+<option value="karikatur_diyalog">💬 Karikatür / Diyalog Okuma</option>
+<option value="tersine_egitim">🔄 Tersine Eğitim (Sen Öğret!)</option>
+<option value="flashcard">✂️ Kesilebilir Bilgi Kartları</option>
+</optgroup>
+<optgroup label="📝 Klasik Akademik Testler">
+<option value="konu_anlatimi">🖍️ Renkli Konu Özeti / Anlatımı</option>
+<option value="karma">📚 Karma (Konu Özeti + Mini Quiz)</option>
+<option value="yeni_nesil_test">🧠 Yeni Nesil Test (LGS/YKS Tipi)</option>
+<option value="deneme_sinavi">📑 Kapsamlı Deneme Sınavı (PDF/Uzun Format)</option>
+<option value="test">✅ Standart Çoktan Seçmeli Test</option>
+<option value="eslestirme">🔗 Sütun Eşleştirme</option>
+<option value="bosluk">✍️ Boşluk Doldurma</option>
+<option value="dogru_yanlis">✔️ Doğru / Yanlış İfadeleri</option>
+<option value="deneme_sinavi">📑 Kapsamlı Deneme Sınavı (Uzun Format)</option>
+<option value="fasikul_modu">📚 4 Sayfalık Dev Fasikül (Renkli Heceli)</option>
+</optgroup>
+</select>
+
+{/* AKILLI GİZLEME */}
+{['test', 'yeni_nesil_test', 'eslestirme', 'bosluk', 'dogru_yanlis', 'karma'].includes(materialType) && (
+<div className="grid grid-cols-2 gap-3 mb-4 bg-teal-800/30 p-3 rounded-xl border border-teal-500/30 animate-fade-in">
+<div>
+<label className="block text-[10px] font-bold text-teal-300 uppercase mb-1">Soru / Madde Sayısı</label>
+<select value={matQuestionCount} onChange={e=>setMatQuestionCount(e.target.value)} className="w-full px-2 py-1.5 bg-white/10 border border-teal-400/50 rounded outline-none text-white text-xs">
+<option value="Fark Etmez (Yapay Zeka Belirlesin)" className="text-gray-900">Fark Etmez (AI Seçsin)</option>
+<option value="5" className="text-gray-900">5 Madde</option>
+<option value="10" className="text-gray-900">10 Madde</option>
+<option value="15" className="text-gray-900">15 Madde</option>
+<option value="20" className="text-gray-900">20 Madde</option>
+<option value="25" className="text-gray-900">25 Madde</option>
+</select>
+</div>
+<div>
+<label className="block text-[10px] font-bold text-teal-300 uppercase mb-1">Zorluk / Kademe</label>
+<select value={matDifficulty} onChange={e=>setMatDifficulty(e.target.value)} className="w-full px-2 py-1.5 bg-white/10 border border-teal-400/50 rounded outline-none text-white text-xs">
+<option value="Fark Etmez (Yapay Zeka Belirlesin)" className="text-gray-900">Fark Etmez (AI Seçsin)</option>
+<option value="Kolay" className="text-gray-900">Kolay</option>
+<option value="Orta" className="text-gray-900">Orta</option>
+<option value="Zor" className="text-gray-900">Zor</option>
+<option value="Yeni Nesil (Analitik)" className="text-gray-900">Yeni Nesil</option>
+</select>
+</div>
+</div>
+)}
+
+<div className="bg-teal-800/50 border border-teal-500 rounded-xl p-3">
+<label className="block text-xs font-bold text-teal-200 uppercase mb-2"><i className="fa-solid fa-face-smile-wink mr-1"></i> Öğrenciye Özel Yap (Opsiyonel)</label>
+<div className="grid grid-cols-2 gap-2">
+<input type="text" value={matStudentName} onChange={e=>setMatStudentName(e.target.value)} placeholder="Adı (Örn: Aleks)" className="w-full px-3 py-2 bg-white/10 border border-teal-400/50 rounded outline-none text-white placeholder-teal-200/50 text-xs" />
+<input type="text" value={matInterests} onChange={e=>setMatInterests(e.target.value)} placeholder="İlgi Alanı (Örn: Dinozor)" className="w-full px-3 py-2 bg-white/10 border border-teal-400/50 rounded outline-none text-white placeholder-teal-200/50 text-xs" />
+</div>
+</div>
+</div>
+
+<div className="flex flex-col justify-between">
+<div>
+<div className="flex justify-between items-end mb-2">
+<label className="block text-xs font-bold text-teal-200 uppercase">Hangi Konuyu / Kazanımı İşliyoruz?</label>
+<div className="flex gap-2 items-center">
+    <button onClick={() => setMaterialTopic('')} className="text-xs text-teal-200 hover:text-white flex items-center transition bg-white/10 px-3 py-1.5 rounded w-max"><i className="fa-solid fa-broom mr-1.5"></i> Hızlı Temizle</button>
+    
+    {/* BARIŞ HOCA MEGA ÖZELLİK: PDF & GÖRSEL ANALİZ BUTONU */}
+    <label className="cursor-pointer bg-gradient-to-r from-yellow-400 to-orange-500 text-slate-900 px-3 py-1.5 rounded-lg font-black text-xs hover:scale-105 transition flex items-center w-max shadow-lg no-print">
+        <i className="fa-solid fa-file-pdf mr-1.5"></i> Dosya Yükle (PDF/Resim) & Uyarla
+        <input type="file" id="analizDosyasi" accept="image/*,application/pdf" onChange={(e) => {
+const file = e.target.files[0];
+            if(!file || !apiKey) { showToast("API Anahtarı veya dosya eksik!"); return; }
+            
+            // BARIŞ HOCA MEGA GÜNCELLEME: Senin kutuya yazdığın özel talimatı kaybolmadan hafızaya alıyoruz!
+            const mevcutTalimat = materialTopic; 
+            
+            setMaterialTopic('⏳ DEVASA DOSYA (PDF/GÖRSEL) ANALİZ EDİLİYOR... LÜTFEN BEKLEYİN!');
+            setMaterialType('Fark Etmez (Yapay Zeka Seçsin)');
+            
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64Content = reader.result.split(',')[1];
+                // Hafızadaki talimatı doğrudan motora gönderiyoruz:
+                generatePersonalizedMaterialFromFile(base64Content, file.type, mevcutTalimat);
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        }} className="hidden" />
+    </label>
+</div>
+</div>
+<textarea value={materialTopic} onChange={(e) => setMaterialTopic(e.target.value)} rows="6" placeholder="Örn: 5. sınıf matematik dersinden 25 soru ve çözümleri, Otizmli öğrencim için görsel dikte, Kesirler için market fişi hesaplaması, Ba-Sa-Ra için okuma çalışması..." className="w-full px-4 py-3 bg-white/10 border border-teal-400/50 rounded-xl outline-none text-white placeholder-teal-200/50 resize-y focus:bg-white focus:text-teal-900 transition mb-2"></textarea>
+</div>
+<button onClick={generateMaterial} disabled={isGeneratingMaterial || !materialTopic.trim()} className="mt-4 w-full bg-yellow-400 text-teal-900 hover:bg-yellow-300 py-3.5 rounded-xl font-extrabold text-lg transition shadow-lg disabled:opacity-50 flex justify-center items-center">
+{isGeneratingMaterial ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-layer-group mr-2"></i>}
+{isGeneratingMaterial ? 'Dinamik Bloklar Çiziliyor...' : 'Dökümanı Üret ✨'}
+</button>
+</div>
+</div>
+</div>
+</div>
+
+{/* MİNİ ARAÇ 1: Terapötik Hikaye Üretici */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" id="tool-printable-story">
+<div className="bg-pink-600 p-4 text-white flex items-center"><i className="fa-solid fa-book-magic text-3xl mr-3"></i><div><h3 className="font-bold text-lg">Terapötik Hikaye Üretici</h3><p className="text-pink-100 text-xs">Korku ve davranışlar için pedagojik masallar.</p></div></div>
+<div className="p-5 flex-1 flex flex-col gap-4 no-print">
+<div className="text-xs text-gray-500 bg-gray-100 p-2 rounded border border-gray-200">💡 <i>Matbaa ayarlarında öğrenci adı girerseniz hikayenin başrolü o olur.</i></div>
+<div><textarea value={storyTheme} onChange={(e) => setStoryTheme(e.target.value)} rows="3" placeholder="Hangi konu/korku işlenecek? Örn: Dişçiye gitme korkusu, karanlık korkusu..." className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea></div>
+<button onClick={generateStory} disabled={isGeneratingStory || !storyTheme.trim()} className="w-full bg-pink-100 text-pink-700 hover:bg-pink-200 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center">
+{isGeneratingStory ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>} Masal Üret ✨
+</button>
+</div>
+{storyResult && (
+<div className="p-5 pt-0 mt-auto print-card break-inside-avoid">
+<div className="flex justify-end mb-2 no-print">
+<button onClick={() => downloadAsPDF('tool-printable-story', 'Terapotik_Hikaye')} className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded font-bold"><i className="fa-solid fa-file-pdf mr-1"></i> PDF</button>
+<button onClick={handlePrint} className="text-xs bg-gray-800 text-white px-3 py-1 rounded font-bold ml-2"><i className="fa-solid fa-print mr-1"></i> Yazdır</button>
+</div>
+<div className="bg-pink-50 border border-pink-100 p-4 rounded-xl text-sm text-gray-800 relative print-high-contrast space-y-3">
+<h3 className="font-bold text-xl text-pink-900 border-b border-pink-200 pb-2 text-center">{storyResult.hikaye_basligi}</h3>
+<p className="text-sm leading-relaxed text-justify whitespace-pre-wrap">{storyResult.hikaye_metni}</p>
+<div className="bg-white p-3 rounded-lg border border-pink-200 mt-4">
+<span className="font-bold text-pink-700 block mb-1">🌟 Çıkarılacak Ders:</span>
+<p className="text-xs italic">{storyResult.cikarilacak_ders}</p>
+</div>
+<div className="bg-white p-3 rounded-lg border border-pink-200 mt-2">
+<span className="font-bold text-pink-700 block mb-1">💬 Anlama Soruları:</span>
+<ul className="list-disc pl-4 text-xs">{storyResult.tartisma_sorulari.map((q,i)=><li key={i} className="mb-1">{q}</li>)}</ul>
+</div>
+</div>
+<BrandFooter />
+</div>
+)}
+</div>
+
+{/* MİNİ ARAÇ 2: Eğitsel Oyun Tasarımcısı */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" id="tool-printable-oyun">
+<div className="bg-purple-600 p-4 text-white flex items-center"><i className="fa-solid fa-dice text-3xl mr-3"></i><div><h3 className="font-bold text-lg">Eğitsel Oyun Tasarımcısı</h3><p className="text-purple-100 text-xs">Sınıfta oynanacak materyalsiz oyunlar.</p></div></div>
+<div className="p-5 flex-1 flex flex-col gap-4 no-print">
+<div><textarea value={gameTopic} onChange={(e) => setGameTopic(e.target.value)} rows="3" placeholder="Hangi konuyu oyunlaştırıyoruz? Örn: İletişim becerileri, Ritmik sayma..." className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea></div>
+<button onClick={generateGameIdeas} disabled={isGeneratingGame || !gameTopic.trim()} className="w-full bg-purple-100 text-purple-700 hover:bg-purple-200 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center">
+{isGeneratingGame ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-gamepad mr-2"></i>} Oyun Tasarla 🎲
+</button>
+</div>
+{gameResult && (
+<div className="p-5 pt-0 print-card break-inside-avoid mt-auto">
+<div className="flex justify-end mb-2 no-print">
+<button onClick={() => downloadAsPDF('tool-printable-oyun', 'Sinif_Oyunu')} className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded font-bold"><i className="fa-solid fa-file-pdf mr-1"></i> PDF</button>
+<button onClick={handlePrint} className="text-xs bg-gray-800 text-white px-3 py-1 rounded font-bold ml-2"><i className="fa-solid fa-print mr-1"></i> Yazdır</button>
+</div>
+<div className="space-y-4">
+{gameResult.oyunlar && gameResult.oyunlar.map((oyun, idx) => (
+<div key={idx} className="bg-purple-50 rounded-xl p-4 border border-purple-100 break-inside-avoid print-high-contrast">
+<h4 className="font-bold text-purple-900 text-lg mb-2">{idx + 1}. {oyun.oyun_adi}</h4>
+<div className="space-y-2 text-sm text-gray-800">
+<p><b>Kurallar ve Oynanış:</b> <span className="whitespace-pre-wrap">{oyun.kurallar}</span></p>
+<p className="italic text-green-700 mt-2"><b>Pedagojik Faydası:</b> {oyun.pedagojik_faydasi}</p>
+</div>
+</div>
+))}
+</div>
+<BrandFooter />
+</div>
+)}
+</div>
+
+{/* MİNİ ARAÇ 3: Davranış Danışmanı */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" id="tool-printable-davranis">
+<div className="bg-rose-600 p-4 text-white flex items-center"><i className="fa-solid fa-hands-holding-child text-3xl mr-3"></i><div><h3 className="font-bold text-lg">Davranış Danışmanı</h3><p className="text-rose-100 text-xs">Zorlayıcı davranışlar için stratejiler.</p></div></div>
+<div className="p-5 flex-1 flex flex-col gap-4 no-print">
+<div><textarea value={behaviorIssue} onChange={(e) => setBehaviorIssue(e.target.value)} rows="3" placeholder="Sorun Nedir? Örn: Sınıfta sürekli arkadaşlarının sözünü kesiyor..." className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea></div>
+<button onClick={generateBehaviorAdvice} disabled={isGeneratingBehavior || !behaviorIssue.trim()} className="w-full bg-rose-100 text-rose-700 hover:bg-rose-200 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center">
+{isGeneratingBehavior ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-heart-pulse mr-2"></i>} Strateji İste ✨
+</button>
+</div>
+{behaviorResult && (
+<div className="p-5 pt-0 mt-auto print-card break-inside-avoid">
+<div className="flex justify-end mb-2 no-print">
+<button onClick={() => downloadAsPDF('tool-printable-davranis', 'Davranis_Stratejisi')} className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded font-bold"><i className="fa-solid fa-file-pdf mr-1"></i> PDF</button>
+<button onClick={handlePrint} className="text-xs bg-gray-800 text-white px-3 py-1 rounded font-bold ml-2"><i className="fa-solid fa-print mr-1"></i> Yazdır</button>
+</div>
+<div className="bg-rose-50 border border-rose-100 p-4 rounded-xl text-sm text-gray-800 whitespace-pre-wrap print-high-contrast">
+{behaviorResult}
+</div>
+<BrandFooter />
+</div>
+)}
+</div>
+
+{/* MİNİ ARAÇ 4: BEP Hedef Üretici */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" id="tool-printable-bep">
+<div className="bg-emerald-600 p-4 text-white flex items-center"><i className="fa-solid fa-bullseye text-3xl mr-3"></i><div><h3 className="font-bold text-lg">BEP Hedef Üretici</h3><p className="text-emerald-100 text-xs">Akıllı (SMART) hedefler tasarlayın.</p></div></div>
+<div className="p-5 flex-1 flex flex-col gap-4 no-print">
+<div>
+<input type="text" value={targetSkill} onChange={(e) => setTargetSkill(e.target.value)} placeholder="Hedef Beceri (Örn: Toplama)" className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm mb-3 font-medium" />
+<textarea value={studentCurrentLevel} onChange={(e) => setStudentCurrentLevel(e.target.value)} rows="2" placeholder="Mevcut Durum (Örn: Rakamları tanıyor)" className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea>
+</div>
+<button onClick={generateBepGoals} disabled={isGeneratingBep || !targetSkill.trim() || !studentCurrentLevel.trim()} className="w-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center">
+{isGeneratingBep ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>} Hedefleri Çıkar ✨
+</button>
+</div>
+{bepResult && (
+<div className="p-5 pt-0 mt-auto print-card break-inside-avoid">
+<div className="flex justify-end mb-2 no-print">
+<button onClick={() => downloadAsPDF('tool-printable-bep', 'BEP_Hedefleri')} className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded font-bold"><i className="fa-solid fa-file-pdf mr-1"></i> PDF</button>
+<button onClick={handlePrint} className="text-xs bg-gray-800 text-white px-3 py-1 rounded font-bold ml-2"><i className="fa-solid fa-print mr-1"></i> Yazdır</button>
+</div>
+<div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl text-sm text-gray-800 whitespace-pre-wrap relative print-high-contrast">
+{bepResult}
+</div>
+<BrandFooter />
+</div>
+)}
+</div>
+
+{/* MİNİ ARAÇ 5: Veli Asistanı */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" id="tool-printable-veli">
+<div className="bg-blue-600 p-4 text-white flex items-center"><i className="fa-brands fa-whatsapp text-3xl mr-3"></i><div><h3 className="font-bold text-lg">Veli Asistanı</h3><p className="text-blue-100 text-xs">Mesajlara profesyonel yanıtlar tasarlayın.</p></div></div>
+<div className="p-5 flex-1 flex flex-col gap-4 no-print">
+<div>
+<select value={selectedStudentForMsg} onChange={(e) => setSelectedStudentForMsg(e.target.value)} className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm font-medium mb-3">
+<option value="">(Genel Veli Seçimi)</option>
+{Object.keys(groupedStudents).map(name => <option key={name} value={name}>{name}</option>)}
+</select>
+<textarea value={parentMessage} onChange={(e) => setParentMessage(e.target.value)} rows="3" placeholder="Veli Ne Yazdı? Örn: Hocam bugün çok yorgundu..." className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea>
+</div>
+<button onClick={generateParentReply} disabled={isGeneratingReply || !parentMessage.trim()} className="w-full bg-blue-100 text-blue-700 hover:bg-blue-200 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center">
+{isGeneratingReply ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>} Yanıtı Oluştur ✨
+</button>
+</div>
+{parentReply && (
+<div className="p-5 pt-0 mt-auto print-card break-inside-avoid">
+<div className="flex justify-end mb-2 no-print">
+<button onClick={() => downloadAsPDF('tool-printable-veli', 'Veli_Mesaji')} className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded font-bold"><i className="fa-solid fa-file-pdf mr-1"></i> PDF</button>
+<button onClick={handlePrint} className="text-xs bg-gray-800 text-white px-3 py-1 rounded font-bold ml-2"><i className="fa-solid fa-print mr-1"></i> Yazdır</button>
+</div>
+<div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-sm text-gray-800 whitespace-pre-wrap relative print-high-contrast">
+{parentReply}
+<div className="absolute top-2 right-2 flex space-x-1 no-print">
+<button onClick={() => {navigator.clipboard.writeText(parentReply); showToast("Kopyalandı!");}} className="text-blue-500 bg-white p-1.5 rounded shadow"><i className="fa-regular fa-copy"></i></button>
+</div>
+</div>
+<BrandFooter />
+</div>
+)}
+</div>
+
+{/* MİNİ ARAÇ 6: Cevap Okuyucu */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" id="tool-printable-grader">
+<div className="bg-indigo-600 p-4 text-white flex items-center"><i className="fa-solid fa-marker text-3xl mr-3"></i><div><h3 className="font-bold text-lg">Cevap Okuyucu</h3><p className="text-indigo-100 text-xs">Öğrenci cevaplarını AI ile değerlendirin.</p></div></div>
+<div className="p-5 flex-1 flex flex-col gap-4 no-print">
+<div><input type="text" value={graderQuestion} onChange={(e) => setGraderQuestion(e.target.value)} placeholder="Sorulan Soru Nedir?" className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm mb-3 font-medium" />
+<textarea value={graderAnswer} onChange={(e) => setGraderAnswer(e.target.value)} rows="3" placeholder="Öğrencinin Verdiği Cevap..." className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea></div>
+<button onClick={generateGraderFeedback} disabled={isGeneratingGrader || !graderQuestion.trim() || !graderAnswer.trim()} className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center">
+{isGeneratingGrader ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>} Değerlendir ✨
+</button>
+</div>
+{graderResult && (
+<div className="p-5 pt-0 mt-auto print-card break-inside-avoid">
+<div className="flex justify-end mb-2 no-print">
+<button onClick={() => downloadAsPDF('tool-printable-grader', 'Ogrenci_Geribildirimi')} className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded font-bold"><i className="fa-solid fa-file-pdf mr-1"></i> PDF</button>
+<button onClick={handlePrint} className="text-xs bg-gray-800 text-white px-3 py-1 rounded font-bold ml-2"><i className="fa-solid fa-print mr-1"></i> Yazdır</button>
+</div>
+<div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl text-sm text-gray-800 relative print-high-contrast space-y-3">
+<div className="flex justify-between items-center border-b border-indigo-200 pb-2">
+<span className="font-bold">Öğrenci Puanı:</span>
+<span className="text-2xl font-black text-indigo-700">{graderResult.puan}/100</span>
+</div>
+<div><span className="font-bold text-green-700 block"><i className="fa-solid fa-plus-circle mr-1"></i> Güçlü Yönler:</span><ul className="list-disc pl-4 text-xs mt-1">{graderResult.guclu_yonler.map((g,i)=><li key={i}>{g}</li>)}</ul></div>
+<div><span className="font-bold text-red-600 block"><i className="fa-solid fa-minus-circle mr-1"></i> Gelişim Alanları:</span><ul className="list-disc pl-4 text-xs mt-1">{graderResult.gelisim_alanlari.map((g,i)=><li key={i}>{g}</li>)}</ul></div>
+<div className="bg-white p-3 rounded-lg border border-indigo-100 italic mt-2 text-indigo-900"><span className="font-bold block not-italic text-indigo-700 text-xs mb-1">Öğretmen Notu:</span>"{graderResult.ogrenciye_not}"</div>
+</div>
+<BrandFooter />
+</div>
+)}
+</div>
+
+{/* MİNİ ARAÇ 7: Rubrik Oluşturucu */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col" id="tool-printable-rubric">
+<div className="bg-lime-600 p-4 text-white flex items-center"><i className="fa-solid fa-table-list text-3xl mr-3"></i><div><h3 className="font-bold text-lg">Rubrik Oluşturucu</h3><p className="text-lime-100 text-xs">Adil değerlendirme için 4 seviyeli puanlama anahtarı.</p></div></div>
+<div className="p-5 flex flex-col gap-4 no-print">
+<div><textarea value={rubricTopic} onChange={(e) => setRubricTopic(e.target.value)} rows="3" placeholder="Örn: Güneş Sistemi Maketi" className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea></div>
+<button onClick={generateRubric} disabled={isGeneratingRubric || !rubricTopic.trim()} className="w-full bg-lime-100 text-lime-800 hover:bg-lime-200 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center">
+{isGeneratingRubric ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>} Rubrik Çıkar ✨
+</button>
+</div>
+{rubricResult && (
+<div className="p-5 pt-0 print-card break-inside-avoid mt-auto">
+<div className="flex justify-end mb-4 no-print">
+<button onClick={() => downloadAsPDF('tool-printable-rubric', 'Degerlendirme_Rubrigi')} className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded font-bold"><i className="fa-solid fa-file-pdf mr-1"></i> PDF</button>
+<button onClick={handlePrint} className="text-xs bg-gray-800 text-white px-3 py-1 rounded font-bold ml-2"><i className="fa-solid fa-print mr-1"></i> Yazdır</button>
+</div>
+<div className="bg-white border border-lime-200 p-4 rounded-xl print-high-contrast overflow-x-auto">
+<h3 className="font-bold text-lg text-center text-lime-900 mb-1">{rubricResult.baslik}</h3>
+<p className="text-xs text-center text-gray-600 italic mb-4">{rubricResult.aciklama}</p>
+<table className="w-full text-[10px] text-left border-collapse border border-gray-300 min-w-[400px]">
+<thead>
+<tr className="bg-lime-50 text-lime-900 border-b-2 border-gray-400">
+<th className="p-2 border-r border-gray-300 w-1/5">Kriter</th>
+<th className="p-2 border-r border-gray-300">Geliştirilmeli (1)</th>
+<th className="p-2 border-r border-gray-300">Yeterli (2)</th>
+<th className="p-2 border-r border-gray-300">İyi (3)</th>
+<th className="p-2 bg-lime-100">Mükemmel (4)</th>
+</tr>
+</thead>
+<tbody>
+{rubricResult.kriterler.map((kr, idx) => (
+<tr key={idx} className="border-b border-gray-300">
+<td className="p-2 border-r border-gray-300 font-bold bg-gray-50">{kr.kriter_adi}</td>
+<td className="p-2 border-r border-gray-300">{kr.seviye_1_gelistirilmeli}</td>
+<td className="p-2 border-r border-gray-300">{kr.seviye_2_yeterli}</td>
+<td className="p-2 border-r border-gray-300">{kr.seviye_3_iyi}</td>
+<td className="p-2 bg-lime-50/50">{kr.seviye_4_mukemmel}</td>
+</tr>
+))}
+</tbody>
+</table>
+</div>
+<BrandFooter />
+</div>
+)}
+</div>
+
+{/* MİNİ ARAÇ 8: Haftalık Veli Bülteni */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col lg:col-span-2" id="tool-printable-newsletter">
+<div className="bg-orange-600 p-4 text-white flex items-center"><i className="fa-regular fa-newspaper text-3xl mr-3"></i><div><h3 className="font-bold text-lg">Haftalık Sınıf Bülteni</h3><p className="text-orange-100 text-xs">Veliler için eğlenceli hafta özetleri.</p></div></div>
+<div className="p-5 flex flex-col gap-4 no-print">
+<div><textarea value={newsletterTopics} onChange={(e) => setNewsletterTopics(e.target.value)} rows="3" placeholder="Bu hafta sınıfta neler işlediniz? Örn: Toplama işlemi, Sonbahar mevsimi..." className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea></div>
+<button onClick={generateNewsletter} disabled={isGeneratingNewsletter || !newsletterTopics.trim()} className="w-full bg-orange-100 text-orange-800 hover:bg-orange-200 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center">
+{isGeneratingNewsletter ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>} Bülten Hazırla ✨
+</button>
+</div>
+{newsletterResult && (
+<div className="p-5 pt-0 print-card break-inside-avoid mt-auto">
+<div className="flex justify-end mb-4 no-print">
+<button onClick={() => downloadAsPDF('tool-printable-newsletter', 'Sinif_Bulteni')} className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded font-bold"><i className="fa-solid fa-file-pdf mr-1"></i> PDF</button>
+<button onClick={handlePrint} className="text-xs bg-gray-800 text-white px-3 py-1 rounded font-bold ml-2"><i className="fa-solid fa-print mr-1"></i> Yazdır</button>
+</div>
+<div className="bg-orange-50 border border-orange-200 p-6 rounded-xl print-high-contrast">
+<div className="text-center mb-6 border-b-2 border-orange-300 pb-4">
+<h1 className="text-2xl font-black text-orange-900 uppercase tracking-widest">{newsletterResult.bulten_basligi}</h1>
+<p className="text-xs font-bold text-orange-600 mt-1">Tarih: {new Date().toLocaleDateString('tr-TR')}</p>
+</div>
+<div className="space-y-4">
+<div className="bg-white p-3 rounded-lg shadow-sm">
+<h3 className="font-bold text-sm text-orange-800 mb-1 border-b border-gray-100 pb-1"><i className="fa-solid fa-calendar-check mr-2"></i>Haftanın Özeti</h3>
+<p className="text-xs text-gray-700 leading-relaxed">{newsletterResult.haftanin_ozeti}</p>
+</div>
+<div className="bg-white p-3 rounded-lg shadow-sm">
+<h3 className="font-bold text-sm text-orange-800 mb-1 border-b border-gray-100 pb-1"><i className="fa-solid fa-lightbulb mr-2"></i>Öğrenilen Kavramlar</h3>
+<ul className="list-disc pl-5 text-xs text-gray-700 space-y-1">
+{newsletterResult.ogrenilen_kavramlar.map((k, i) => <li key={i}>{k}</li>)}
+</ul>
+</div>
+<div className="bg-white p-3 rounded-lg shadow-sm border-l-4 border-orange-500">
+<h3 className="font-bold text-sm text-orange-800 mb-1"><i className="fa-solid fa-house-chimney-user mr-2"></i>Evde Neler Yapabilirsiniz?</h3>
+<p className="text-xs text-gray-700 italic">{newsletterResult.velilere_tavsiye}</p>
+</div>
+</div>
+</div>
+<BrandFooter />
+</div>
+)}
+</div>
+
+{/* MİNİ ARAÇ 9: Ders Planı Sihirbazı */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col lg:col-span-2" id="tool-printable-lesson">
+<div className="bg-fuchsia-600 p-4 text-white flex items-center"><i className="fa-solid fa-chalkboard-teacher text-3xl mr-3"></i><div><h3 className="font-bold text-lg">Ders Planı Sihirbazı</h3><p className="text-fuchsia-100 text-xs">40 dakikalık profesyonel ders planları üretin.</p></div></div>
+<div className="p-5 flex-1 flex flex-col gap-4 no-print">
+<div><textarea value={lessonTopic} onChange={(e) => setLessonTopic(e.target.value)} rows="3" placeholder="İşlenecek Konu Nedir? Örn: Duyu organlarımız..." className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea></div>
+<button onClick={generateLessonPlan} disabled={isGeneratingLesson || !lessonTopic.trim()} className="w-full bg-fuchsia-100 text-fuchsia-700 hover:bg-fuchsia-200 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center">
+{isGeneratingLesson ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>} Ders Planı Oluştur ✨
+</button>
+</div>
+{lessonResult && (
+<div className="p-5 pt-0 mt-auto print-card break-inside-avoid">
+<div className="flex justify-end mb-2 no-print">
+<button onClick={() => downloadAsPDF('tool-printable-lesson', 'Ders_Plani')} className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded font-bold"><i className="fa-solid fa-file-pdf mr-1"></i> PDF</button>
+<button onClick={handlePrint} className="text-xs bg-gray-800 text-white px-3 py-1 rounded font-bold ml-2"><i className="fa-solid fa-print mr-1"></i> Yazdır</button>
+</div>
+<div className="bg-fuchsia-50 border border-fuchsia-100 p-4 rounded-xl text-sm text-gray-800 relative print-high-contrast space-y-3">
+<h3 className="font-bold text-lg text-fuchsia-900 border-b border-fuchsia-200 pb-2">{lessonResult.plan_basligi}</h3>
+<div><span className="font-bold text-fuchsia-700">Kazanımlar:</span><ul className="list-disc pl-4 text-xs mt-1">{lessonResult.hedefler.map((g,i)=><li key={i}>{g}</li>)}</ul></div>
+<div><span className="font-bold text-fuchsia-700">Materyaller:</span> <span className="text-xs">{lessonResult.materyaller}</span></div>
+<div className="space-y-2 mt-2">
+{lessonResult.adimlar.map((adim, i) => (
+<div key={i} className="bg-white p-2 rounded border border-fuchsia-100">
+<div className="font-bold text-fuchsia-800 text-xs mb-1 flex justify-between"><span>{adim.asama_adi}</span><span><i className="fa-regular fa-clock mr-1"></i>{adim.sure}</span></div>
+<p className="text-xs leading-relaxed">{adim.aciklama}</p>
+</div>
+))}
+</div>
+</div>
+<BrandFooter />
+</div>
+)}
+</div>
+
+{/* YENİ MODÜL: MİNİ ARAÇ 10: PROFESYONEL CV OLUŞTURUCU */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col lg:col-span-2" id="tool-printable-cv">
+<div className="bg-slate-800 p-4 text-white flex items-center"><i className="fa-solid fa-user-tie text-3xl mr-3"></i><div><h3 className="font-bold text-lg">Profesyonel CV Oluşturucu</h3><p className="text-slate-300 text-xs">Öğretmenler için AI destekli şık ve kurumsal özgeçmiş.</p></div></div>
+<div className="p-5 flex-1 flex flex-col gap-4 no-print">
+<div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+<label className="block text-xs font-bold text-slate-700 mb-2"><i className="fa-solid fa-camera mr-1"></i> Vesikalık Fotoğraf (Opsiyonel)</label>
+<input type="file" accept="image/*" onChange={handleCvPhotoUpload} className="text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 transition cursor-pointer"/>
+</div>
+<div><textarea value={cvInfo} onChange={(e) => setCvInfo(e.target.value)} rows="5" placeholder="Bilgilerinizi dağınık yazın. Örn: Adım Barış İlkan, 10 yıllık okul öncesi öğretmeniyim. Değişim Kolejinde çalıştım. Robotik ve satranç biliyorum. Telefon: 0555..." className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea></div>
+<button onClick={generateCV} disabled={isGeneratingCV || !cvInfo.trim()} className="w-full bg-slate-800 text-white hover:bg-slate-900 py-3 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center shadow-md">
+{isGeneratingCV ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>} CV'yi Tasarla ✨
+</button>
+</div>
+{cvResult && (
+<div className="p-5 pt-0 mt-auto print-card break-inside-avoid">
+<div className="flex justify-end mb-4 no-print">
+<button onClick={() => downloadAsPDF('tool-printable-cv', 'Baris_Ogretmen_CV')} className="text-xs bg-red-100 text-red-600 px-3 py-1 rounded font-bold"><i className="fa-solid fa-file-pdf mr-1"></i> PDF İndir</button>
+<button onClick={handlePrint} className="text-xs bg-slate-800 text-white px-3 py-1 rounded font-bold ml-2"><i className="fa-solid fa-print mr-1"></i> Yazdır</button>
+</div>
+<div className="bg-white border border-slate-200 p-6 md:p-10 rounded-xl print-high-contrast shadow-sm relative text-slate-800">
+{/* CV Header */}
+<div className="flex flex-col md:flex-row items-center md:items-start gap-6 border-b-2 border-slate-800 pb-6 mb-6">
+{cvPhoto && <img src={cvPhoto} alt="CV Foto" className="w-32 h-32 object-cover rounded-full border-4 border-slate-100 shadow-md print-high-contrast"/>}
+<div className="text-center md:text-left flex-1">
+<h1 className="text-3xl font-black text-slate-900 uppercase tracking-wider mb-1">{cvResult.ad_soyad}</h1>
+<h2 className="text-lg font-bold text-slate-500 uppercase tracking-widest mb-4">{cvResult.unvan}</h2>
+<div className="flex flex-wrap gap-x-4 gap-y-2 text-sm justify-center md:justify-start font-medium">
+{cvResult.iletisim.map((item, i) => <span key={i}><i className="fa-solid fa-circle text-[8px] text-slate-300 mr-2"></i>{item}</span>)}
+</div>
+</div>
+</div>
+{/* CV Body */}
+<div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+<div className="md:col-span-2 space-y-6">
+<section>
+<h3 className="text-lg font-bold text-slate-900 border-b border-slate-300 pb-1 mb-3 uppercase tracking-wider">Hakkımda</h3>
+<p className="text-sm leading-relaxed text-justify">{cvResult.hakkimda_ozet}</p>
+</section>
+<section>
+<h3 className="text-lg font-bold text-slate-900 border-b border-slate-300 pb-1 mb-3 uppercase tracking-wider">İş Deneyimi</h3>
+<div className="space-y-4">
+{cvResult.deneyimler.map((den, i) => (
+<div key={i}>
+<div className="flex justify-between items-baseline mb-1">
+<h4 className="font-bold text-slate-800">{den.pozisyon}</h4>
+<span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{den.sure}</span>
+</div>
+<div className="text-sm font-semibold text-indigo-700 mb-1">{den.kurum}</div>
+<p className="text-xs leading-relaxed text-slate-600">{den.aciklama}</p>
+</div>
+))}
+</div>
+</section>
+</div>
+<div className="space-y-6">
+<section>
+<h3 className="text-lg font-bold text-slate-900 border-b border-slate-300 pb-1 mb-3 uppercase tracking-wider">Eğitim</h3>
+<ul className="space-y-2 text-sm">
+{cvResult.egitim.map((eg, i) => <li key={i} className="leading-snug"><i className="fa-solid fa-graduation-cap text-slate-400 mr-2"></i>{eg}</li>)}
+</ul>
+</section>
+<section>
+<h3 className="text-lg font-bold text-slate-900 border-b border-slate-300 pb-1 mb-3 uppercase tracking-wider">Yetenekler</h3>
+<div className="flex flex-wrap gap-2">
+{cvResult.yetenekler.map((yet, i) => <span key={i} className="text-xs font-bold bg-slate-100 text-slate-700 px-2 py-1 rounded">{yet}</span>)}
+</div>
+</section>
+{cvResult.sertifikalar && cvResult.sertifikalar.length > 0 && (
+<section>
+<h3 className="text-lg font-bold text-slate-900 border-b border-slate-300 pb-1 mb-3 uppercase tracking-wider">Sertifikalar</h3>
+<ul className="space-y-2 text-sm">
+{cvResult.sertifikalar.map((ser, i) => <li key={i} className="leading-snug"><i className="fa-solid fa-certificate text-slate-400 mr-2"></i>{ser}</li>)}
+</ul>
+</section>
+)}
+</div>
+</div>
+</div>
+</div>
+)}
+</div>
+
+</div>
+
+{/* YAZDIRILABİLİR MATERYAL EKRANI (BLOK TABANLI MEGA MATBAA ÇIKTISI) */}
+{materialResult && (
+<div className="animate-fade-in print-container mt-0">
+<div className="no-print flex flex-col md:flex-row justify-between items-center mb-4 bg-gray-800 p-4 rounded-xl text-white shadow-lg gap-4">
+<div className="flex items-center space-x-4">
+<button onClick={() => setMaterialResult(null)} className="hover:text-gray-300 transition font-bold"><i className="fa-solid fa-arrow-left mr-2"></i>Geri Dön</button>
+<span className="text-sm border-l border-gray-600 pl-4 text-gray-400">Dinamik Blok Modu</span>
+</div>
+<div className="flex space-x-3 items-center flex-wrap gap-y-2 justify-end">
+<button onClick={() => setShowAnswerKey(!showAnswerKey)} className={`px-4 py-2 rounded-lg font-bold transition flex items-center shadow text-sm ${showAnswerKey ? 'bg-yellow-500 hover:bg-yellow-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-gray-200'}`}>
+<i className={`fa-solid ${showAnswerKey ? 'fa-eye-slash' : 'fa-eye'} mr-2`}></i> Cevap Anahtarı {showAnswerKey ? 'Gizle' : 'Göster'}
+</button>
+<button onClick={() => downloadAsPDF('printable-material', materialResult.dokuman_basligi)} disabled={isDownloadingPdf} className="bg-indigo-500 text-white hover:bg-indigo-600 px-4 py-2 rounded-lg font-bold transition flex items-center shadow text-sm disabled:opacity-50">
+{isDownloadingPdf ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-file-pdf mr-2"></i>} PDF İndir
+</button>
+<button onClick={handlePrint} className="bg-green-500 hover:bg-green-600 px-6 py-2 rounded-lg font-bold transition flex items-center shadow text-white">
+<i className="fa-solid fa-print text-xl mr-2"></i> Yazdır
+</button>
+</div>
+</div>
+
+<div id="printable-material" className="bg-white mx-auto shadow-2xl print:shadow-none min-h-[1050px] p-8 md:p-12 relative print-card" style={{maxWidth: '210mm'}}>
+
+{/* Header Alanı */}
+<div className="flex justify-between items-end border-b-2 border-gray-800 pb-4 mb-8 overflow-x-auto">
+<div>
+<h1 className="text-3xl font-black text-gray-900 mb-1 print-high-contrast whitespace-pre-wrap">{materialResult.dokuman_basligi}</h1>
+{/* DİKKAT: Yapay zeka saçmalarsa bile burada klinik ibare çıkmaması için sadece geçerli alt başlık basılır */}
+{materialResult.alt_baslik && !materialResult.alt_baslik.includes("Özel Öğrenme") && (
+<p className="text-gray-500 font-medium italic print-high-contrast whitespace-pre-wrap">{materialResult.alt_baslik}</p>
+)}
+</div>
+<div className="text-right text-sm font-bold text-gray-700 space-y-2 min-w-[150px]">
+<div className="flex items-end justify-end"><span className="mr-2 print-high-contrast">Ad Soyad:</span><div className="border-b border-gray-400 w-32"></div></div>
+<div className="flex items-end justify-end"><span className="mr-2 print-high-contrast">Sınıf/No:</span><div className="border-b border-gray-400 w-32"></div></div>
+<div className="flex items-end justify-end"><span className="mr-2 print-high-contrast">Tarih:</span><div className="border-b border-gray-400 w-32 text-center">{new Date().toLocaleDateString('tr-TR')}</div></div>
+</div>
+</div>
+
+{/* DINAMIK BLOK RENDER MOTORU */}
+<div className="space-y-6">
+{materialResult.icerik_bloklari.map((blok, idx) => {
+switch(blok.blok_tipi) {
+
+// 1. DEĞERLENDİRME FORMU (Yeni Şov Modülü)
+case 'degerlendirme_tablosu':
+return (
+<div key={idx} className="break-inside-avoid mb-8 border-2 border-gray-800 rounded-xl p-6 bg-white print:bg-transparent">
+{blok.baslik && <h3 className="font-bold text-xl text-center text-gray-900 mb-4 print-high-contrast"><i className="fa-solid fa-clipboard-list mr-2"></i>{blok.baslik}</h3>}
+<table className="w-full text-sm border-collapse border border-gray-400 mb-6">
+<thead>
+<tr className="bg-gray-100 print:bg-gray-200">
+<th className="border border-gray-400 p-2 text-left w-1/2 print-high-contrast">Beceri / Kriter</th>
+<th className="border border-gray-400 p-2 text-center text-xs print-high-contrast">Bağımsız Yapıyor</th>
+<th className="border border-gray-400 p-2 text-center text-xs print-high-contrast">Destekle Yapıyor</th>
+<th className="border border-gray-400 p-2 text-center text-xs print-high-contrast">Yapamıyor</th>
+</tr>
+</thead>
+<tbody>
+{blok.degerlendirme_kriterleri && blok.degerlendirme_kriterleri.map((kriter, i) => (
+<tr key={i} className="hover:bg-gray-50">
+<td className="border border-gray-400 p-2 text-gray-800 print-high-contrast">{kriter}</td>
+<td className="border border-gray-400 p-2 text-center"><div className="w-4 h-4 border-2 border-gray-500 mx-auto rounded-sm print-high-contrast"></div></td>
+<td className="border border-gray-400 p-2 text-center"><div className="w-4 h-4 border-2 border-gray-500 mx-auto rounded-sm print-high-contrast"></div></td>
+<td className="border border-gray-400 p-2 text-center"><div className="w-4 h-4 border-2 border-gray-500 mx-auto rounded-sm print-high-contrast"></div></td>
+</tr>
+))}
+</tbody>
+</table>
+<div className="border border-gray-400 rounded p-3 min-h-[100px] print-high-contrast">
+<span className="font-bold text-gray-600 text-xs print-high-contrast">Öğretmen Gözlem Notu:</span>
+</div>
+<p className="text-[10px] text-gray-500 mt-3 text-center italic print-high-contrast">Yasal Uyarı: Bu form bir eğitsel ön-değerlendirme ve gözlem aracıdır. Tıbbi bir tanı veya psikiyatrik bir rapor yerine geçmez.</p>
+</div>
+);
+
+// 2. BA-SA-RA HECE TABLOSU
+case 'basara_hece_tablosu':
+return (
+<div key={idx} className="break-inside-avoid mb-8 bg-blue-50 border-2 border-blue-200 rounded-xl p-6 print:bg-transparent text-center">
+{blok.baslik && <h3 className="font-black text-2xl text-blue-900 mb-6 print-high-contrast">{blok.baslik}</h3>}
+<div className="flex flex-wrap justify-center gap-4">
+{blok.hece_gruplari && blok.hece_gruplari.map((hece, i) => (
+<div key={i} className="bg-white border-2 border-blue-400 text-blue-800 font-black text-3xl px-6 py-4 rounded-xl shadow-md print-high-contrast">{hece}</div>
+))}
+</div>
+</div>
+);
+
+// 3. VELİ TOMBALASI (BINGO)
+case 'tombala_grid':
+return (
+<div key={idx} className="break-inside-avoid mb-8 max-w-lg mx-auto bg-green-50 border-4 border-green-600 rounded-xl p-6 print:bg-transparent">
+{blok.baslik && <h3 className="font-black text-2xl text-center text-green-900 mb-4 print-high-contrast"><i className="fa-solid fa-gamepad mr-2"></i>{blok.baslik}</h3>}
+<div className="grid grid-cols-3 gap-2">
+{blok.tombala_gorevleri && blok.tombala_gorevleri.map((gorev, i) => (
+<div key={i} className="bg-white border-2 border-green-300 rounded-lg p-3 text-center flex flex-col justify-between aspect-square print-high-contrast">
+<span className="text-xs font-bold text-gray-800 mt-2">{gorev}</span>
+<div className="w-6 h-6 border-2 border-green-500 rounded-full mx-auto mt-2 flex items-center justify-center text-white hover:bg-green-500 transition cursor-pointer print-high-contrast"></div>
+</div>
+))}
+</div>
+</div>
+);
+
+// 4. GÖRSEL DİKTE
+case 'gorsel_dikte':
+return (
+<div key={idx} className="break-inside-avoid mb-8">
+{blok.baslik && <h3 className="font-bold text-lg text-center text-gray-700 mb-6 print-high-contrast"><i className="fa-solid fa-pencil mr-2"></i>{blok.baslik}</h3>}
+<div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+{blok.dikte_kelimeleri && blok.dikte_kelimeleri.map((item, i) => (
+<div key={i} className="flex flex-col items-center justify-end h-40 bg-gray-50 border border-gray-200 rounded-2xl p-4 print:bg-transparent">
+<div className="text-6xl sm:text-7xl mb-auto animate-bounce-slow print:animate-none">{item.emoji}</div>
+<div className="w-full border-b-4 border-dashed border-gray-400 mt-6 relative">
+<span className="absolute -top-4 right-1 text-[10px] text-gray-400 italic no-print">(Cevap: {item.kelime})</span>
+</div>
+</div>
+))}
+</div>
+</div>
+);
+
+// 5. OKUMA PARÇASI
+case 'okuma_parcasi':
+return (
+<div key={idx} className="mb-6 p-6 bg-yellow-50/50 border border-yellow-200 rounded-xl print:bg-yellow-50 break-inside-avoid">
+{blok.baslik && <h3 className="font-bold text-yellow-800 mb-3 flex items-center print-high-contrast"><i className="fa-solid fa-book-open text-xl mr-2"></i>{blok.baslik}</h3>}
+<p className="text-gray-800 leading-relaxed font-medium text-justify print-high-contrast whitespace-pre-wrap text-lg">{blok.icerik_metni}</p>
+</div>
+);
+
+// 6. BİLGİ KUTUSU (5N1K için pastel renkli kutular dahil)
+case 'bilgi_kutusu':
+let cMap = COLOR_MAP[blok.renk] || COLOR_MAP['blue'];
+if(blok.renk?.includes('yeşil') || blok.renk?.includes('green')) cMap = COLOR_MAP['green'];
+if(blok.renk?.includes('sarı') || blok.renk?.includes('yellow')) cMap = COLOR_MAP['yellow'];
+if(blok.renk?.includes('mor') || blok.renk?.includes('purple')) cMap = COLOR_MAP['purple'];
+if(blok.renk?.includes('turuncu') || blok.renk?.includes('orange')) cMap = COLOR_MAP['orange'];
+if(blok.renk?.includes('kırmızı') || blok.renk?.includes('red')) cMap = COLOR_MAP['red'];
+
+return (
+<div key={idx} className={`${cMap} p-5 rounded-2xl border-2 break-inside-avoid shadow-sm print:shadow-none mb-4`}>
+{blok.baslik && <h4 className="font-black text-lg mb-2 flex items-center print-high-contrast"><i className="fa-solid fa-lightbulb mr-2 opacity-50"></i>{blok.baslik}</h4>}
+<p className="font-medium leading-snug print-high-contrast whitespace-pre-wrap">{blok.icerik_metni}</p>
+</div>
+);
+
+// 7. STANDART SORU (Soru numaraları otomatik 1'den başlar, Bilgi kutularından etkilenmez)
+case 'standart_soru':
+// Soru sayacını hesaplamak için bu bloğa kadar olan standart soruları sayıyoruz
+let soruNo = 1;
+for (let i = 0; i < idx; i++) {
+  if (materialResult.icerik_bloklari[i].blok_tipi === 'standart_soru' || materialResult.icerik_bloklari[i].blok_tipi === 'eslestirme_tablosu' || materialResult.icerik_bloklari[i].blok_tipi === 'bosluk_doldurma') {
+    soruNo++;
+  }
+}
+return (
+<div key={idx} className="break-inside-avoid mb-6">
+<div className="flex items-start mb-3">
+<span className="font-black text-lg text-gray-900 mr-3 print-high-contrast">{soruNo}.</span>
+<p className="font-semibold text-gray-800 text-lg leading-snug print-high-contrast whitespace-pre-wrap">{blok.soru_metni}</p>
+</div>
+{blok.secenekler && blok.secenekler.length > 0 ? (
+<div className="pl-8 space-y-3 mt-3">
+{blok.secenekler.map((sec, sIdx) => (
+<div key={sIdx} className="flex items-center text-gray-700 font-medium print-high-contrast w-full mb-1">
+<span className="w-8 h-8 rounded-full border-2 border-gray-400 flex items-center justify-center mr-3 font-bold text-sm bg-gray-50 print:bg-transparent">{['A', 'B', 'C', 'D', 'E'][sIdx]}</span>
+{sec}
+</div>
+))}
+</div>
+) : (
+<div className="pl-8 mt-5 space-y-6">
+<div className="border-b-2 border-gray-400 w-full"></div>
+<div className="border-b-2 border-gray-400 w-full"></div>
+</div>
+)}
+</div>
+);
+
+// 8. EŞLEŞTİRME TABLOSU
+case 'eslestirme_tablosu':
+// Ortak soru sayacı mantığı
+let eslesmeNo = 1;
+for (let i = 0; i < idx; i++) {
+  if (materialResult.icerik_bloklari[i].blok_tipi === 'standart_soru' || materialResult.icerik_bloklari[i].blok_tipi === 'eslestirme_tablosu') {
+    eslesmeNo++;
+  }
+}
+return (
+<div key={idx} className="break-inside-avoid mb-8">
+<div className="flex items-start mb-4">
+<span className="font-black text-lg text-gray-900 mr-3 print-high-contrast">{eslesmeNo}.</span>
+<p className="font-semibold text-gray-800 text-lg leading-snug print-high-contrast whitespace-pre-wrap">{blok.soru_metni || "Aşağıdaki kavramları eşleştiriniz."}</p>
+</div>
+<div className="flex justify-between items-center pl-8 px-4 mt-4 text-sm font-medium">
+<div className="w-5/12 space-y-4">
+{blok.sol_sutun && blok.sol_sutun.map((sol, i) => (
+<div key={i} className="flex items-center"><span className="min-w-[24px] h-6 rounded-full bg-gray-200 flex justify-center items-center mr-3 font-bold print-high-contrast">{i+1}</span> <span className="print-high-contrast">{sol}</span></div>
+))}
+</div>
+<div className="w-2/12 flex flex-col justify-center items-center space-y-6 text-gray-300">
+<i className="fa-solid fa-arrow-right-arrow-left text-xl opacity-50"></i>
+</div>
+<div className="w-5/12 space-y-4">
+{blok.sag_sutun_karisik && blok.sag_sutun_karisik.map((sag, i) => (
+<div key={i} className="flex items-center"><span className="min-w-[24px] h-6 rounded-full bg-gray-200 flex justify-center items-center mr-3 font-bold print-high-contrast">{['A','B','C','D','E','F','G'][i] || '?'}</span> <span className="print-high-contrast">{sag}</span></div>
+))}
+</div>
+</div>
+</div>
+);
+
+// 9. ŞİFRE KIRICI
+case 'sifre_kirici':
+return (
+<div key={idx} className="break-inside-avoid bg-gray-50 border-2 border-gray-300 p-6 rounded-2xl mb-8 shadow-inner print:bg-transparent overflow-x-auto">
+{blok.baslik && <h3 className="font-black text-xl text-center mb-6 tracking-widest print-high-contrast"><i className="fa-solid fa-user-secret mr-2"></i>{blok.baslik}</h3>}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+{blok.sifre_islemler && blok.sifre_islemler.map((islem, i) => (
+<div key={i} className="bg-white border-b-2 border-gray-400 p-3 text-center font-bold text-lg print-high-contrast whitespace-pre-wrap">{islem}</div>
+))}
+</div>
+<div className="text-center">
+<span className="block font-bold text-gray-500 mb-3">GİZLİ ŞİFRE:</span>
+<div className="flex flex-wrap justify-center gap-2">
+{blok.gizli_sifre && blok.gizli_sifre.split('').map((char, i) => (
+<div key={i} className="w-10 h-12 border-4 border-gray-800 flex items-end justify-center pb-1 font-black text-xl bg-white print-high-contrast">{char === ' ' ? '' : '_'}</div>
+))}
+</div>
+</div>
+</div>
+);
+
+// 10. HATA DEDEKTİFİ
+case 'hatali_islem':
+return (
+<div key={idx} className="break-inside-avoid mb-6 flex flex-col md:flex-row gap-4">
+<div className="w-full md:w-1/2 bg-red-50 border-2 border-red-200 p-4 rounded-xl print:bg-transparent">
+<h4 className="text-red-600 font-bold mb-2 print-high-contrast"><i className="fa-solid fa-bug mr-2"></i> Hatalı Çözüm</h4>
+<p className="text-gray-800 font-mono text-lg print-high-contrast whitespace-pre-wrap">{blok.hatali_cozum}</p>
+</div>
+<div className="w-full md:w-1/2 border-2 border-dashed border-gray-400 p-4 rounded-xl flex flex-col">
+<h4 className="text-gray-500 font-bold mb-2 print-high-contrast"><i className="fa-solid fa-check-circle mr-2"></i> Doğrusunu Sen Yaz:</h4>
+<div className="border-b-2 border-gray-300 mt-auto w-full"></div>
+<div className="border-b-2 border-gray-300 mt-6 w-full"></div>
+</div>
+</div>
+);
+
+// 11. FATURA TABLOSU
+case 'fatura_tablosu':
+return (
+<div key={idx} className="break-inside-avoid mb-8 max-w-xs mx-auto bg-yellow-50 border-2 border-dashed border-gray-400 p-6 rounded-sm shadow-sm print:bg-transparent">
+<h3 className="font-mono font-black text-center text-xl mb-4 print-high-contrast">MARKET FİŞİ</h3>
+<div className="border-t border-b border-gray-400 py-2 mb-4 font-mono text-sm space-y-2">
+{blok.urunler && blok.urunler.map((urun, i) => (
+<div key={i} className="flex justify-between print-high-contrast">
+<span>{urun.adet}x {urun.urun_adi}</span>
+<span>{urun.fiyat}</span>
+</div>
+))}
+</div>
+<div className="flex justify-between font-mono font-black text-lg print-high-contrast">
+<span>TOPLAM:</span>
+<span>{blok.toplam_tutar}</span>
+</div>
+</div>
+);
+
+// 12. GAZETE MANŞETİ
+case 'gazete_manseti':
+return (
+<div key={idx} className="break-inside-avoid mb-8 border-4 border-double border-gray-800 p-6 bg-gray-50 print:bg-transparent">
+<div className="border-b-2 border-gray-800 pb-2 mb-4 text-center">
+<h2 className="font-serif font-black text-3xl md:text-4xl uppercase tracking-widest print-high-contrast whitespace-pre-wrap leading-tight">{blok.manset}</h2>
+<p className="text-xs font-bold mt-2 text-gray-500 uppercase">{new Date().toLocaleDateString('tr-TR')} - ÖZEL HABER</p>
+</div>
+<p className="font-serif text-justify text-base leading-relaxed md:columns-2 gap-6 print-high-contrast whitespace-pre-wrap">{blok.haber_metni}</p>
+</div>
+);
+
+// 13. EMOJİ MATRİSİ (Görsel Fark)
+case 'emoji_matrisi':
+return (
+<div key={idx} className="break-inside-avoid mb-8 text-center bg-gray-100 p-6 rounded-xl border border-gray-300 print:bg-transparent overflow-x-auto">
+<h3 className="font-bold text-lg mb-4 print-high-contrast">{blok.soru_metni || "Aşağıdaki emojiler arasında farklı olanı bul!"}</h3>
+<div className="text-3xl sm:text-4xl leading-loose tracking-widest break-words px-4 md:px-8">
+{blok.emojiler && blok.emojiler.map((emoji_row, i) => (
+<div key={i} className="whitespace-nowrap">{emoji_row}</div>
+))}
+</div>
+</div>
+);
+
+// 14. TERSİNE EĞİTİM (Sen Öğret)
+case 'tersine_egitim':
+return (
+<div key={idx} className="break-inside-avoid mb-8 border border-gray-300 rounded-xl p-6 bg-[#fdfbf7] print:bg-transparent">
+<h3 className="font-bold text-xl text-indigo-900 mb-2 print-high-contrast"><i className="fa-solid fa-chalkboard-user mr-2"></i> Sıra Sende, Sen Öğret!</h3>
+<p className="text-gray-700 font-medium mb-6 print-high-contrast">Hiç bilmeyen birine <b>"{blok.ogretilecek_kavram}"</b> konusunu nasıl anlatırdın? Aşağıdaki deftere yaz.</p>
+<div className="space-y-8 mt-4">
+{[1,2,3,4,5,6].map(l => <div key={l} className="border-b-2 border-blue-200 w-full print:border-gray-400"></div>)}
+</div>
+</div>
+);
+
+// 15. VENN ŞEMASI
+case 'venn_semasi':
+return (
+<div key={idx} className="break-inside-avoid mb-8 overflow-x-auto">
+<h3 className="font-bold text-center mb-6 print-high-contrast"><i className="fa-solid fa-circle-nodes mr-2"></i> {blok.kavram1} vs {blok.kavram2}</h3>
+<div className="flex flex-col md:flex-row justify-between gap-4 text-center text-sm font-medium min-w-[400px]">
+<div className="md:w-1/3 bg-blue-50 border-2 border-blue-300 p-4 rounded-3xl md:rounded-full md:aspect-square flex flex-col justify-center print:bg-transparent print:rounded-2xl print:aspect-auto">
+<span className="font-black text-blue-900 border-b border-blue-300 pb-1 mb-2 print-high-contrast">{blok.kavram1} Sadece</span>
+<ul className="text-xs space-y-1">{blok.kavram1_ozellikler && blok.kavram1_ozellikler.map((o,i)=><li key={i}>{o}</li>)}</ul>
+</div>
+<div className="md:w-1/3 bg-purple-50 border-2 border-purple-300 p-4 rounded-2xl flex flex-col justify-center relative z-10 my-4 md:my-0 md:-mx-6 shadow-md print:bg-transparent print:mx-0">
+<span className="font-black text-purple-900 border-b border-purple-300 pb-1 mb-2 print-high-contrast">ORTAK</span>
+<ul className="text-xs space-y-1">{blok.ortak_ozellikler && blok.ortak_ozellikler.map((o,i)=><li key={i}>{o}</li>)}</ul>
+</div>
+<div className="md:w-1/3 bg-green-50 border-2 border-green-300 p-4 rounded-3xl md:rounded-full md:aspect-square flex flex-col justify-center print:bg-transparent print:rounded-2xl print:aspect-auto">
+<span className="font-black text-green-900 border-b border-green-300 pb-1 mb-2 print-high-contrast">{blok.kavram2} Sadece</span>
+<ul className="text-xs space-y-1">{blok.kavram2_ozellikler && blok.kavram2_ozellikler.map((o,i)=><li key={i}>{o}</li>)}</ul>
+</div>
+</div>
+</div>
+);
+
+// 16. KARİKATÜR DİYALOG
+case 'karikatur_diyalog':
+return (
+<div key={idx} className="break-inside-avoid mb-8 px-2 md:px-4">
+{blok.baslik && <h4 className="font-bold text-gray-500 text-center mb-4 uppercase tracking-widest">{blok.baslik}</h4>}
+<div className="flex flex-col md:flex-row justify-between items-end my-6 gap-6">
+<div className="flex flex-col items-center w-full md:w-5/12">
+<div className="bg-blue-100 p-4 rounded-3xl rounded-bl-none mb-3 w-full text-sm font-medium border-2 border-blue-200 print-high-contrast shadow-sm relative">
+<span className="whitespace-pre-wrap">{blok.konusma1}</span>
+<div className="absolute -bottom-3 left-4 w-4 h-4 bg-blue-100 border-b-2 border-l-2 border-blue-200 transform -rotate-45"></div>
+</div>
+<div className="text-4xl text-blue-600 bg-white rounded-full p-2 border-2 border-blue-200"><i className="fa-solid fa-user-astronaut"></i></div>
+<span className="text-xs font-bold mt-1 text-gray-600">{blok.karakter1 || 'Karakter 1'}</span>
+</div>
+<div className="flex flex-col items-center w-full md:w-5/12">
+<div className="bg-green-100 p-4 rounded-3xl rounded-br-none mb-3 w-full text-sm font-medium border-2 border-green-200 print-high-contrast shadow-sm relative">
+<span className="whitespace-pre-wrap">{blok.konusma2}</span>
+<div className="absolute -bottom-3 right-4 w-4 h-4 bg-green-100 border-b-2 border-r-2 border-green-200 transform rotate-45"></div>
+</div>
+<div className="text-4xl text-green-600 bg-white rounded-full p-2 border-2 border-green-200"><i className="fa-solid fa-user-ninja"></i></div>
+<span className="text-xs font-bold mt-1 text-gray-600">{blok.karakter2 || 'Karakter 2'}</span>
+</div>
+</div>
+</div>
+);
+
+// 17. FLASHCARD GRID
+case 'flashcard_grid':
+return (
+<div key={idx} className="break-inside-avoid mb-8">
+{blok.baslik && <h3 className="font-bold text-center mb-4 text-gray-600"><i className="fa-solid fa-scissors mr-2"></i>{blok.baslik} (Kesilebilir Kartlar)</h3>}
+<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+{blok.kartlar && blok.kartlar.map((kart, i) => (
+<div key={i} className="border-4 border-dashed border-gray-400 rounded-xl p-6 relative min-h-[150px] flex flex-col justify-center items-center text-center bg-gray-50 print:bg-transparent">
+<i className="fa-solid fa-scissors absolute -top-3 -left-3 text-gray-400 bg-white px-1 text-xl"></i>
+<div className="font-black text-xl mb-4 print-high-contrast text-indigo-900 whitespace-pre-wrap">{kart.on_yuz}</div>
+<div className="border-t-2 border-gray-400 pt-3 w-full font-medium text-sm text-gray-700 print-high-contrast whitespace-pre-wrap">{kart.arka_yuz}</div>
+</div>
+))}
+</div>
+</div>
+);
+
+// 18. ZİHİN HARİTASI
+case 'zihin_haritasi':
+return (
+<div key={idx} className="break-inside-avoid my-10 flex flex-col items-center overflow-x-auto">
+{blok.baslik && <h3 className="font-bold text-gray-500 mb-6 uppercase tracking-widest">{blok.baslik}</h3>}
+<div className="bg-purple-100 border-4 border-purple-500 rounded-full px-8 py-6 text-center z-10 shadow-xl max-w-sm print:bg-purple-50">
+<span className="font-black text-xl md:text-2xl text-purple-900 print-high-contrast whitespace-pre-wrap">{blok.merkez_kavram}</span>
+</div>
+<div className="flex flex-wrap justify-center gap-6 mt-8 relative w-full px-2 md:px-10 min-w-[300px]">
+<div className="absolute top-[-30px] left-10 right-10 h-[30px] border-t-4 border-l-4 border-r-4 border-purple-300 rounded-t-3xl z-0 hidden md:block print:block"></div>
+{blok.yan_kavramlar && blok.yan_kavramlar.map((yan, i) => (
+<div key={i} className="relative flex flex-col items-center z-10 w-full sm:w-1/3 min-w-[120px]">
+<div className="w-1 h-6 bg-purple-400 mb-2"></div>
+<div className="bg-white border-2 border-purple-400 rounded-xl p-3 w-full text-center font-bold shadow-md print-high-contrast text-sm whitespace-pre-wrap">
+{yan}
+</div>
+</div>
+))}
+</div>
+</div>
+);
+
+// 19. ADIM ADIM REÇETE
+case 'recete_adimlari':
+return (
+<div key={idx} className="break-inside-avoid mb-8 bg-amber-50 border-2 border-amber-200 rounded-2xl p-6 print:bg-transparent">
+{blok.baslik && <h3 className="font-bold text-amber-800 mb-4 flex items-center print-high-contrast"><i className="fa-solid fa-utensils mr-2"></i>{blok.baslik}</h3>}
+<div className="space-y-4">
+{blok.malzemeler && blok.malzemeler.length > 0 && (
+<div className="mb-4">
+<h4 className="font-bold text-amber-700 mb-2 print-high-contrast">📋 Malzemeler / Gereksinimler:</h4>
+<ul className="list-disc pl-5 text-sm text-gray-700 print-high-contrast">
+{blok.malzemeler.map((m,i)=><li key={i}>{m}</li>)}
+</ul>
+</div>
+)}
+<div>
+<h4 className="font-bold text-amber-700 mb-2 print-high-contrast">👨‍🍳 Adım Adım İşlem Sırası:</h4>
+<ol className="list-decimal pl-5 space-y-3">
+{blok.adimlar && blok.adimlar.map((adim, i) => (
+<li key={i} className="text-sm text-gray-700 print-high-contrast bg-white p-2 rounded border border-amber-100 whitespace-pre-wrap">{adim}</li>
+))}
+</ol>
+</div>
+</div>
+</div>
+);
+
+// 20. GÖRSEL VERİ / TABLO
+case 'gorsel_veri':
+return (
+<div key={idx} className="break-inside-avoid mb-8 overflow-x-auto">
+{blok.baslik && <h3 className="font-bold text-gray-800 mb-4 print-high-contrast">{blok.baslik}</h3>}
+<table className="w-full text-sm border-collapse border border-gray-300 bg-white print:bg-transparent min-w-[400px]">
+<thead>
+<tr className="bg-gray-100 print:bg-gray-50">
+{blok.sutunlar && blok.sutunlar.map((s, i) => (
+<th key={i} className="p-3 border border-gray-300 font-bold text-gray-800 print-high-contrast whitespace-pre-wrap">{s}</th>
+))}
+</tr>
+</thead>
+<tbody>
+{blok.satirlar && blok.satirlar.map((satir, i) => (
+<tr key={i} className={i%2===0 ? 'bg-gray-50 print:bg-transparent' : ''}>
+{satir.hucreler && satir.hucreler.map((h, j) => (
+<td key={j} className="p-3 border border-gray-300 text-gray-700 print-high-contrast whitespace-pre-wrap">{h}</td>
+))}
+</tr>
+))}
+</tbody>
+</table>
+</div>
+);
+
+// 21. DÖNÜŞÜM MAKİNESİ
+case 'on_sonra_makine':
+case 'donusum_makinesi':
+return (
+<div key={idx} className="break-inside-avoid mb-8 bg-indigo-50 border-2 border-indigo-300 rounded-2xl p-6 print:bg-transparent overflow-x-auto">
+<h3 className="font-bold text-indigo-800 mb-4 text-center print-high-contrast"><i className="fa-solid fa-gears mr-2"></i> {blok.baslik || 'Dönüşüm Makinesi'}</h3>
+<div className="bg-white p-4 rounded-xl border border-indigo-200 mb-4 text-center print-high-contrast">
+<span className="font-bold text-indigo-700">🔧 Kural: </span>
+<span className="font-mono font-bold text-lg">{blok.kural}</span>
+</div>
+<div className="grid grid-cols-2 gap-4 md:gap-8 items-center min-w-[300px]">
+<div className="text-center">
+<div className="font-bold text-gray-600 mb-2 print-high-contrast">GİRDİLER</div>
+<div className="space-y-2">
+{blok.girdiler && blok.girdiler.map((g, i) => (
+<div key={i} className="bg-gray-100 border-2 border-gray-300 rounded-lg p-3 font-mono font-bold text-lg print-high-contrast break-words">{g}</div>
+))}
+</div>
+</div>
+<div className="text-center flex flex-col justify-between h-full">
+<div className="font-bold text-gray-600 mb-2 print-high-contrast">ÇIKTILAR</div>
+<div className="space-y-2">
+{blok.ciktilar && blok.ciktilar.map((c, i) => (
+<div key={i} className="bg-indigo-100 border-2 border-indigo-300 rounded-lg p-3 font-mono font-bold text-lg text-indigo-800 print-high-contrast flex items-center justify-center">
+<i className="fa-solid fa-arrow-right mr-2 text-indigo-400"></i> <span className="break-words">{c}</span>
+</div>
+))}
+</div>
+</div>
+</div>
+</div>
+);
+
+// 22. SUDOKU / BULMACA
+case 'sudoku_bulmaca':
+return (
+<div key={idx} className="break-inside-avoid mb-8 overflow-x-auto">
+{blok.baslik && <h3 className="font-bold text-center mb-4 print-high-contrast">{blok.baslik}</h3>}
+<div className="grid gap-0.5 bg-gray-800 p-1 rounded-lg w-full max-w-md mx-auto" style={{ gridTemplateColumns: `repeat(${blok.grid_satirlari?.[0]?.hucreler?.length || 5}, minmax(0, 1fr))` }}>
+{blok.grid_satirlari && blok.grid_satirlari.map((satir, i) => (
+satir.hucreler && satir.hucreler.map((hucre, j) => (
+<div key={`${i}-${j}`} className={`bg-white aspect-square flex items-center justify-center font-bold text-2xl print-high-contrast ${hucre && hucre.trim() !== '' ? 'text-gray-900' : 'text-gray-300 border-2 border-dashed border-gray-200'}`}>
+{hucre && hucre.trim() !== '' ? hucre : ''}
+</div>
+))
+))}
+</div>
+{blok.ipucu && <p className="text-center text-sm text-gray-500 mt-3 italic print-high-contrast">💡 İpucu: {blok.ipucu}</p>}
+</div>
+);
+
+// 23. SIRALA YAPIŞTIR
+case 'sirala_yapistir':
+return (
+<div key={idx} className="break-inside-avoid mb-8">
+{blok.baslik && <h3 className="font-bold text-gray-800 mb-4 print-high-contrast">{blok.baslik}</h3>}
+<div className="space-y-3">
+{blok.karisik_adimlar && blok.karisik_adimlar.map((adim, i) => (
+<div key={i} className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3 print:bg-transparent">
+<div className="min-w-[32px] h-8 rounded-full bg-gray-200 border-2 border-dashed border-gray-400 flex items-center justify-center font-bold text-gray-500 print-high-contrast">?</div>
+<span className="text-sm text-gray-700 print-high-contrast whitespace-pre-wrap">{adim}</span>
+</div>
+))}
+</div>
+<p className="text-xs text-gray-500 mt-3 italic print-high-contrast">✂️ Bu adımları kesip doğru sıraya diziniz!</p>
+</div>
+);
+
+// 24. BAŞARI SERTİFİKASI
+case 'sertifika':
+return (
+<div key={idx} className="break-inside-avoid mb-8 border-[12px] border-double border-yellow-500 p-8 sm:p-12 text-center relative bg-yellow-50/30 print:bg-transparent min-h-[400px] flex flex-col justify-center items-center">
+<i className="fa-solid fa-award text-yellow-500 text-6xl mb-6 print-high-contrast"></i>
+<h1 className="font-serif text-4xl sm:text-5xl font-black text-gray-900 mb-2 uppercase tracking-widest print-high-contrast">BAŞARI BELGESİ</h1>
+<p className="text-sm text-gray-500 uppercase tracking-widest mb-8 print-high-contrast">BU BELGE GURURLA TAKDİM EDİLMİŞTİR</p>
+<div className="w-full max-w-md mx-auto border-b-2 border-gray-800 pb-2 mb-6">
+<h2 className="text-3xl font-black text-indigo-900 print-high-contrast">{blok.sertifika_ogrenci || matStudentName || "Öğrenci Adı"}</h2>
+</div>
+<p className="text-lg font-medium text-gray-700 mb-8 italic px-4 print-high-contrast">"{blok.sertifika_metni}"</p>
+<div className="w-full flex justify-between items-end px-4 mt-8">
+<div className="text-center">
+<div className="w-32 border-b border-gray-800 mb-2"></div>
+<span className="text-xs font-bold text-gray-600 print-high-contrast">Tarih</span>
+</div>
+<div className="text-center">
+<div className="w-32 border-b border-gray-800 mb-2 font-serif text-lg text-gray-900 print-high-contrast">Barış Öğretmen</div>
+<span className="text-xs font-bold text-gray-600 print-high-contrast">İmza</span>
+</div>
+</div>
+</div>
+);
+// BARIŞ HOCA HIZLI MEDYA KUTUSU
+case 'medya_kutusu':
+return (
+<div key={idx} className="break-inside-avoid mb-8 p-4 border-2 border-dashed border-gray-400 rounded-xl bg-gray-50 flex flex-col items-center justify-center print:bg-transparent">
+    {blok.link.match(/\.(jpeg|jpg|gif|png|webp)$/i) != null ? (
+        <img src={blok.link} alt="Eklenen Görsel" className="max-w-full max-h-[400px] object-contain rounded-lg shadow-sm print-high-contrast" />
+    ) : (
+        <div className="text-center">
+            <div className="inline-block p-4 bg-white border border-gray-300 rounded-xl mb-3">
+               <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(blok.link)}`} alt="QR Kod" className="w-32 h-32" />
+            </div>
+            <p className="text-xs font-mono font-bold text-gray-500 break-all">{blok.link}</p>
+        </div>
+    )}
+</div>
+);
+// 25. YÖNERGELİ ÇİZİM
+case 'yonergeli_cizim':
+return (
+<div key={idx} className="break-inside-avoid mb-8 flex flex-col md:flex-row gap-6">
+<div className="w-full md:w-1/3 bg-gray-50 border border-gray-200 p-5 rounded-2xl print:bg-transparent">
+<h3 className="font-bold text-lg text-indigo-800 mb-4 print-high-contrast"><i className="fa-solid fa-ear-listen mr-2"></i>Çizim Yönergeleri</h3>
+<ol className="list-decimal pl-5 space-y-4 text-sm text-gray-800 font-medium print-high-contrast">
+{blok.cizim_adimlari && blok.cizim_adimlari.map((adim, i) => (
+<li key={i} className="leading-relaxed">{adim}</li>
+))}
+</ol>
+</div>
+<div className="w-full md:w-2/3 border-4 border-dashed border-gray-300 rounded-2xl flex items-center justify-center min-h-[300px] md:min-h-full">
+<span className="text-gray-300 font-bold tracking-widest uppercase text-xl rotate-[-15deg] opacity-50 select-none">Çizim Alanı</span>
+</div>
+</div>
+);
+
+// 26. ZENGİN METİN (Serbest AI Tasarımı - Renkli heceler, özel tablolar vs.)
+case 'zengin_metin':
+return (
+<div key={idx} className="break-inside-avoid mb-8 bg-white border-2 border-indigo-100 rounded-xl p-6 shadow-sm print:shadow-none print:border-none">
+{blok.baslik && <h3 className="font-bold text-2xl text-indigo-900 mb-4 print-high-contrast border-b border-indigo-100 pb-2">{blok.baslik}</h3>}
+<div className="prose max-w-none text-gray-800 print-high-contrast leading-relaxed text-lg" dangerouslySetInnerHTML={{ __html: blok.html_icerik || blok.icerik_metni }}></div>
+</div>
+);
+
+default: return null;
+}
+})}
+</div>
+
+{/* ÇÖZÜMLÜ CEVAP ANAHTARI BÖLÜMÜ (AYRI SAYFA) - ÖĞRETMEN NÜSHASI */}
+{showAnswerKey && materialResult.icerik_bloklari.some(b => b.cevap_anahtari) && (
+<div className="page-break-before mt-16 pt-8 border-t-4 border-dashed border-gray-400">
+<div className="cevap-anahtari-baslik bg-yellow-200 text-indigo-900 border-2 border-indigo-800 p-4 rounded-xl mb-6 text-center print-high-contrast shadow-md">
+<h3 className="text-2xl font-black uppercase tracking-widest"><i className="fa-solid fa-key mr-2 text-indigo-700"></i> CEVAP ANAHTARI & DETAYLI ÇÖZÜMLER</h3>
+<p className="text-sm font-bold text-indigo-800 mt-1">Öğretmen Nüshası - Lütfen bu sayfayı öğrenciye vermeyin.</p>
+</div>
+
+<div className="space-y-6">
+{materialResult.icerik_bloklari.map((blok, idx) => {
+if(!blok.cevap_anahtari) return null;
+
+let soruLabel = `Blok ${idx + 1}`;
+if (['standart_soru', 'eslestirme_tablosu', 'bosluk_doldurma'].includes(blok.blok_tipi)) {
+  let sNo = 1;
+  for (let i = 0; i < idx; i++) {
+    if (['standart_soru', 'eslestirme_tablosu', 'bosluk_doldurma'].includes(materialResult.icerik_bloklari[i].blok_tipi)) sNo++;
+  }
+  soruLabel = `${sNo}. Soru Çözümü`;
+} else if (blok.baslik) {
+  soruLabel = blok.baslik + " (Çözüm)";
+}
+
+return (
+<div key={idx} className="bg-indigo-50 border-l-8 border-indigo-500 border-y border-r border-indigo-200 p-5 rounded-r-xl shadow-sm break-inside-avoid print:bg-transparent print:border-gray-300 print:border-l-indigo-500">
+<div className="flex items-center mb-3 border-b border-indigo-200 pb-2">
+<span className="font-black text-indigo-800 text-base print-high-contrast"><i className="fa-solid fa-thumbtack mr-2 text-indigo-500"></i> {soruLabel}:</span>
+</div>
+<p className="text-sm text-gray-800 font-medium print-high-contrast whitespace-pre-wrap leading-relaxed">{blok.cevap_anahtari}</p>
+</div>
+);
+})}
+</div>
+</div>
+)}
+
+<BrandFooter />
+</div>
+</div>
+)}
+</div>
+)}
+
+{/* --- 5. DİJİTAL NOT DEFTERİ SEKMESİ (ŞABLONLAR VE MEDYA GALERİSİ EKLENDİ) --- */}
+{activeTab === 'notepad' && (
+<div className="animate-fade-in no-print pb-20 space-y-6">
+<div className="text-center mb-6">
+<h2 className="text-3xl font-extrabold text-gray-800"><i className="fa-solid fa-book-journal-whills text-indigo-600 mr-3"></i>Dijital Not Defterim</h2>
+<p className="text-gray-500 mt-2">Günlük öğrenci takibi, dosyalar, fotoğraflar ve videolar.</p>
+</div>
+
+{/* YENİ MODÜL: MEDYA GALERİSİ (Fotoğraf/Video) */}
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+<div className="flex justify-between items-center border-b pb-4 mb-4">
+<h3 className="text-lg font-bold text-gray-800"><i className="fa-solid fa-photo-film text-indigo-500 mr-2"></i>Medya Galerisi</h3>
+<label className="cursor-pointer bg-indigo-50 text-indigo-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-indigo-100 transition shadow-sm">
+<i className="fa-solid fa-cloud-arrow-up mr-1"></i> Dosya Yükle
+<input type="file" accept="image/*,video/*" multiple onChange={handleMediaUpload} className="hidden" />
+</label>
+</div>
+{localMedia.length === 0 ? (
+<div className="text-center py-8 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+<i className="fa-solid fa-folder-open text-4xl mb-2 opacity-50"></i>
+<p className="text-sm font-medium">Sınıf içi çalışmaların fotoğraf veya videolarını yükleyin.</p>
+</div>
+) : (
+<div className="media-gallery-grid">
+{localMedia.map(media => (
+<div key={media.id} className="media-item group">
+{media.type === 'image' ? (
+<img src={media.url} alt={media.name} />
+) : (
+<video src={media.url} controls className="w-full h-full" />
+)}
+<button onClick={() => removeMedia(media.id)} className="media-delete-btn opacity-0 group-hover:opacity-100 transition"><i className="fa-solid fa-times"></i></button>
+</div>
+))}
+</div>
+)}
+</div>
+
+<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 lg:col-span-2">
+<div className="flex justify-between items-center mb-4 border-b pb-2">
+<h3 className="text-lg font-bold text-gray-800"><i className="fa-solid fa-pen-to-square text-indigo-500 mr-2"></i>Yeni Not Oluştur</h3>
+<input type="date" value={noteDate} onChange={e=>setNoteDate(e.target.value)} className="px-2 py-1 bg-gray-50 border rounded outline-none text-sm font-medium text-gray-600"/>
+</div>
+<div className="mb-4 flex gap-2 overflow-x-auto pb-2">
+<span className="text-xs font-bold text-gray-500 self-center">Şablonlar:</span>
+<button onClick={() => {setNoteTitle('Derse Aldığım Öğrenciler'); setNoteContent('- Öğrenci 1:\n- Öğrenci 2:\n- Gözlem: ');}} className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-100 whitespace-nowrap"><i className="fa-solid fa-users mr-1"></i> Derse Gelenler</button>
+<button onClick={() => {setNoteTitle('Dosya Takibi'); setNoteContent('- Dosyası Bende Olanlar:\n- Teslim Edilecekler:\n');}} className="text-xs bg-orange-50 text-orange-700 border border-orange-200 px-3 py-1.5 rounded-lg hover:bg-orange-100 whitespace-nowrap"><i className="fa-solid fa-folder mr-1"></i> Dosya Takibi</button>
+</div>
+<div className="space-y-4">
+<div><input type="text" value={noteTitle} onChange={e=>setNoteTitle(e.target.value)} placeholder="Not Başlığı..." className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none font-bold text-gray-800 focus:bg-white focus:ring-2 focus:ring-indigo-500" /></div>
+<div><textarea value={noteContent} onChange={e=>setNoteContent(e.target.value)} rows="8" placeholder="Buraya yazın..." className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none text-gray-700 resize-y focus:bg-white focus:ring-2 focus:ring-indigo-500"></textarea></div>
+<button onClick={saveNote} className="w-full bg-gray-900 text-white py-3 rounded-xl font-bold hover:bg-black transition shadow-md"><i className="fa-solid fa-floppy-disk mr-2"></i> Notu Kaydet</button>
+</div>
+</div>
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+<h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i className="fa-solid fa-list text-indigo-500 mr-2"></i>Geçmiş Notlar ({notes.length})</h3>
+<div className="space-y-3 overflow-y-auto max-h-[500px] pr-2">
+{notes.length === 0 ? <p className="text-gray-400 text-sm text-center py-4">Kayıtlı notunuz yok.</p> :
+notes.map(n => (
+<div key={n.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100 hover:border-indigo-200 transition group relative">
+<div className="flex justify-between items-start mb-2">
+<h4 className="font-bold text-gray-800 text-sm">{n.title}</h4>
+<button onClick={() => deleteNote(n.id)} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"><i className="fa-solid fa-trash"></i></button>
+</div>
+<p className="text-xs text-gray-600 line-clamp-3 mb-3 whitespace-pre-wrap">{n.content}</p>
+<div className="flex justify-between items-center border-t pt-2 border-gray-200">
+<span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-1 rounded"><i className="fa-regular fa-calendar mr-1"></i> {n.date.split('-').reverse().join('.')}</span>
+<button onClick={() => {setNoteTitle(n.title); setNoteContent(n.content); setNoteDate(n.date);}} className="text-[10px] text-indigo-600 hover:underline font-bold">Düzenle</button>
+</div>
+</div>
+))
+}
+</div>
+</div>
+</div>
+</div>
+)}
+
+{/* --- 6. AYARLAR SEKMESİ --- */}
+{activeTab === 'settings' && (
+<div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 p-4 md:p-8 animate-fade-in no-print">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 border-b pb-4 gap-4">
+        <h2 className="text-2xl font-bold text-gray-800"><i className="fa-solid fa-gear text-indigo-600 mr-3"></i>Ayarlar</h2>
+        <div className="flex flex-col items-start sm:items-end space-y-1 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+            <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${isFbReady ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                <span>Veritabanı: {isFbReady ? 'Aktif' : 'Bekleniyor'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${isApiValid ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                <span>Yapay Zeka: {isApiValid ? 'Hazır' : 'Doğrulanmadı'}</span>
+            </div>
+        </div>
+    </div>
+    <div className="space-y-5">
+        <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">Gemini API Anahtarı</label>
+            <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm" />
+        </div>
+        <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">Model Seçimi (Manuel)</label>
+            <input type="text" value={modelName} onChange={(e) => setModelName(e.target.value)} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm" />
+        </div>
+        
+        {/* TAMAM VE DOĞRULA BUTONU */}
+        <button onClick={verifyAndSaveSettings} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black text-lg hover:bg-indigo-700 transition shadow-lg active:scale-95 flex items-center justify-center">
+            <i className="fa-solid fa-circle-check mr-2"></i> TAMAM (Kaydet ve Doğrula)
+        </button>
+
+        <div className="pt-4 border-t mt-6">
+            <button onClick={() => {localStorage.clear(); window.location.reload();}} className="w-full bg-red-50 text-red-500 py-3 rounded-xl font-bold hover:bg-red-100 transition text-sm">
+                <i className="fa-solid fa-trash-can mr-2"></i> Tüm Verileri Sıfırla
+            </button>
+        </div>
+    </div>
+</div>
+)}
+</main>
+
+{/* MARKA ALT BİLGİSİ - EKRAN */}
+<footer className="no-print bg-white border-t border-gray-200 py-4 text-center text-xs text-gray-500 mt-auto mb-14 md:mb-0">
+<i className="fa-solid fa-copyright mr-1"></i> 2026 Değişim Koleji Eğitim Ekosistemi • Barış Öğretmen • Tüm hakları saklıdır.
+<br/><span className="text-gray-400 mt-1 block">🌐 https://baris-ogretmen.github.io/site-1/</span>
+</footer>
+
+{/* Alt Navigasyon (Mobil) */}
+<nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] no-print overflow-x-auto">
+<div className="flex justify-around items-center h-16 min-w-[320px] px-2">
+<button onClick={() => {setActiveTab('new_report'); setEditingReportId(null); setEditableResult(null);}} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${activeTab === 'new_report' ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}><i className="fa-solid fa-pen-nib text-lg"></i><span className="text-[10px] font-bold">Rapor</span></button>
+<button onClick={() => setActiveTab('contacts')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${activeTab === 'contacts' ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}><i className="fa-solid fa-address-book text-lg"></i><span className="text-[10px] font-bold">Rehber</span></button>
+<button onClick={() => setActiveTab('archive')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${activeTab === 'archive' ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}><i className="fa-solid fa-users-viewfinder text-lg"></i><span className="text-[10px] font-bold">Arşiv</span></button>
+<button onClick={() => setActiveTab('tools')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${activeTab === 'tools' ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}><i className="fa-solid fa-wand-magic-sparkles text-lg"></i><span className="text-[10px] font-bold">Matbaa</span></button>
+<button onClick={() => setActiveTab('notepad')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${activeTab === 'notepad' ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}><i className="fa-solid fa-book text-lg"></i><span className="text-[10px] font-bold">Notlar</span></button>
+<button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'settings' ? 'text-indigo-600' : 'text-gray-400'}`}>
+        <i className="fa-solid fa-gear mb-1 text-lg"></i>
+        <span className="text-[10px] font-bold">Ayarlar</span>
+    </button>
+</div>
+</nav>
+
+</div>
+);
+};
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
