@@ -550,11 +550,31 @@ try {
     const data = await response.json();
     
     if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-        let aiMetni = data.candidates[0].content.parts[0].text;
-        // JSON Zırhı (Fazla kodları ve tırnak hatalarını temizler)
-        aiMetni = aiMetni.replace(/```json/gi, '').replace(/```/gi, '').trim();
-        setEditableResult(JSON.parse(aiMetni));
-        showToast("Rapor üretildi! ✨");
+        let rawText = data.candidates[0].content.parts[0].text;
+        
+        // JSON Temizleme: Kod bloklarını ve gereksiz boşlukları atar
+        let cleanJson = rawText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+        
+        // KRİTİK TAMİR: Sinsi ters bölü ve tırnak hatalarını düzeltir
+        cleanJson = cleanJson.replace(/\\"/g, "'").replace(/"{2,}/g, '"');
+        
+        try {
+            // Birinci deneme: Normal parse
+            const parsed = JSON.parse(cleanJson);
+            setEditableResult(parsed);
+            showToast("Rapor üretildi! ✨");
+        } catch (parseErr) {
+            console.error("JSON Hatası Yakalandı, Derin Onarım Başlıyor...");
+            try {
+                // İkinci deneme (Çelik Zırh): Metin içindeki tırnakları ayıklayıp sadece anahtarları korur
+                let forcedJson = cleanJson.replace(/"([^"]+)":/g, '___$1___:').replace(/"/g, "'").replace(/___([^___]+)___:/g, '"$1":');
+                setEditableResult(JSON.parse(forcedJson));
+                showToast("Rapor onarılarak başarıyla üretildi! 🛡️");
+            } catch (deepErr) {
+                console.error("Derin Onarım Başarısız:", deepErr);
+                showToast("❌ Çok karmaşık veri hatası! Lütfen gözlem metnini biraz sadeleştirin.");
+            }
+        }
     }
 } catch (err) { 
     console.error("Hata Detayı:", err);
