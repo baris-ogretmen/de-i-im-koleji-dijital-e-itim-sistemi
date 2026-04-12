@@ -31,53 +31,77 @@ body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #1f29
 .textarea-auto { display: block; width: 100%; overflow: hidden; resize: none; min-height: 40px; line-height: 1.5; }
 .font-serif { font-family: 'Merriweather', serif; }
 
-/* GÜÇLENDİRİLMİŞ YAZDIRMA MOTORU (BEYAZ EKRAN VE KESİLME ÖNLEYİCİ) */
+/* GÜÇLENDİRİLMİŞ YAZDIRMA MOTORU (CANLI RENKLER VE KUSURSUZ SIĞDIRMA) */
 @media print {
-    /* 1. FLEXBOX ÇÖKMELERİNİ ÖNLEME (Boş sayfa hatası için ana çözüm) */
-    html, body, #root, main, .min-h-screen { 
-        display: block !important; 
-        height: auto !important; 
-        min-height: auto !important; 
-        overflow: visible !important; 
-        position: static !important;
+    /* 1. GİZLİ TAŞMALARI AÇ VE SAYFAYI SERBEST BIRAK */
+    html, body, #root, main, .min-h-screen, .flex-col, .animate-fade-in { 
+        display: block !important; height: auto !important; min-height: auto !important; overflow: visible !important; position: static !important;
+    }
+
+    /* 2. CHROME'UN DÜŞMANI OLAN YAN YANA KUTULARI (GRID/FLEX) ALT ALTA DİZ */
+    .grid, .flex { display: block !important; }
+    .grid > div, .grid-cols-1 > div, .md\:grid-cols-2 > div, .xl\:grid-cols-2 > div { 
+        width: 100% !important; display: block !important; margin-bottom: 1.5rem !important; 
+        page-break-inside: avoid !important; break-inside: avoid !important;
+    }
+
+    /* 3. ÖZEL KUTULARIN ORTADAN YARILMASINI YASAKLA VE GENİŞLET */
+    .print-card, .break-inside-avoid, #tool-printable-analiz > div {
+        page-break-inside: avoid !important; break-inside: avoid !important; display: block !important; margin-bottom: 20px !important; width: 100% !important;
+    }
+
+    /* 4. KAĞIT İÇİN CANLI KONTRAST MOTORU */
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+    body { background-color: white !important; color: black !important; margin: 0; padding: 0; font-size: 14px !important; }
+    
+    /* ANA BAŞLIKLAR VE İSİMLERİ SİYAH VE KALIN YAP */
+    .text-3xl, .text-2xl, h1, h2 { color: #000000 !important; font-weight: 900 !important; text-align: center !important; }
+    
+    /* BARIŞ HOCA TALEBİ: YAZILARI CANLI VE OKUNAKLI YAP */
+    .print-high-contrast, p, span, h3, h4, h5, div, li { 
+        color: #111827 !important; font-weight: 600 !important; font-size: 13px !important; 
+    }
+
+    /* BARIŞ HOCA CANLI RENKLERİ (Özel Eğitim İptal, Kurumsal Renkler Aktif) */
+    .text-yellow-400, .text-amber-100 { color: #92400e !important; } /* Sarı/Amber -> Koyu Bal Rengi */
+    .text-emerald-300, .text-green-400 { color: #065f46 !important; } /* Yeşil -> Koyu Zümrüt */
+    .text-blue-300, .text-sky-300, .text-blue-100 { color: #1e3a8a !important; } /* Mavi -> Koyu Lacivert */
+    .text-indigo-300, .text-purple-300, .text-indigo-200 { color: #312e81 !important; } /* Mor/Indigo -> Koyu Mor */
+    .text-indigo-900, .text-indigo-700 { color: #1e3a8a !important; }
+    .text-gray-100, .text-gray-300 { color: #374151 !important; }
+
+    /* KOYU ARKA PLANLARI PASTEL VE CANLI RENKLERE ÇEVİR */
+    #tool-printable-analiz { background-color: white !important; padding: 0 !important; color: black !important; }
+    .bg-indigo-900, .bg-purple-900 { background: white !important; padding: 0 !important; color: black !important; }
+    #tool-printable-analiz h3.text-center { color: #1e3a8a !important; text-align: center !important; margin-bottom: 20px !important; }
+
+    .bg-slate-900\/50 { background-color: #f1f5f9 !important; border: 2px solid #cbd5e1 !important; } /* İlk Geliş -> Açık Gri */
+    .bg-emerald-900\/50, .bg-emerald-900\/40 { background-color: #ecfdf5 !important; border: 2px solid #a7f3d0 !important; } /* Şu An -> Açık Yeşil */
+    .bg-indigo-950\/40, .bg-indigo-900\/50 { background-color: #eef2ff !important; border: 2px solid #c7d2fe !important; } /* Trendler -> Açık Mavi */
+    .bg-black\/20, .bg-black\/30, .bg-white\/5 { background-color: #f3f4f6 !important; border: 1px solid #d1d5db !important; }
+    .bg-blue-900\/40 { background-color: #eff6ff !important; border: 2px solid #bfdbfe !important; } /* LGS Hedefler -> Açık Mavi */
+    .bg-yellow-500\/20 { background-color: #fefce8 !important; border: 2px solid #fde047 !important; } /* Kolej Etkisi -> Açık Sarı */
+    .bg-red-900\/40 { background-color: #fef2f2 !important; border: 2px solid #fecaca !important; }
+    .bg-green-900\/40 { background-color: #f0fdf4 !important; border: 2px solid #bbf7d0 !important; }
+    
+    /* HEDEF OKUL KUTULARININ YAZILARINI CANLI YAP VE SIĞDIR */
+    .print-card div[style^="border-color:"] span.text-blue-100,
+    .print-card div[style^="border-color:"] span.text-gray-400 {
+        color: #1e3a8a !important; font-size: 11px !important;
     }
-    .overflow-hidden { overflow: visible !important; }
-
-    /* 2. ARKA PLAN GRAFİKLERİ KAPALIYSA BEYAZ YAZILARI SİYAHA ÇEVİR (Görünmezliği Bozar) */
-    .text-white, .text-gray-100, .text-gray-200, .text-indigo-100, .text-indigo-200, .text-sky-100 { 
-        color: #000000 !important; 
+    .print-card div[style^="border-color:"] span.text-lg {
+        color: #000000 !important; font-weight: 900 !important; font-size: 16px !important;
     }
-    /* Koyu kutuların sınırlarını belli et */
-    .bg-gradient-to-br { background: transparent !important; border: 2px solid #9ca3af !important; }
 
-    body { background-color: white !important; color: black !important; margin: 0; padding: 0; }
-    .no-print { display: none !important; }
-    .print-only { display: block !important; }
-    
-    /* Renkleri zorla koruma komutu */
-    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
-
-    .print-container { box-shadow: none !important; padding: 0 !important; margin: 0 !important; border: none !important; }
-    .print-card { border: 1px solid #d1d5db !important; box-shadow: none !important; break-inside: avoid; margin-bottom: 1rem !important; page-break-inside: avoid; }
-
-    .print-container h1, .print-container h2, .print-container h3, .print-container h4, .print-container h5,
-    .print-container p, .print-container span, .print-container div, .print-container li, .print-high-contrast,
-    .print-container table, .print-container td, .print-container th { color: #000000 !important; font-weight: 600 !important; }
-
-    .cevap-anahtari-baslik { background-color: #fef08a !important; color: #1e3a8a !important; border: 2px solid #1e3a8a !important; }
-    .cevap-anahtari-baslik * { color: #1e3a8a !important; }
-
-    textarea, input { border: none !important; background: transparent !important; resize: none !important; padding: 0 !important; box-shadow: none !important; color: #000000 !important; outline: none !important; font-weight: 700 !important; }
-
-    @page { margin: 1cm; }
-    h1, h2, h3, h4, h5 { page-break-after: avoid; }
-    .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
-    .page-break-before { page-break-before: always !important; break-before: page !important; }
-
-    .brand-footer { display: block !important; width: 100%; text-align: center; margin-top: 40px; padding-top: 15px; border-top: 3px solid #000; font-size: 14px; font-weight: 900; color: #000; break-inside: avoid; }
+    /* 5. ARŞİVE DÖN BUTONUNU GİZLE */
+    button[onClick^="setSelectedStudent(null)"], .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    @page { margin: 1cm; size: a4 portrait; }
 }
 
-.brand-footer { display: block; width: 100%; text-align: center; margin-top: 40px; padding-top: 15px; border-top: 2px solid #e5e7eb; font-size: 12px; color: #6b7280; }
+.brand-footer { display: block; width: 100%; text-align: center; margin-top: 20px; padding-top: 15px; border-top: 2px solid #e5e7eb; font-size: 11px; color: #6b7280; page-break-inside: avoid; }
+
+
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
 ::-webkit-scrollbar-thumb { background: #c7c7cc; border-radius: 4px; }
@@ -142,7 +166,7 @@ score: r.result?.gelisim_puani || 0
 const maxScore = 10;
 const barWidth = 100 / Math.max(data.length, 1);
 return (
-<div className="flex items-end justify-between h-40 bg-gray-50 rounded-xl p-4 border border-gray-200">
+<div className="flex items-end justify-between h-40 bg-gray-50 rounded-xl p-4 border border-gray-200 break-inside-avoid print:h-auto print:min-h-[160px]">
 {data.map((d, i) => {
 const height = (d.score / maxScore) * 100;
 return (
@@ -172,6 +196,7 @@ const [isFbReady, setIsFbReady] = useState(false);
 const [savedReports, setSavedReports] = useState([]);
 const [contacts, setContacts] = useState([]);
 const [notes, setNotes] = useState([]);
+const [savedAnalyses, setSavedAnalyses] = useState([]);
 const [localMedia, setLocalMedia] = useState([]); // YENİ MODÜL: Medya Galerisi İçin
 
 const [editingReportId, setEditingReportId] = useState(null);
@@ -353,11 +378,16 @@ const conts = []; snapshot.forEach((doc) => conts.push({ id: doc.id, ...doc.data
 setContacts(conts);
 });
 const unsubNotes = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'notes'), (snapshot) => {
+const unsubAnalyses = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'analyses'), (snapshot) => {
+    const ans = []; snapshot.forEach((doc) => ans.push({ id: doc.id, ...doc.data() }));
+    ans.sort((a, b) => new Date(b.date) - new Date(a.date));
+    setSavedAnalyses(ans);
+});
 const nts = []; snapshot.forEach((doc) => nts.push({ id: doc.id, ...doc.data() }));
 nts.sort((a, b) => new Date(b.date) - new Date(a.date));
 setNotes(nts);
 });
-return () => { unsubReports(); unsubContacts(); unsubNotes(); };
+return () => { unsubReports(); unsubContacts(); unsubNotes(); unsubAnalyses(); };
 }, [isFbReady, user, db, appId]);
 const [isApiValid, setIsApiValid] = useState(false);
 
@@ -1025,13 +1055,19 @@ const generateStudentAnalysis = async () => {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde bir eğitim koçu ve kariyer danışmanısın. Lise tercih sürecinde veliye hayal satmadan, gerçekçi ama motive edici bir tablo çizersin. ASLA çift tırnak kullanma." }] },
-                contents: [{ parts: [{ text: `Öğrenci: ${selectedStudent}\nGeçmiş Performans Verileri:\n${studentData}${ekDenemeMetni}\n\nGÖREV: Bu verileri analiz et. Öğrenci için 2 ayrı simülasyon yap:\n1) LGS Sınavı (Sınavla alan nitelikli okullar) için 3 hedef.\n2) OBP (Okul Başarı Puanı / Sınavsız Yerel Yerleştirme) için 3 hedef.\n\nHer iki kategori için okulları şu 3 seviyeye göre belirle:\n- Güvenli Bölge (Kazanma ihtimali çok yüksek, %80-99)\n- Gerçekçi Hedef (Tam potansiyeline uygun, %50-79)\n- Vizyon Hedefi (Sınırlarını zorlarsa ulaşabileceği, %20-49)\n\nAçıklamaları şefkatli ve yönlendirici bir dille yaz.` }] }],
+contents: [{ parts: [{ text: `Öğrenci: ${selectedStudent}\nGeçmiş Performans Verileri:\n${studentData}${ekDenemeMetni}\n\nGÖREV: Bu verileri analiz et ve Anaokulu-Ortaokul vizyonuna uygun mega simülasyonlar yap:\n1) VERİ TRENDİ VE SIRALAMA: Hafta/ay değişimi ve sınıf içi akademik/sosyal liderlik konumu.\n2) ÖĞRENME KARAKTERİ: Öğrenciye havalı bir pedagojik profil ismi ver (Örn: Analitik Düşünür, Dijital Kaşif).\n3) ÖNCESİ VE SONRASI: Kuruma 'İlk Geliş Durumu' ile 'Değişim Koleji Sonrası' yaşanan akademik/sosyal devrimi çarpıcı bir şekilde karşılaştır.\n4) 21. YY BECERİ RADARI: Eleştirel Düşünme, Yaratıcılık, İletişim, İşbirliği gibi modern becerilere 10 üzerinden skor ver.\n5) LGS & OBP Hedefleri (Güvenli, Gerçekçi, Vizyon).\nAçıklamaları veliyi büyüleyecek şefkatli, kurumsal ve analitik bir dille yaz. Çift tırnak kullanma.` }] }],
                 generationConfig: { 
                     responseMimeType: "application/json", 
                     responseSchema: { 
                         type: "OBJECT", 
                         properties: { 
                             genel_degerlendirme: { type: "STRING" }, 
+                            ogrenme_karakteri: { type: "STRING" },
+                            ilk_gelis_durumu: { type: "STRING" },
+                            degisim_koleji_sonrasi: { type: "STRING" },
+                            yirmi_birinci_yy_radari: { type: "ARRAY", items: { type: "OBJECT", properties: { beceri: { type: "STRING" }, skor: { type: "INTEGER" }, renk: { type: "STRING" } } } },
+                            sinif_ici_siralama: { type: "STRING" },
+                            haftalik_aylik_trend: { type: "ARRAY", items: { type: "OBJECT", properties: { zaman_dilimi: { type: "STRING" }, analiz: { type: "STRING" }, trend_yonu: { type: "STRING" } } } },
                             degisim_etkisi: { type: "STRING" }, 
                             kariyer_radari: { type: "STRING" }, 
                             ilerleme_skorlari: { type: "ARRAY", items: { type: "OBJECT", properties: { kategori: { type: "STRING" }, yuzde: { type: "INTEGER" }, renk: { type: "STRING" } } } }, 
@@ -1043,14 +1079,26 @@ const generateStudentAnalysis = async () => {
                             hedef_okullar_lgs: { type: "ARRAY", items: { type: "OBJECT", properties: { okul_adi: { type: "STRING" }, kategori: { type: "STRING" }, ihtimal: { type: "INTEGER" }, aciklama: { type: "STRING" } } } },
                             hedef_okullar_obp: { type: "ARRAY", items: { type: "OBJECT", properties: { okul_adi: { type: "STRING" }, kategori: { type: "STRING" }, ihtimal: { type: "INTEGER" }, aciklama: { type: "STRING" } } } }
                         }, 
-                        required: ["genel_degerlendirme", "degisim_etkisi", "kariyer_radari", "ilerleme_skorlari", "rozetler", "guclu_yonler", "gelisim_alanlari", "yol_haritasi", "kisisel_recete", "hedef_okullar_lgs", "hedef_okullar_obp"] 
+                        required: ["genel_degerlendirme", "ogrenme_karakteri", "ilk_gelis_durumu", "degisim_koleji_sonrasi", "yirmi_birinci_yy_radari", "sinif_ici_siralama", "haftalik_aylik_trend", "degisim_etkisi", "kariyer_radari", "ilerleme_skorlari", "rozetler", "guclu_yonler", "gelisim_alanlari", "yol_haritasi", "kisisel_recete", "hedef_okullar_lgs", "hedef_okullar_obp"] 
                     } 
                 }
             })
         });
-        const data = await response.json();
-        setAiAnalysisResult(JSON.parse(data.candidates[0].content.parts[0].text));
-    } catch (err) { console.error(err); }
+      const data = await response.json();
+        const parsedAnalysis = JSON.parse(data.candidates[0].content.parts[0].text);
+        setAiAnalysisResult(parsedAnalysis);
+        
+        // BARIŞ HOCA MEGA GÜNCELLEME: Analizi veritabanına otomatik kaydet!
+        if (isFbReady && user && db) {
+            await window.FirebaseSDK.addDoc(window.FirebaseSDK.collection(db, 'artifacts', appId, 'users', user.uid, 'analyses'), {
+                studentName: selectedStudent,
+                date: new Date().toISOString().split('T')[0],
+                result: parsedAnalysis,
+                timestamp: new Date().toISOString()
+            });
+            showToast("Analiz başarıyla üretildi ve arşive kalıcı olarak kaydedildi! 💾");
+        }
+    } catch (err) { console.error(err); showToast("Hata oluştu."); }
     setIsAnalyzing(false);
 };
 
@@ -1471,8 +1519,8 @@ return (
 </>
 ) : (
 <>
-<button onClick={() => setSelectedStudent(null)} className="mb-6 text-gray-500 hover:text-gray-900 font-medium flex items-center transition"><i className="fa-solid fa-arrow-left mr-2"></i> Arşive Dön</button>
-<div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8 mb-8">
+<button onClick={() => setSelectedStudent(null)} className="mb-6 text-gray-500 hover:text-gray-900 font-medium flex items-center transition no-print"><i className="fa-solid fa-arrow-left mr-2"></i> Arşive Dön</button>
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8 mb-8 no-print">
 <div className="flex items-center space-x-4 mb-6 border-b pb-6"><div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-2xl shadow-lg">{selectedStudent.charAt(0)}</div><div><h2 className="text-2xl font-bold text-gray-800">{selectedStudent}</h2><p className="text-gray-500">Gelişim ve İlerleme Analizi</p></div></div>
 <h3 className="text-lg font-bold text-gray-700 mb-4"><i className="fa-solid fa-chart-line text-indigo-500 mr-2"></i> Gelişim Puanı Grafiği (1-10)</h3>
 <ProgressChart reports={groupedStudents[selectedStudent] || []} />
@@ -1480,8 +1528,8 @@ return (
 <div className="bg-gradient-to-br from-indigo-900 to-purple-900 rounded-2xl shadow-lg p-6 mb-8 text-white relative overflow-hidden mt-6 print:bg-none print:bg-white print:text-black print:shadow-none print:border-0 print:p-0">
 <i className="fa-solid fa-brain absolute -right-4 -bottom-4 text-8xl text-white opacity-10 print:hidden"></i>
 <div className="relative z-10">
-<h3 className="text-xl font-bold mb-2 flex items-center print:hidden"><i className="fa-solid fa-wand-magic-sparkles text-yellow-400 mr-3"></i> Yapay Zeka ile Görsel Analiz Çıkar</h3>
-<p className="text-indigo-200 text-sm mb-4 print:hidden">Gemini AI, geçmiş raporları analiz edip velileri etkileyecek infografik bir karne hazırlar.</p>
+<h3 className="text-xl font-bold mb-2 flex items-center no-print"><i className="fa-solid fa-wand-magic-sparkles text-yellow-400 mr-3"></i> Yapay Zeka ile Görsel Analiz Çıkar</h3>
+<p className="text-indigo-200 text-sm mb-4 no-print">Gemini AI, geçmiş raporları analiz edip velileri etkileyecek infografik bir karne hazırlar.</p>
 
 {!aiAnalysisResult ? (
 <div className="space-y-3 print:hidden">
@@ -1500,6 +1548,77 @@ return (
 <div className="break-inside-avoid bg-indigo-900/40 p-4 rounded-xl mb-4 print:bg-gray-50 print:border print:border-gray-200">
 <h4 className="text-yellow-400 font-bold text-sm uppercase mb-2 print:text-indigo-800">Genel Değerlendirme</h4>
 <p className="text-sm leading-relaxed text-gray-100 print:text-gray-800">{aiAnalysisResult.genel_degerlendirme}</p>
+</div>
+
+{/* BARIŞ HOCA MEGA ŞOV MODÜLÜ: ÖĞRENME KARAKTERİ & ÖNCESİ/SONRASI */}
+<div className="flex justify-center mb-6 break-inside-avoid">
+    <span className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-black px-6 py-2 rounded-full shadow-lg text-lg uppercase tracking-widest border-2 border-white print:border-indigo-500 print:text-indigo-900 print:bg-none print:shadow-none">
+        <i className="fa-solid fa-dna mr-2"></i> Öğrenme Karakteri: {aiAnalysisResult.ogrenme_karakteri}
+    </span>
+</div>
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 break-inside-avoid">
+    {/* İlk Geliş Durumu */}
+    <div className="bg-slate-900/50 rounded-xl p-5 border border-slate-500/30 print:bg-gray-100 print:border-gray-300 relative overflow-hidden">
+        <div className="absolute top-0 right-0 bg-slate-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-widest no-print">İlk Geliş</div>
+        <h4 className="text-slate-300 font-black text-sm mb-3 print:text-gray-800 uppercase"><i className="fa-solid fa-seedling mr-2 text-slate-400"></i>Başlarken Nasıldı?</h4>
+        <p className="text-sm font-medium text-slate-100 print:text-gray-700 italic">"{aiAnalysisResult.ilk_gelis_durumu}"</p>
+    </div>
+    
+    {/* Değişim Sonrası */}
+    <div className="bg-emerald-900/50 rounded-xl p-5 border border-emerald-500/30 print:bg-emerald-50 print:border-emerald-300 relative overflow-hidden shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+        <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-widest no-print">Şu An</div>
+        <h4 className="text-emerald-300 font-black text-sm mb-3 print:text-emerald-800 uppercase"><i className="fa-solid fa-tree mr-2 text-emerald-500"></i>Eğitimle Neler Değişti?</h4>
+        <p className="text-sm font-bold text-emerald-50 print:text-emerald-900">"{aiAnalysisResult.degisim_koleji_sonrasi}"</p>
+    </div>
+</div>
+
+{/* 21. YÜZYIL BECERİ RADARI */}
+<div className="bg-white/5 rounded-xl p-5 border border-white/10 mb-4 break-inside-avoid print:bg-white print:border-gray-200">
+    <h4 className="text-yellow-400 font-black text-sm mb-4 print:text-indigo-900 uppercase tracking-widest"><i className="fa-solid fa-radar mr-2"></i>21. Yüzyıl Beceri Radarı</h4>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {aiAnalysisResult.yirmi_birinci_yy_radari?.map((beceri, idx) => (
+            <div key={idx} className="bg-black/20 p-3 rounded-lg print:bg-gray-50 border border-transparent print:border-gray-200">
+                <div className="flex justify-between text-xs font-bold mb-2 print:text-gray-800">
+                    <span>{beceri.beceri}</span>
+                    <span className="text-indigo-300 print:text-indigo-600">{beceri.skor}/10</span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-1.5 print:bg-gray-300">
+                    <div className="h-1.5 rounded-full" style={{width: `${beceri.skor * 10}%`, backgroundColor: beceri.renk === 'blue' ? '#3b82f6' : beceri.renk === 'purple' ? '#a855f7' : beceri.renk === 'green' ? '#10b981' : beceri.renk === 'yellow' ? '#eab308' : '#f43f5e'}}></div>
+                </div>
+            </div>
+        ))}
+    </div>
+</div>
+
+{/* YENİ MODÜL: SINIF İÇİ SIRALAMA VE HAFTALIK/AYLIK TREND */}
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 break-inside-avoid">
+    {/* Sıralama ve Statü Kutusu */}
+    <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl p-5 border border-amber-400 shadow-md md:col-span-1 print:bg-amber-50 print:border-amber-300">
+        <h4 className="text-amber-100 font-black text-xs mb-2 print:text-amber-900 uppercase tracking-widest"><i className="fa-solid fa-ranking-star mr-2"></i>Sınıf İçi Konum & Liderlik</h4>
+        <p className="text-xl font-bold text-white leading-snug print:text-amber-800">{aiAnalysisResult.sinif_ici_siralama}</p>
+        <i className="fa-solid fa-chess-knight text-4xl text-amber-300/30 absolute bottom-4 right-4 print:hidden"></i>
+    </div>
+    
+    {/* Hafta Hafta / Ay Ay Gelişim Trendi */}
+    <div className="bg-indigo-950/40 rounded-xl p-5 border border-indigo-500/30 md:col-span-2 print:bg-gray-50 print:border-gray-300">
+        <h4 className="text-indigo-300 font-black text-sm mb-3 print:text-indigo-900 uppercase tracking-widest"><i className="fa-solid fa-timeline mr-2"></i>Zaman Çizelgesi (Trend Analizi)</h4>
+        <div className="space-y-3">
+            {aiAnalysisResult.haftalik_aylik_trend?.map((trend, idx) => (
+                <div key={idx} className="flex items-start gap-3 bg-black/20 p-2.5 rounded-lg border border-white/5 print:bg-white print:border-gray-200">
+                    <div className="mt-1">
+                        {trend.trend_yonu === 'yukari' ? <i className="fa-solid fa-arrow-trend-up text-green-400 print:text-green-600"></i> : 
+                         trend.trend_yonu === 'asagi' ? <i className="fa-solid fa-arrow-trend-down text-red-400 print:text-red-600"></i> : 
+                         <i className="fa-solid fa-minus text-yellow-400 print:text-yellow-600"></i>}
+                    </div>
+                    <div>
+                        <span className="block font-bold text-xs text-indigo-200 print:text-indigo-800">{trend.zaman_dilimi}</span>
+                        <span className="text-sm text-gray-200 print:text-gray-700">{trend.analiz}</span>
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
 </div>
 
 {/* LGS ve OBP Hedef Bölümü - EĞİTİM KOÇLUĞU FORMATI */}
@@ -1611,8 +1730,26 @@ return (
 )}
 </div>
 </div>
-<h3 className="text-xl font-bold text-gray-800 mb-4"><i className="fa-solid fa-history text-indigo-500 mr-2"></i> Geçmiş Raporlar ve Ödev Takibi</h3>
-<div className="space-y-4">
+{/* YENİ EKLENEN: KAYITLI İNFOGRAFİK ANALİZLER BÖLÜMÜ */}
+<div className="mb-10 bg-white p-6 rounded-2xl border border-indigo-100 shadow-sm print:hidden">
+    <h3 className="text-xl font-bold text-indigo-900 mb-4"><i className="fa-solid fa-chart-pie text-indigo-500 mr-2"></i> Kayıtlı Gelişim Analizleri (İnfografik)</h3>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {savedAnalyses?.filter(a => a.studentName === selectedStudent).map(analiz => (
+            <div key={analiz.id} onClick={() => {setAiAnalysisResult(analiz.result); showToast("Geçmiş analiz yüklendi!");}} className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-xl p-4 flex justify-between items-center hover:shadow-md transition cursor-pointer group">
+                <div>
+                    <span className="text-xs font-bold text-indigo-600 bg-white px-2 py-1 rounded shadow-sm"><i className="fa-regular fa-calendar mr-1"></i> {analiz.date.split('-').reverse().join('.')}</span>
+                    <h4 className="font-bold text-gray-800 mt-2 text-sm group-hover:text-indigo-700 transition">{analiz.result?.ogrenme_karakteri || 'Kayıtlı Analiz Göster'}</h4>
+                </div>
+                <button className="text-indigo-500 group-hover:bg-indigo-600 group-hover:text-white bg-white w-10 h-10 rounded-full shadow-sm flex items-center justify-center transition"><i className="fa-solid fa-eye"></i></button>
+            </div>
+        ))}
+        {(savedAnalyses || []).filter(a => a.studentName === selectedStudent).length === 0 && (
+            <p className="text-sm text-gray-500 italic bg-gray-50 p-3 rounded-lg border border-gray-200">Henüz bu öğrenci için kaydedilmiş bir infografik analiz bulunmuyor. Yukarıdaki butondan yeni bir analiz başlatabilirsiniz.</p>
+        )}
+    </div>
+</div>
+<h3 className="text-xl font-bold text-gray-800 mb-4 no-print"><i className="fa-solid fa-history text-indigo-500 mr-2"></i> Geçmiş Raporlar ve Ödev Takibi</h3>
+<div className="space-y-4 no-print">
 {(groupedStudents[selectedStudent] || []).map((report, idx) => (
 <div key={report.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition">
 <div className="flex justify-between items-start mb-3">
