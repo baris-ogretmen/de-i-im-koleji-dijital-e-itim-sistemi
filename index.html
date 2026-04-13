@@ -227,6 +227,7 @@ const [materialTopic, setMaterialTopic] = useState('');
 const [materialType, setMaterialType] = useState('Fark Etmez (Yapay Zeka Seçsin)');
 const [materialResult, setMaterialResult] = useState(null);
 const [isGeneratingMaterial, setIsGeneratingMaterial] = useState(false);
+const [lastPromptContext, setLastPromptContext] = useState(''); // BARIŞ HOCA HAFIZA MODÜLÜ
 const [matStudentName, setMatStudentName] = useState('');
 const [matInterests, setMatInterests] = useState('');
 const [matDifficulty, setMatDifficulty] = useState('Fark Etmez (Yapay Zeka Belirlesin)');
@@ -758,10 +759,18 @@ const generatePersonalizedMaterialFromFile = async (base64Data, mimeType, kullan
 
 // BARIŞ HOCA ANA MATBAA MOTORU (ÖLÜMSÜZ SÜRÜM)
 const generateMaterial = async () => {
-    if (!apiKey || !materialTopic.trim()) { showToast("Lütfen konu girin ve API anahtarınızı kontrol edin."); return; }
-    setIsGeneratingMaterial(true); setMaterialResult(null);
+    if (!apiKey || !materialTopic.trim()) { showToast("Lütfen konu girin ve API anahtarınızı kontrol edin."); return; }
+    setIsGeneratingMaterial(true); setMaterialResult(null);
 
-    let kuralMetni = "";
+    // BARIŞ HOCA MEGA HAFIZA MODÜLÜ (Bölüm 2 İçin)
+    let islenenKonu = materialTopic;
+    if (materialTopic.toLowerCase().includes('devam') || materialTopic.toLowerCase().includes('bölüm 2') || materialTopic.toLowerCase().includes('bolum 2')) {
+        islenenKonu = `BÖLÜM 2 / DEVAM İSTEĞİ: Kullanıcı az önceki konunun devamını istiyor. Önceki konu şuydu: "${lastPromptContext}". Lütfen konuyu baştan anlatma, önceki konuları tekrar etmeden daha ileri seviyede, yepyeni alt başlıklar ve yepyeni sorularla KALDIĞIN YERDEN DEVAM ET! Kullanıcının şu anki ekstra isteği: "${materialTopic}"`;
+    } else {
+        setLastPromptContext(materialTopic); // Yeni konuysa gizlice hafızaya al
+    }
+
+    let kuralMetni = "";
     const isTestType = ['Fark Etmez (Yapay Zeka Seçsin)', 'yeni_nesil_test', 'test', 'eslestirme', 'bosluk', 'dogru_yanlis', 'karma'].includes(materialType);
     let soruKurali = "";
     if (isTestType) {
@@ -845,7 +854,7 @@ const generateMaterial = async () => {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde Eğitsel İçerik Mimarısın. HAYATİ KURALLAR: 1) JSON şemasına %100 uy. 2) Metinlerde ASLA çift tırnak (\") kullanma. 3) HTML yazarken etiketleri TEK TIRNAK ile yaz (Örn: <span style='color:red'>). Tek tırnakların önüne ASLA kaçış işareti (ters eğik çizgi \\) KOYMA! 4) Metinlerin içine 'Enter' tuşuyla satır atlama, '\\n' kullan." }] },
-                contents: [{ parts: [{ text: `## EĞİTİM MATERYALİ TASLAĞI ##\nHedef Kitle: ${hedefKitleMetni}\nKonu: ${materialTopic}\nİstenen Format: ${kuralMetni}\n\n${uzunlukKurali}\n${kisisellestirme}\n${cozumKurali}\n${baslikKurali}\n\nZORUNLU KURAL: İstenen her şeyi %100 kapsayan, saf akademik içeriği JSON formatında üret.` }] }],
+                contents: [{ parts: [{ text: `## EĞİTİM MATERYALİ TASLAĞI ##\nHedef Kitle: ${hedefKitleMetni}\nKonu: ${islenenKonu}\nİstenen Format: ${kuralMetni}\n\n${uzunlukKurali}\n${kisisellestirme}\n${cozumKurali}\n${baslikKurali}\n\nZORUNLU KURAL: İstenen her şeyi %100 kapsayan, saf akademik içeriği JSON formatında üret.` }] }],
                 generationConfig: {
                     responseMimeType: "application/json",
                     temperature: 0.8,
