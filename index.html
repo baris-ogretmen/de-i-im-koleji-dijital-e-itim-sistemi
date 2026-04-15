@@ -762,12 +762,16 @@ const generateMaterial = async () => {
     if (!apiKey || !materialTopic.trim()) { showToast("Lütfen konu girin ve API anahtarınızı kontrol edin."); return; }
     setIsGeneratingMaterial(true); setMaterialResult(null);
 
-    // BARIŞ HOCA MEGA HAFIZA MODÜLÜ (Bölüm 2 İçin)
+    // BARIŞ HOCA MEGA UZUN SÜRELİ HAFIZA MODÜLÜ (Öğrenci Bazlı Kalıcı Bellek)
     let islenenKonu = materialTopic;
-    if (materialTopic.toLowerCase().includes('devam') || materialTopic.toLowerCase().includes('bölüm 2') || materialTopic.toLowerCase().includes('bolum 2')) {
-        islenenKonu = `BÖLÜM 2 / DEVAM İSTEĞİ: Kullanıcı az önceki konunun devamını istiyor. Önceki konu şuydu: "${lastPromptContext}". Lütfen konuyu baştan anlatma, önceki konuları tekrar etmeden daha ileri seviyede, yepyeni alt başlıklar ve yepyeni sorularla KALDIĞIN YERDEN DEVAM ET! Kullanıcının şu anki ekstra isteği: "${materialTopic}"`;
+    let memoryKey = matStudentName ? `mat_memory_${matStudentName.trim().toLowerCase()}` : 'mat_memory_genel';
+    let kayitliHafiza = localStorage.getItem(memoryKey) || lastPromptContext;
+
+    if (materialTopic.toLowerCase().includes('devam') || materialTopic.toLowerCase().includes('bölüm') || materialTopic.toLowerCase().includes('bolum')) {
+        islenenKonu = `DEVAM İSTEĞİ: Öğrenci (${matStudentName || 'Genel'}) için geçmişte işlenen ve hafızaya alınan konu şuydu: "${kayitliHafiza}". Lütfen konuyu baştan alma! Geçmiş bölümleri tekrar etmeden, daha ileri seviyede, yepyeni alt başlıklar ve yepyeni sorularla KALDIĞIN YERDEN DEVAM ET! Kullanıcının şu anki ekstra isteği: "${materialTopic}"`;
     } else {
-        setLastPromptContext(materialTopic); // Yeni konuysa gizlice hafızaya al
+        setLastPromptContext(materialTopic);
+        localStorage.setItem(memoryKey, materialTopic); // Yeni konuyu öğrencinin kalıcı dosyasına kaydet
     }
 
     let kuralMetni = "";
@@ -838,7 +842,7 @@ const generateMaterial = async () => {
 
     let kisisellestirme = matStudentName ? `\nÖNEMLİ: Öğrencimin adı ${matStudentName}. İlgi alanları: ${matInterests}. Materyali ona özel hale getir.` : "";
     let cozumKurali = "\nÇÖZÜM MOTORU: 'cevap_anahtari' kısmında sadece şıkkı/cevabı yazıp bırakma. KESİNLİKLE kısa, öz ve pedagojik bir açıklama ekle.";
-    let baslikKurali = "\nDİKKAT: dokuman_basligi alanına konuya tam uygun, yaratıcı bir başlık koy. alt_baslik alanına ASLA klinik veya etiketleyici kelimeler YAZMA.";
+    let baslikKurali = "\nDİKKAT: dokuman_basligi alanına konuya tam uygun, yaratıcı bir başlık koy. alt_baslik alanına ASLA klinik veya etiketleyici kelimeler YAZMA.\nRENK KURALI: 'bilgi_kutusu' gibi renk alabilen bloklarda sadece mavi ('blue') kullanma; green, yellow, purple, orange, rose, teal gibi çok çeşitli ve cıvıl cıvıl renkler kullanarak dokümanı rengarenk yap!";
 
     let hedefKitleMetni = activityCategory === 'Fark Etmez (Yapay Zeka Seçsin)' ? 'Konunun içeriğine ve zorluğuna bakarak hedef kitleyi ve eğitim kademesini bizzat SEN analiz et ve belirle.' : activityCategory;
 
@@ -2555,9 +2559,12 @@ return (
 </div>
 );
 
-// 6. BİLGİ KUTUSU (5N1K için pastel renkli kutular dahil)
+// 6. BİLGİ KUTUSU (Rengarenk Dinamik Tasarımlar İçin)
 case 'bilgi_kutusu':
-let cMap = COLOR_MAP[blok.renk] || COLOR_MAP['blue'];
+const renkHavuzu = ['blue', 'green', 'purple', 'orange', 'rose', 'teal'];
+const rastgeleRenk = renkHavuzu[idx % renkHavuzu.length]; // Blok sırasına göre renk değiştirir
+let cMap = COLOR_MAP[blok.renk] || COLOR_MAP[rastgeleRenk];
+
 if(blok.renk?.includes('yeşil') || blok.renk?.includes('green')) cMap = COLOR_MAP['green'];
 if(blok.renk?.includes('sarı') || blok.renk?.includes('yellow')) cMap = COLOR_MAP['yellow'];
 if(blok.renk?.includes('mor') || blok.renk?.includes('purple')) cMap = COLOR_MAP['purple'];
