@@ -233,6 +233,8 @@ const [matInterests, setMatInterests] = useState('');
 const [matDifficulty, setMatDifficulty] = useState('Fark Etmez (Yapay Zeka Belirlesin)');
 const [matQuestionCount, setMatQuestionCount] = useState('Fark Etmez (Yapay Zeka Belirlesin)');
 const [showAnswerKey, setShowAnswerKey] = useState(true);
+const [uploadedFilePreview, setUploadedFilePreview] = useState(null);
+const [uploadedFileData, setUploadedFileData] = useState(null);
 
 const [parentMessage, setParentMessage] = useState('');
 const [selectedStudentForMsg, setSelectedStudentForMsg] = useState('');
@@ -675,154 +677,69 @@ setBulkMessages(generated); setIsGeneratingBulk(false); showToast(`${generated.l
 const markAsSent = (id) => setBulkMessages(prev => prev.map(m => m.id === id ? { ...m, sent: true } : m));
 
 // --- DEVASA MATBAA (BLOK TABANLI RENDER SİSTEMİ) ---
-// BARIŞ HOCA TİTİZ KLONLAMA VE DİNAMİK UYARLAMA MOTORU
 // BARIŞ HOCA MEGA DOSYA/PDF UYARLAMA VE DÖNÜŞTÜRME MOTORU
-// --- DEVASA MATBAA (BLOK TABANLI RENDER SİSTEMİ) ---
-// BARIŞ HOCA MEGA DOSYA/PDF UYARLAMA VE DÖNÜŞTÜRME MOTORU
-// BARIŞ HOCA MEGA DOSYA/PDF UYARLAMA VE DÖNÜŞTÜRME MOTORU
-const generatePersonalizedMaterialFromFile = async (base64Data, mimeType, kullaniciTalimati) => {
-    setIsGeneratingMaterial(true);
-    setMaterialResult(null);
-
-    let isimKurali = matStudentName ? `Öğrenci Adı: '${matStudentName}'.` : "";
-    let ozelTalimat = kullaniciTalimati && kullaniciTalimati.trim() !== '' ? `KULLANICININ ÖZEL DÖNÜŞÜM EMRİ: "${kullaniciTalimati}"` : "Sadece orijinali dijital bloklara çevir.";
-
-    const userPrompt = `## DOSYA/GÖRSEL DÖNÜŞTÜRME VE UYARLAMA MOTORU ##
-    Görev: Ekteki dosyayı (PDF veya Görsel) analiz et ve yepyeni bir dijital materyal üret.
-    1. KULLANICI EMRİ (HAYATİ): ${ozelTalimat}
-    (Eğer kullanıcı 'toplamaları çarpmaya çevir', 'hikayeyi uzaya uyarla', 'daha zor yap' gibi bir emir verdiyse, orijinal metne/sorulara KESİNLİKLE sadık kalma; içeriği kullanıcının bu emrine göre BAŞTAN YARAT ve dönüştür!)
-    2. KİŞİSELLEŞTİRME: ${isimKurali}
-    3. UZUNLUK VE KESİLME KURALI: Eğer istenen şey çok uzunsa (Örn: 20 sayfa) ve tek seferde bitiremeyeceksen, yapabildiğin kadarını 'BÖLÜM 1' olarak kusursuzca ver. Sonuna bir 'bilgi_kutusu' ekleyip "Kapasite doldu, devamı için Bölüm 2'yi isteyiniz." yaz. JSON'u ASLA yarım bırakma.
-    4. ZIRH KURALI: Çift tırnak işaretini (") metinlerde asla kullanma, hep tek tırnak (') kullan.`;
-    
-    try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                systemInstruction: { parts: [{ text: "Sen profesyonel bir Eğitsel Mimarısın. PDF'leri ve görselleri kullanıcının emrine göre baştan yaratan bir dönüştürücüsün. Çift tırnak kullanmazsın." }] },
-                contents: [{ role: "user", parts: [ { text: userPrompt }, { inline_data: { mime_type: mimeType, data: base64Data } } ] }],
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    temperature: 0.8,
-                    maxOutputTokens: 8192,
-                    responseSchema: {
-                        type: "OBJECT",
-                        properties: {
-                            dokuman_basligi: { type: "STRING" }, alt_baslik: { type: "STRING" },
-                            icerik_bloklari: { type: "ARRAY", items: { type: "OBJECT", properties: { blok_tipi: { type: "STRING" }, icerik_metni: { type: "STRING" }, html_icerik: { type: "STRING" }, baslik: { type: "STRING" }, renk: { type: "STRING" }, soru_metni: { type: "STRING" }, secenekler: { type: "ARRAY", items: { type: "STRING" } }, sol_sutun: { type: "ARRAY", items: { type: "STRING" } }, sag_sutun_karisik: { type: "ARRAY", items: { type: "STRING" } }, sifre_islemler: { type: "ARRAY", items: { type: "STRING" } }, gizli_sifre: { type: "STRING" }, karakter1: { type: "STRING" }, karakter2: { type: "STRING" }, konusma1: { type: "STRING" }, konusma2: { type: "STRING" }, kartlar: { type: "ARRAY", items: { type: "OBJECT", properties: { on_yuz: {type: "STRING"}, arka_yuz: {type: "STRING"} } } }, merkez_kavram: { type: "STRING" }, yan_kavramlar: { type: "ARRAY", items: { type: "STRING" } }, urunler: { type: "ARRAY", items: { type: "OBJECT", properties: { urun_adi: {type: "STRING"}, fiyat: {type: "STRING"}, adet: {type: "STRING"} } } }, toplam_tutar: { type: "STRING" }, manset: { type: "STRING" }, haber_metni: { type: "STRING" }, emojiler: { type: "ARRAY", items: { type: "STRING" } }, hatali_cozum: { type: "STRING" }, malzemeler: { type: "ARRAY", items: { type: "STRING" } }, adimlar: { type: "ARRAY", items: { type: "STRING" } }, kavram1: { type: "STRING" }, kavram2: { type: "STRING" }, kavram1_ozellikler: { type: "ARRAY", items: { type: "STRING" } }, kavram2_ozellikler: { type: "ARRAY", items: { type: "STRING" } }, ortak_ozellikler: { type: "ARRAY", items: { type: "STRING" } }, ogretilecek_kavram: { type: "STRING" }, sutunlar: { type: "ARRAY", items: { type: "STRING" } }, satirlar: { type: "ARRAY", items: { type: "OBJECT", properties: { hucreler: { type: "ARRAY", items: { type: "STRING" } } } } }, kural: { type: "STRING" }, girdiler: { type: "ARRAY", items: { type: "STRING" } }, ciktilar: { type: "ARRAY", items: { type: "STRING" } }, grid_satirlari: { type: "ARRAY", items: { type: "OBJECT", properties: { hucreler: { type: "ARRAY", items: { type: "STRING" } } } } }, ipucu: { type: "STRING" }, karisik_adimlar: { type: "ARRAY", items: { type: "STRING" } }, kriterler: { type: "ARRAY", items: { type: "STRING" } }, hece_gruplari: { type: "ARRAY", items: { type: "STRING" } }, tombala_gorevleri: { type: "ARRAY", items: { type: "STRING" } }, dikte_kelimeleri: { type: "ARRAY", items: { type: "OBJECT", properties: { emoji: {type: "STRING"}, kelime: {type: "STRING"} } } }, sertifika_ogrenci: { type: "STRING" }, sertifika_metni: { type: "STRING" }, cizim_adimlari: { type: "ARRAY", items: { type: "STRING" } }, degerlendirme_kriterleri: { type: "ARRAY", items: { type: "STRING" } }, cevap_anahtari: { type: "STRING" } }, required: ["blok_tipi"] } }
-                        }, required: ["dokuman_basligi", "icerik_bloklari"]
-                    }
-                }
-            })
-        });
-
-        if (!response.ok) throw new Error(response.status === 429 ? '429' : 'API Error');
-        const data = await response.json();
-
-        if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-            let aiMetni = data.candidates[0].content.parts[0].text;
-            aiMetni = aiMetni.replace(/```json/gi, '').replace(/```/gi, '').trim();
-            let startIdx = aiMetni.indexOf('{');
-            if (startIdx !== -1) aiMetni = aiMetni.substring(startIdx);
-
-            try {
-                const ayristirilmisData = JSON.parse(aiMetni);
-                setMaterialResult(ayristirilmisData);
-                setShowAnswerKey(true);
-                showToast("Dosya başarıyla analiz edildi ve dönüştürüldü! 🔬✨");
-                setMaterialTopic('');
-            } catch (ilkHata) {
-                try {
-                    console.log("JSON Yarıda Kesildi, Terminatör Tamir Ediyor...");
-                    let onarilmis = aiMetni.replace(/[\n\r\t]/g, " "); 
-                    onarilmis = onarilmis.replace(/,\s*([\]}])/g, '$1'); 
-                    if (!onarilmis.trim().endsWith('}')) {
-                        let isQuoteOpen = (onarilmis.match(/(?<!\\)"/g) || []).length % 2 !== 0;
-                        if (isQuoteOpen) onarilmis += '"';
-                        onarilmis += '}] }'; 
-                    }
-                    const ayristirilmisData2 = JSON.parse(onarilmis);
-                    setMaterialResult(ayristirilmisData2);
-                    setShowAnswerKey(true);
-                    showToast("⚠️ Çok uzun belge: Bölüm 1 kurtarıldı. Devamını isteyebilirsiniz!");
-                    setMaterialTopic('');
-                } catch (ikinciHata) {
-                    console.error("Kurtarma Modu Aktif!", ikinciHata);
-                    setMaterialResult({
-                        dokuman_basligi: "🤖 AI Kurtarma Modu (Limit Aşıldı)",
-                        alt_baslik: "Sistem formatı bozsa da veriler kurtarıldı.",
-                        icerik_bloklari: [{ blok_tipi: "zengin_metin", html_icerik: `<div style="padding: 20px; background: #fff3cd; border-left: 5px solid #ffc107; font-family: monospace; white-space: pre-wrap; font-size: 14px;"><b>⚠️ BİLGİ:</b> İstediğiniz PDF analizi çok uzundu ve yapay zeka tam kritik bir noktada kesildiği için format bağlamadı. Ancak yazılan tüm içerik aşağıya kurtarıldı!<br><br><hr><br>${aiMetni.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` }]
-                    });
-                    setShowAnswerKey(false);
-                    showToast("⚠️ Format bozuldu ama metin kurtarıldı!");
-                    setMaterialTopic('');
-                }
-            }
-        }
-    } catch (err) { handleApiError(err); setMaterialTopic(''); }
-    setIsGeneratingMaterial(false);
-};
-
-// BARIŞ HOCA ANA MATBAA MOTORU (ÖLÜMSÜZ SÜRÜM)
 const generateMaterial = async () => {
-    if (!apiKey || !materialTopic.trim()) { showToast("Lütfen konu girin ve API anahtarınızı kontrol edin."); return; }
-    setIsGeneratingMaterial(true); setMaterialResult(null);
+    if (!apiKey || (!materialTopic.trim() && !uploadedFileData)) { showToast("Lütfen konu girin veya dosya yükleyin."); return; }
+    setIsGeneratingMaterial(true); setMaterialResult(null);
 
-    // BARIŞ HOCA MEGA UZUN SÜRELİ HAFIZA MODÜLÜ (Öğrenci Bazlı Kalıcı Bellek)
-    let islenenKonu = materialTopic;
-    let memoryKey = matStudentName ? `mat_memory_${matStudentName.trim().toLowerCase()}` : 'mat_memory_genel';
-    let kayitliHafiza = localStorage.getItem(memoryKey) || lastPromptContext;
+    let islenenKonu = materialTopic;
+    let memoryKey = matStudentName ? `mat_memory_${matStudentName.trim().toLowerCase()}` : 'mat_memory_genel';
+    let kayitliHafiza = localStorage.getItem(memoryKey) || lastPromptContext;
 
-    if (materialTopic.toLowerCase().includes('devam') || materialTopic.toLowerCase().includes('bölüm') || materialTopic.toLowerCase().includes('bolum')) {
-        islenenKonu = `DEVAM İSTEĞİ: Öğrenci (${matStudentName || 'Genel'}) için geçmişte işlenen ve hafızaya alınan konu şuydu: "${kayitliHafiza}". Lütfen konuyu baştan alma! Geçmiş bölümleri tekrar etmeden, daha ileri seviyede, yepyeni alt başlıklar ve yepyeni sorularla KALDIĞIN YERDEN DEVAM ET! Kullanıcının şu anki ekstra isteği: "${materialTopic}"`;
-    } else {
-        setLastPromptContext(materialTopic);
-        localStorage.setItem(memoryKey, materialTopic); // Yeni konuyu öğrencinin kalıcı dosyasına kaydet
-    }
+    if (materialTopic.toLowerCase().includes('devam') || materialTopic.toLowerCase().includes('bölüm') || materialTopic.toLowerCase().includes('bolum')) {
+        islenenKonu = `DEVAM İSTEĞİ: Öğrenci (${matStudentName || 'Genel'}) için geçmişte işlenen ve hafızaya alınan konu şuydu: "${kayitliHafiza}". Lütfen konuyu baştan alma! Geçmiş bölümleri tekrar etmeden, yepyeni alt başlıklar ve sorularla KALDIĞIN YERDEN DEVAM ET! Kullanıcının ekstra isteği: "${materialTopic}" \n\nÖLÜMCÜL KURAL: Devam bölümünü yazarken de KESİNLİKLE JSON formatında ('dokuman_basligi' ve 'icerik_bloklari' dizisi) yanıt ver! Düz metin YAZMA! Çift tırnak (") ASLA kullanma!`;
+    } else {
+        setLastPromptContext(materialTopic);
+        localStorage.setItem(memoryKey, materialTopic); 
+    }
 
-    let kuralMetni = "";
+    let kuralMetni = "";
     const isTestType = ['Fark Etmez (Yapay Zeka Seçsin)', 'yeni_nesil_test', 'test', 'eslestirme', 'bosluk', 'dogru_yanlis', 'karma'].includes(materialType);
     let soruKurali = "";
     if (isTestType) {
         let zDurum = matDifficulty.includes('Fark Etmez') ? "Zorluk seviyesini öğrenciye uygun şekilde belirle." : `Zorluk Derecesi: ${matDifficulty}.`;
-        let sDurum = matQuestionCount.toString().includes('Fark Etmez') ? "Soru sayısını optimal belirle." : `Toplam tam ${matQuestionCount} adet 'standart_soru' üret. Sorular KESİNLİKLE 1'den başlamalıdır.`;
+        let sDurum = matQuestionCount.toString().includes('Fark Etmez') ? "En az 10-15 maddelik uzun bir çalışma üret." : `Toplam tam ${matQuestionCount} adet soru üret.`;
         soruKurali = `${zDurum} ${sDurum}`;
     }
     const gorselKural = " Resim çizemeyeceğin için lütfen BOLCA YÜKSEK ÇÖZÜNÜRLÜKLÜ EMOJİ kullan.";
 
+    // YAPAY ZEKANIN TEMBELLİĞİNİ KIRAN ANA EMİR:
+    const fasikulKurali = "MEGA UZUNLUK KURALI: Kullanıcı sadece bir cümle yazsa veya kısa bir konu verse bile, sen UZMAN BİR ÖĞRETMEN OLARAK bu konuyu DEVASA BİR ÇALIŞMA FASİKÜLÜNE çevirmek zorundasın! Sadece 1-2 soru sorup bırakma! En az 10-15 JSON bloğu ('bilgi_kutusu', 'okuma_parcasi', 'standart_soru', 'bosluk_doldurma', 'eslestirme_tablosu', vb.) kullanarak ZENGİN, UZUN ve ÇOK KAPSAMLI bir materyal tasarla!";
+
     if (materialType === 'Fark Etmez (Yapay Zeka Seçsin)') {
-        kuralMetni = `DİKKAT: Kullanıcının metin içinde talep ettiği TÜM BLOK TİPLERİNİ ('sudoku_bulmaca', 'sifre_kirici', 'sertifika', 'gorsel_dikte', 'zengin_metin' vb.) ÖZGÜRCE KULLAN! Hiçbir kısıtlama yoktur. ${soruKurali} ${gorselKural}`;
+        kuralMetni = `DİKKAT: Kullanıcının metin içinde talep ettiği TÜM BLOK TİPLERİNİ özgürce kullan! Ancak kullanıcı AÇIKÇA İSTEMEDİKÇE ASLA 'sertifika' bloğunu kullanma. Kullanıcının verdiği emirlere harfiyen uy. ${fasikulKurali} ${soruKurali} ${gorselKural}`;
     } else if (materialType === 'degerlendirme_formu') {
         kuralMetni = `DİKKAT: 'degerlendirme_tablosu' bloğunu kullan. RAM raporlarına uygun profesyonel, detaylı beceri maddeleri üret.`;
     } else if (materialType === 'basara_yontemi') {
         kuralMetni = `DİKKAT: SADECE 'basara_hece_tablosu' ve 'okuma_parcasi' kullan. 'ba, sa, bak, ra, gel, ma, ver' gibi hecelerle yöntem metinleri oluştur.` + gorselKural;
     } else if (materialType === '5n1k') {
-        kuralMetni = `DİKKAT: Önce 'okuma_parcasi', sonra kahraman, mekan, zaman ve olay için renkli 'bilgi_kutusu' (bunlar soru değildir!). En alta okuduğunu anlama soruları için 'standart_soru' bloklarını ekle. Soruları KESİNLİKLE 1'den başlatarak numaralandır. ${soruKurali}`;
+        kuralMetni = `DİKKAT: Önce uzun bir 'okuma_parcasi', sonra kahraman, mekan, zaman ve olay için renkli 'bilgi_kutusu' (bunlar soru değildir!). En alta okuduğunu anlama soruları için 'standart_soru' bloklarını ekle. Soruları KESİNLİKLE 1'den başlatarak numaralandır. ${fasikulKurali} ${soruKurali}`;
     } else if (materialType === 'sertifika') {
         kuralMetni = `DİKKAT: Sadece 'sertifika' bloğunu kullan. Öğrencinin başarısını onurlandıran motive edici bir sertifika yaz.`;
     } else if (materialType === 'yonergeli_cizim') {
         kuralMetni = `DİKKAT: 'yonergeli_cizim' bloğunu kullan. İşitsel algı çalışması için 'Önce büyük bir ev çiz, çatısını kırmızıya boya' gibi adımlar üret.`;
+    } else if (materialType === 'cizgi_calismasi') {
+        kuralMetni = `DİKKAT: SADECE 'cizgi_calismasi' bloğunu kullan. 'baslik' kısmına eğlenceli bir yönerge yaz (Örn: Tavşanı havuca götür). 'cizim_adimlari' dizisine bolca "- - - - - -" veya ". . . . . ." veya "~ ~ ~ ~ ~" gibi noktalı/kesik çizgi desenleri koy. ASLA TEST VEYA CEVAP ANAHTARI ÜRETME!`;
     } else if (materialType === 'konu_anlatimi') {
-        kuralMetni = `DİKKAT: Sadece 'bilgi_kutusu', 'okuma_parcasi' ve 'zihin_haritasi' bloklarını kullanarak renkli ve dikkat çekici konu özeti üret.`;
+        kuralMetni = `DİKKAT: Sadece 'bilgi_kutusu', 'okuma_parcasi' ve 'zihin_haritasi' bloklarını kullanarak renkli ve dikkat çekici, KAPSAMLI ve UZUN bir konu özeti üret.`;
     } else if (materialType === 'karma') {
-        kuralMetni = `DİKKAT: Önce konuyu anlatan 'bilgi_kutusu', ardından pekiştirmek için test ve quiz bloklarını karmaşık diz. ${soruKurali}`;
+        kuralMetni = `DİKKAT: Önce konuyu anlatan uzun bir 'bilgi_kutusu', ardından pekiştirmek için ÇOK SAYIDA test, eşleştirme ve quiz bloklarını karmaşık diz. ${fasikulKurali} ${soruKurali}`;
     } else if (materialType === 'infografik') {
         kuralMetni = `DİKKAT: Yazı yerine 'zihin_haritasi', 'venn_semasi', 'on_sonra_makine', 'gorsel_veri' bloklarını kullanarak konuyu grafiksel anlat.`;
     } else if (materialType === 'veli_tombalasi') {
         kuralMetni = `DİKKAT: 'tombala_grid' bloğunu kullan. Evde yapılacak 9 eğlenceli görevi bingo tablosunda ver.` + gorselKural;
     } else if (materialType === 'sifre_kirici') {
-        kuralMetni = `DİKKAT: 'sifre_kirici' kullan. İşlemler içeren şifre çözme etkinliği yarat.`;
+        kuralMetni = `DİKKAT: 'sifre_kirici' kullan. İşlemler içeren uzun bir şifre çözme etkinliği yarat.`;
     } else if (materialType === 'hata_dedektifi') {
-        kuralMetni = `DİKKAT: Sadece 'hatali_islem' kullan. Bilerek yanlış yapılmış hatalar ver. Doğrusunu yazmasını iste.`;
+        kuralMetni = `DİKKAT: Sadece 'hatali_islem' kullan. Bilerek yanlış yapılmış ÇOK SAYIDA hatalar ver. Doğrusunu yazmasını iste.`;
     } else if (materialType === 'gercek_hayat_fatura') {
-        kuralMetni = `DİKKAT: 'fatura_tablosu' ve 'standart_soru' kullan. Sahte bir fiş oluştur ve problem sor.`;
+        kuralMetni = `DİKKAT: 'fatura_tablosu' ve 'standart_soru' kullan. Sahte bir fiş oluştur ve ÇOK SAYIDA problem sor.`;
     } else if (materialType === 'labirent_pano') {
         kuralMetni = `DİKKAT: Kutucuklu algoritmik bir oyun veya 'sudoku_bulmaca' üret.` + gorselKural;
     } else if (materialType === 'adim_recete') {
-        kuralMetni = `DİKKAT: 'recete_adimlari' kullan. Konuyu yemek tarifi gibi anlat.`;
+        kuralMetni = `DİKKAT: 'recete_adimlari' kullan. Konuyu yemek tarifi gibi uzun uzun anlat.`;
     } else if (materialType === 'karikatur_diyalog') {
-        kuralMetni = `DİKKAT: 'karikatur_diyalog' ile konuyu anlatan diyalog yaz.`;
+        kuralMetni = `DİKKAT: 'karikatur_diyalog' ile konuyu anlatan ÇOK SAYIDA diyalog yaz.`;
     } else if (materialType === 'flashcard') {
         kuralMetni = `DİKKAT: 'flashcard_grid' kullan. 6 adet bilgi kartı üret.`;
     } else if (materialType === 'tersine_egitim') {
@@ -832,40 +749,40 @@ const generateMaterial = async () => {
     } else if (materialType === 'haber_bulteni') {
         kuralMetni = `DİKKAT: 'gazete_manseti' kullan. Habere dayalı problem senaryosu oluştur.`;
     } else if (materialType === 'sosyal_hikaye') {
-        kuralMetni = "DİKKAT: Otizm/Özel Eğitim için davranış odaklı sosyal hikaye ve sorular üret.";
+        kuralMetni = "DİKKAT: Otizm/Özel Eğitim için davranış odaklı sosyal hikaye ve BİRÇOK soru üret.";
     } else if (materialType === 'gorsel_fark_emoji') {
         kuralMetni = `DİKKAT: 'emoji_matrisi' kullan. Emojiler arasına 1 farklı emoji sakla.` + gorselKural;
     } else if (materialType === 'gorsel_dikte') {
         kuralMetni = `DİKKAT: 'gorsel_dikte' bloğunu kullan. Devasa emojiler ver.` + gorselKural;
     } else if (materialType === 'bosluk' || materialType === 'dogru_yanlis') {
-        kuralMetni = `DİKKAT: Boşluk doldurma veya doğru/yanlış soruları üret. ${soruKurali}`;
+        kuralMetni = `DİKKAT: ÇOK SAYIDA boşluk doldurma veya doğru/yanlış soruları üret. ${fasikulKurali} ${soruKurali}`;
     } else if (materialType === 'deneme_sinavi') {
-        kuralMetni = `DİKKAT: Tam kapsamlı, profesyonel bir DENEME SINAVI hazırla! Maksimum jeton limitini sonuna kadar kullan. Bolca 'okuma_parcasi', 'standart_soru' kullan. Soruları 1'den başlatarak numaralandır. ${soruKurali}`;
+        kuralMetni = `DİKKAT: Tam kapsamlı, profesyonel BİR DENEME SINAVI hazırla! Maksimum jeton limitini sonuna kadar kullan. Bolca 'okuma_parcasi', 'standart_soru' kullan. Soruları 1'den başlatarak numaralandır. ${fasikulKurali} ${soruKurali}`;
     } else if (materialType === 'fasikul_modu') {
-        kuralMetni = `DİKKAT: EN AZ 5 SAYFA SÜRECEK DEVASA BİR FASİKÜL HAZIRLA! (Minimum 15-20 JSON bloğu kullan). 
-        YAPAY ZEKA İNİSİYATİFİ: Kullanıcı promptta az şey istese bile; konuya uygun olarak 'gorsel_dikte', 'sifre_kirici', 'sudoku_bulmaca', 'eslestirme_tablosu' ve bolca 'standart_soru' bloklarını KENDİ KENDİNE ÜRET VE FASİKÜLE EKLE!
-        UZUNLUK VE KESİLME KURALI: Eğer içerik çok uzunsa (Örn: 20 sayfa) ve limit dolarsa, yapabildiğin kadarını 'BÖLÜM 1' olarak kusursuzca ver. Sonuna 'bilgi_kutusu' ekleyip 'Kapasite doldu, Bölüm 2 isteyiniz' yaz. Kodları asla açık bırakma.`;
+        kuralMetni = `DİKKAT: EN AZ 5 SAYFA SÜRECEK DEVASA BİR FASİKÜL HAZIRLA! (Minimum 15-20 JSON bloğu kullan). ${fasikulKurali}`;
     }
 
-    let kisisellestirme = matStudentName ? `\nÖNEMLİ: Öğrencimin adı ${matStudentName}. İlgi alanları: ${matInterests}. Materyali ona özel hale getir.` : "";
+    let kisisellestirme = matStudentName ? `\nÖNEMLİ: Öğrencimin adı ${matStudentName}. İlgi alanları: ${matInterests}. Materyali KESİNLİKLE ona özel hale getir.` : "";
     let cozumKurali = "\nÇÖZÜM MOTORU: 'cevap_anahtari' kısmında sadece şıkkı/cevabı yazıp bırakma. KESİNLİKLE kısa, öz ve pedagojik bir açıklama ekle.";
     let baslikKurali = "\nDİKKAT: dokuman_basligi alanına konuya tam uygun, yaratıcı bir başlık koy. alt_baslik alanına ASLA klinik veya etiketleyici kelimeler YAZMA.\nRENK KURALI: 'bilgi_kutusu' gibi renk alabilen bloklarda sadece mavi ('blue') kullanma; green, yellow, purple, orange, rose, teal gibi çok çeşitli ve cıvıl cıvıl renkler kullanarak dokümanı rengarenk yap!";
 
     let hedefKitleMetni = activityCategory === 'Fark Etmez (Yapay Zeka Seçsin)' ? 'Konunun içeriğine ve zorluğuna bakarak hedef kitleyi ve eğitim kademesini bizzat SEN analiz et ve belirle.' : activityCategory;
 
-    if (materialType === 'tekerleme_calismasi') kuralMetni = `DİKKAT: 'okuma_parcasi' ve 'bilgi_kutusu' kullanarak spesifik seslere odaklanan tekerleme, artikülasyon ve diksiyon metinleri üret.`;
-    if (materialType === 'nefes_egzersizi') kuralMetni = `DİKKAT: 'recete_adimlari' bloğunu kullanarak eğlenceli nefes egzersizleri ve fonolojik farkındalık oyunları tasarla.`;
-    if (materialType === 'blok_kodlama') kuralMetni = `DİKKAT: Scratch veya mBlock mantığıyla 'recete_adimlari' veya 'sirala_yapistir' formatında algoritmik blok kodlama görevleri üret.`;
-    if (materialType === 'algoritma_semasi') kuralMetni = `DİKKAT: 'on_sonra_makine' veya 'zihin_haritasi' bloğunu kullanarak bilgisayarsız kodlama akış şeması üret.`;
+    let uzunlukKurali = `UZUNLUK VE KESİLME KURALI: Eğer materyal çok uzunsa ve limit dolarsa, yapabildiğin kadarını 'BÖLÜM 1' olarak kusursuzca ver. Sonuna 'bilgi_kutusu' ekleyip "Kapasite doldu, 'Kaldığın yerden devam et' yazarak 2. bölümü isteyebilirsiniz." yaz. Kodları asla açık bırakma. JSON formatını BOZMA!`;
 
-    let uzunlukKurali = `UZUNLUK VE KESİLME KURALI: Eğer kullanıcı 15-20 sayfalık devasa bir materyal isterse, tek API çağrısında hepsini üretmeye çalışma. İlk etapta verebileceğin maksimum bloğu (Örn: Bölüm 1) kusursuzca ver. Sonuna 'bilgi_kutusu' ekleyip "Kapasite doldu, devamı için Bölüm 2 isteyiniz" yaz. Kodları asla açık bırakma.`;
+    let userPromptText = `## EĞİTİM MATERYALİ TASLAĞI ##\nHedef Kitle: ${hedefKitleMetni}\nKonu/Emir: ${islenenKonu}\nİstenen Format: ${kuralMetni}\n\n${uzunlukKurali}\n${kisisellestirme}\n${cozumKurali}\n${baslikKurali}\n\nZORUNLU KURAL: İstenen her şeyi %100 kapsayan, saf akademik içeriği KESİNLİKLE JSON formatında üret. GÖRSEL OLUŞTURMA HARİÇ (sadece emoji kullan), kullanıcının istediği HER TÜRLÜ içeriği, tabloyu, metni, testi üret.`;
+
+    let apiContents = [{ parts: [{ text: userPromptText }] }];
+    if (uploadedFileData) {
+        apiContents = [{ role: "user", parts: [ { text: userPromptText }, { inline_data: { mime_type: uploadedFileData.mimeType, data: uploadedFileData.base64 } } ] }];
+    }
 
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde Eğitsel İçerik Mimarısın. HAYATİ KURALLAR: 1) JSON şemasına %100 uy. 2) Metinlerde ASLA çift tırnak (\") kullanma. 3) HTML yazarken etiketleri TEK TIRNAK ile yaz (Örn: <span style='color:red'>). Tek tırnakların önüne ASLA kaçış işareti (ters eğik çizgi \\) KOYMA! 4) Metinlerin içine 'Enter' tuşuyla satır atlama, '\\n' kullan." }] },
-                contents: [{ parts: [{ text: `## EĞİTİM MATERYALİ TASLAĞI ##\nHedef Kitle: ${hedefKitleMetni}\nKonu: ${islenenKonu}\nİstenen Format: ${kuralMetni}\n\n${uzunlukKurali}\n${kisisellestirme}\n${cozumKurali}\n${baslikKurali}\n\nZORUNLU KURAL: İstenen her şeyi %100 kapsayan, saf akademik içeriği JSON formatında üret.` }] }],
+                systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde Eğitsel İçerik Mimarısın. KULLANICI KISA BİLE YAZSA ONU DEVASA BİR ÇALIŞMAYA ÇEVİRİRSİN. GÖRSEL/FOTOĞRAF ÜRETME (sadece emoji/text kullan). HAYATİ KURALLAR: 1) KESİNLİKLE JSON ŞEMASINA %100 UY. 2) Metinlerde ASLA çift tırnak (\") kullanma, KESİNLİKLE tek tırnak (') kullan. 3) HTML yazarken etiketleri TEK TIRNAK ile yaz. 4) Metinlerin içine 'Enter' tuşuyla satır atlama, '\\n' kullan." }] },
+                contents: apiContents,
                 generationConfig: {
                     responseMimeType: "application/json",
                     temperature: 0.8,
@@ -893,7 +810,7 @@ const generateMaterial = async () => {
                                         ipucu: { type: "STRING" }, karisik_adimlar: { type: "ARRAY", items: { type: "STRING" } }, kriterler: { type: "ARRAY", items: { type: "STRING" } }, hece_gruplari: { type: "ARRAY", items: { type: "STRING" } },
                                         tombala_gorevleri: { type: "ARRAY", items: { type: "STRING" } }, dikte_kelimeleri: { type: "ARRAY", items: { type: "OBJECT", properties: { emoji: {type: "STRING"}, kelime: {type: "STRING"} } } },
                                         sertifika_ogrenci: { type: "STRING" }, sertifika_metni: { type: "STRING" }, cizim_adimlari: { type: "ARRAY", items: { type: "STRING" } }, degerlendirme_kriterleri: { type: "ARRAY", items: { type: "STRING" } },
-                                        cevap_anahtari: { type: "STRING", description: "Bu alana yazılanlar öğretmen nüshasında çıkar. Ana dokümana asla çözüm yazma." }
+                                        cevap_anahtari: { type: "STRING", description: "Öğretmen nüshası için çözüm" }
                                     },
                                     required: ["blok_tipi"]
                                 }
@@ -919,6 +836,9 @@ const generateMaterial = async () => {
                 setMaterialResult(ayristirilmisData);
                 setShowAnswerKey(true);
                 showToast("Materyal başarıyla hazırlandı! ✨");
+                setUploadedFilePreview(null);
+                setUploadedFileData(null);
+                setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
             } catch (ilkHata) {
                 try {
                     console.log("JSON Yarıda Kesildi, Terminatör Tamir Ediyor...");
@@ -932,16 +852,27 @@ const generateMaterial = async () => {
                     const ayristirilmisData2 = JSON.parse(onarilmis);
                     setMaterialResult(ayristirilmisData2);
                     setShowAnswerKey(true);
-                    showToast("⚠️ Çok uzun materyal: Bölüm 1 kurtarıldı. Kutuya 'Bölüm 2 ile devam et' yazabilirsiniz!");
+                    showToast("⚠️ Çok uzun materyal: Bölüm 1 kurtarıldı. Devamını isteyebilirsiniz!");
+                    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
                 } catch (ikinciHata) {
                     console.error("Kurtarma Modu Aktif!", ikinciHata);
                     setMaterialResult({
-                        dokuman_basligi: "🤖 AI Kurtarma Modu (Limit Aşıldı)",
-                        alt_baslik: "Sistem formatı bozsa da veriler kurtarıldı.",
-                        icerik_bloklari: [{ blok_tipi: "zengin_metin", html_icerik: `<div style="padding: 20px; background: #fff3cd; border-left: 5px solid #ffc107; font-family: monospace; white-space: pre-wrap; font-size: 14px;"><b>⚠️ BİLGİ:</b> İstediğiniz materyal çok uzundu ve yapay zeka tam kritik bir noktada kesildiği için format bağlamadı. Ancak yazılan tüm içerik aşağıya kurtarıldı!<br><br><hr><br>${aiMetni.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` }]
+                        dokuman_basligi: "⚠️ Üretim Hatası: Lütfen İsteğinizi Netleştirin!",
+                        alt_baslik: "Yapay zeka tam istediğiniz formatı kuramadı.",
+                        icerik_bloklari: [{ 
+                            blok_tipi: "zengin_metin", 
+                            html_icerik: `<div style="padding: 20px; background: #fff3cd; border-left: 5px solid #ffc107; font-family: sans-serif; font-size: 15px;">
+                                <b>Yapay Zeka bu isteği tek seferde işleyemedi veya yanlış formatta çıktı verdi. Lütfen verimli bir sonuç için şu şablonu deneyin:</b><br><br>
+                                <b>Kademe:</b> (Yukarıdan Seçin)<br>
+                                <b>Format:</b> Yeni Nesil Test veya Karma (Önerilen)<br>
+                                <b>Prompt (Kutuya Yazın):</b> "Kesirler konusu ile ilgili, günlük hayat problemleri barındıran 5 adet çoktan seçmeli yeni nesil soru hazırla. Sorular hikayeleştirilmiş olsun."<br><br>
+                                <i>İpucu: Eğer bir dosya yüklediyseniz, sadece "Bu dosyayı teste çevir" yazıp üret butonuna basabilirsiniz.</i>
+                            </div>` 
+                        }]
                     });
                     setShowAnswerKey(false);
-                    showToast("⚠️ Format bozuldu ama metin kurtarıldı!");
+                    showToast("⚠️ Format bozuldu, lütfen örnek şablonu inceleyin!");
+                    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
                 }
             }
         }
@@ -2020,32 +1951,41 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 <div className="flex gap-2 items-center">
     <button onClick={() => setMaterialTopic('')} className="text-xs text-teal-200 hover:text-white flex items-center transition bg-white/10 px-3 py-1.5 rounded w-max"><i className="fa-solid fa-broom mr-1.5"></i> Hızlı Temizle</button>
     
-    {/* BARIŞ HOCA MEGA ÖZELLİK: PDF & GÖRSEL ANALİZ BUTONU */}
-    <label className="cursor-pointer bg-gradient-to-r from-yellow-400 to-orange-500 text-slate-900 px-3 py-1.5 rounded-lg font-black text-xs hover:scale-105 transition flex items-center w-max shadow-lg no-print">
-        <i className="fa-solid fa-file-pdf mr-1.5"></i> Dosya Yükle (PDF/Resim) & Uyarla
-        <input type="file" id="analizDosyasi" accept="image/*,application/pdf" onChange={(e) => {
-const file = e.target.files[0];
-            if(!file || !apiKey) { showToast("API Anahtarı veya dosya eksik!"); return; }
-            
-            // BARIŞ HOCA MEGA GÜNCELLEME: Senin kutuya yazdığın özel talimatı kaybolmadan hafızaya alıyoruz!
-            const mevcutTalimat = materialTopic; 
-            
-            setMaterialTopic('⏳ DEVASA DOSYA (PDF/GÖRSEL) ANALİZ EDİLİYOR... LÜTFEN BEKLEYİN!');
-            setMaterialType('Fark Etmez (Yapay Zeka Seçsin)');
-            
+   {/* BARIŞ HOCA MEGA ÖZELLİK: PDF & GÖRSEL ANALİZ BUTONU */}
+    <label className="cursor-pointer bg-gradient-to-r from-yellow-400 to-orange-500 text-slate-900 px-3 py-1.5 rounded-lg font-black text-xs hover:scale-105 transition flex items-center w-max shadow-lg no-print">
+        <i className="fa-solid fa-file-pdf mr-1.5"></i> Dosya Ekle (PDF/Resim)
+        <input type="file" id="analizDosyasi" accept="image/*,application/pdf" onChange={(e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            const isPdf = file.type === "application/pdf";
             const reader = new FileReader();
             reader.onload = () => {
                 const base64Content = reader.result.split(',')[1];
-                // Hafızadaki talimatı doğrudan motora gönderiyoruz:
-                generatePersonalizedMaterialFromFile(base64Content, file.type, mevcutTalimat);
+                setUploadedFileData({ base64: base64Content, mimeType: file.type });
+                if (isPdf) {
+                    setUploadedFilePreview("pdf_icon"); 
+                } else {
+                    setUploadedFilePreview(reader.result); 
+                }
+                showToast("Dosya eklendi! Şimdi talimatını yaz ve Üret'e bas.");
             };
             reader.readAsDataURL(file);
-            e.target.value = '';
-        }} className="hidden" />
-    </label>
+            e.target.value = '';
+        }} className="hidden" />
+    </label>
 </div>
 </div>
-<textarea value={materialTopic} onChange={(e) => setMaterialTopic(e.target.value)} rows="6" placeholder="Örn: 5. sınıf matematik dersinden 25 soru ve çözümleri, Otizmli öğrencim için görsel dikte, Kesirler için market fişi hesaplaması, Ba-Sa-Ra için okuma çalışması..." className="w-full px-4 py-3 bg-white/10 border border-teal-400/50 rounded-xl outline-none text-white placeholder-teal-200/50 resize-y focus:bg-white focus:text-teal-900 transition mb-2"></textarea>
+{uploadedFilePreview && (
+    <div className="relative mb-3 inline-block bg-white/10 p-2 rounded-xl border border-teal-400/30">
+        <button onClick={() => { setUploadedFilePreview(null); setUploadedFileData(null); }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 shadow-md"><i className="fa-solid fa-times"></i></button>
+        {uploadedFilePreview === "pdf_icon" ? (
+            <div className="w-16 h-16 flex flex-col items-center justify-center text-red-400 bg-white/80 rounded-lg"><i className="fa-solid fa-file-pdf text-3xl"></i><span className="text-[10px] mt-1 font-bold">PDF</span></div>
+        ) : (
+            <img src={uploadedFilePreview} alt="Önizleme" className="h-16 w-16 object-cover rounded-lg border border-white/50" />
+        )}
+    </div>
+)}
+<textarea value={materialTopic} onChange={(e) => setMaterialTopic(e.target.value)} rows="6" placeholder="Ne üretmek istiyorsun veya yüklediğin dosyaya ne yapalım? Örn: Bu testteki soruları uzay temasına göre baştan yaz... veya 5. sınıf matematik 10 zor soru üret..." className="w-full px-4 py-3 bg-white/10 border border-teal-400/50 rounded-xl outline-none text-white placeholder-teal-200/50 resize-y focus:bg-white focus:text-teal-900 transition mb-2"></textarea>
 </div>
 <button onClick={generateMaterial} disabled={isGeneratingMaterial || !materialTopic.trim()} className="mt-4 w-full bg-yellow-400 text-teal-900 hover:bg-yellow-300 py-3.5 rounded-xl font-extrabold text-lg transition shadow-lg disabled:opacity-50 flex justify-center items-center">
 {isGeneratingMaterial ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-layer-group mr-2"></i>}
@@ -2825,16 +2765,16 @@ for (let i = 0; i < idx; i++) {
 }
 return (
 <div key={idx} className="break-inside-avoid mb-6">
-<div className="flex items-start mb-3">
-<span className="font-black text-lg text-gray-900 mr-3 print-high-contrast">{soruNo}.</span>
-<p className="font-semibold text-gray-800 text-lg leading-snug print-high-contrast whitespace-pre-wrap">{blok.soru_metni}</p>
+<div className="mb-3">
+<span className="font-black text-lg text-gray-900 mr-2 inline-block align-top print-high-contrast">{soruNo}.</span>
+<p className="font-semibold text-gray-800 text-lg leading-snug print-high-contrast whitespace-pre-wrap inline-block w-[92%] align-top m-0">{blok.soru_metni}</p>
 </div>
 {blok.secenekler && blok.secenekler.length > 0 ? (
-<div className="pl-8 space-y-3 mt-3">
+<div className="pl-6 md:pl-8 space-y-3 mt-3">
 {blok.secenekler.map((sec, sIdx) => (
-<div key={sIdx} className="flex items-center text-gray-700 font-medium print-high-contrast w-full mb-1">
-<span className="w-8 h-8 rounded-full border-2 border-gray-400 flex items-center justify-center mr-3 font-bold text-sm bg-gray-50 print:bg-transparent">{['A', 'B', 'C', 'D', 'E'][sIdx]}</span>
-{sec}
+<div key={sIdx} className="text-gray-700 font-medium print-high-contrast w-full mb-1">
+<span className="w-8 h-8 rounded-full border-2 border-gray-400 inline-flex items-center justify-center mr-3 font-bold text-sm bg-gray-50 print:bg-transparent align-middle">{['A', 'B', 'C', 'D', 'E'][sIdx]}</span>
+<span className="inline-block align-middle w-[85%] whitespace-pre-wrap">{sec}</span>
 </div>
 ))}
 </div>
@@ -2858,25 +2798,38 @@ for (let i = 0; i < idx; i++) {
 }
 return (
 <div key={idx} className="break-inside-avoid mb-8">
-<div className="flex items-start mb-4">
-<span className="font-black text-lg text-gray-900 mr-3 print-high-contrast">{eslesmeNo}.</span>
-<p className="font-semibold text-gray-800 text-lg leading-snug print-high-contrast whitespace-pre-wrap">{blok.soru_metni || "Aşağıdaki kavramları eşleştiriniz."}</p>
+<div className="mb-4">
+<span className="font-black text-lg text-gray-900 mr-2 inline-block align-top print-high-contrast">{eslesmeNo}.</span>
+<p className="font-semibold text-gray-800 text-lg leading-snug print-high-contrast whitespace-pre-wrap inline-block w-[90%] align-top m-0">{blok.soru_metni || "Aşağıdaki kavramları eşleştiriniz."}</p>
 </div>
-<div className="flex justify-between items-center pl-8 px-4 mt-4 text-sm font-medium">
-<div className="w-5/12 space-y-4">
-{blok.sol_sutun && blok.sol_sutun.map((sol, i) => (
-<div key={i} className="flex items-center"><span className="min-w-[24px] h-6 rounded-full bg-gray-200 flex justify-center items-center mr-3 font-bold print-high-contrast">{i+1}</span> <span className="print-high-contrast">{sol}</span></div>
-))}
-</div>
-<div className="w-2/12 flex flex-col justify-center items-center space-y-6 text-gray-300">
-<i className="fa-solid fa-arrow-right-arrow-left text-xl opacity-50"></i>
-</div>
-<div className="w-5/12 space-y-4">
-{blok.sag_sutun_karisik && blok.sag_sutun_karisik.map((sag, i) => (
-<div key={i} className="flex items-center"><span className="min-w-[24px] h-6 rounded-full bg-gray-200 flex justify-center items-center mr-3 font-bold print-high-contrast">{['A','B','C','D','E','F','G'][i] || '?'}</span> <span className="print-high-contrast">{sag}</span></div>
-))}
-</div>
-</div>
+<table className="w-full mt-4 text-sm font-medium border-none pl-4 md:pl-8">
+    <tbody>
+        {Math.max(blok.sol_sutun?.length || 0, blok.sag_sutun_karisik?.length || 0) > 0 && 
+         Array.from({ length: Math.max(blok.sol_sutun?.length || 0, blok.sag_sutun_karisik?.length || 0) }).map((_, i) => (
+            <tr key={i} className="border-none">
+                <td className="py-3 px-1 md:px-2 w-5/12 align-middle border-none">
+                    {blok.sol_sutun?.[i] && (
+                        <div>
+                            <span className="inline-flex min-w-[24px] h-6 rounded-full bg-gray-200 justify-center items-center mr-2 md:mr-3 font-bold print-high-contrast align-middle">{i+1}</span>
+                            <span className="inline-block align-middle print-high-contrast break-words max-w-[80%]">{blok.sol_sutun[i]}</span>
+                        </div>
+                    )}
+                </td>
+                <td className="py-3 px-1 md:px-2 w-2/12 align-middle text-center border-none text-gray-300">
+                    {blok.sol_sutun?.[i] && blok.sag_sutun_karisik?.[i] && <i className="fa-solid fa-arrow-right-arrow-left text-xl opacity-50 inline-block align-middle"></i>}
+                </td>
+                <td className="py-3 px-1 md:px-2 w-5/12 align-middle border-none">
+                    {blok.sag_sutun_karisik?.[i] && (
+                        <div>
+                            <span className="inline-flex min-w-[24px] h-6 rounded-full bg-gray-200 justify-center items-center mr-2 md:mr-3 font-bold print-high-contrast align-middle">{['A','B','C','D','E','F','G','H','I','J'][i] || '?'}</span>
+                            <span className="inline-block align-middle print-high-contrast break-words max-w-[80%]">{blok.sag_sutun_karisik[i]}</span>
+                        </div>
+                    )}
+                </td>
+            </tr>
+        ))}
+    </tbody>
+</table>
 </div>
 );
 
@@ -3440,8 +3393,36 @@ notes.map(n => (
 );
 };
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+// --- HATA YAKALAYICI (BEYAZ EKRAN ÇÖZÜCÜ) ---
+        class ErrorBoundary extends React.Component {
+            constructor(props) { super(props); this.state = { hasError: false, error: null, errorInfo: null }; }
+            static getDerivedStateFromError(error) { return { hasError: true }; }
+            componentDidCatch(error, errorInfo) { this.setState({ error: error, errorInfo: errorInfo }); }
+            render() {
+                if (this.state.hasError) {
+                    return (
+                        <div style={{ padding: '40px', backgroundColor: '#fdf8e8', border: '2px solid #d4af37', color: '#2d1445', margin: '40px auto', borderRadius: '20px', fontFamily: 'sans-serif', maxWidth: '800px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
+                            <h2 style={{ color: '#d9534f', fontSize: '28px', marginBottom: '15px' }}>🚨 Kozmik Dalgalanma (Kod Hatası) Tespit Edildi! 🚨</h2>
+                            <p style={{ fontSize: '16px', marginBottom: '20px', lineHeight: '1.6' }}>Barış Hocam, kodun içinde ufak bir parantez veya virgül hatası var. Sitenin çökmesini engelledim. Lütfen aşağıdaki hatayı bana gönder:</p>
+                            <details open style={{ whiteSpace: 'pre-wrap', backgroundColor: '#fff', padding: '20px', border: '1px solid #e4ebe5', borderRadius: '15px' }}>
+                                <summary style={{ fontWeight: 'bold', cursor: 'pointer', marginBottom: '15px', color: '#648268' }}>Hata Detayları:</summary>
+                                <strong style={{color: '#d9534f'}}>{this.state.error && this.state.error.toString()}</strong>
+                                <br /><br />
+                                <span style={{fontSize: '12px', color: '#777'}}>{this.state.errorInfo && this.state.errorInfo.componentStack}</span>
+                            </details>
+                        </div>
+                    );
+                }
+                return this.props.children;
+            }
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(
+            <ErrorBoundary>
+                <App />
+            </ErrorBoundary>
+        );
 </script>
 </body>
 </html>
