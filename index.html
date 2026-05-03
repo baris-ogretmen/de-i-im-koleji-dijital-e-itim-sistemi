@@ -439,6 +439,19 @@ const TeacherPortal = ({ user, db, apiKey, modelName }) => {
         setIsSaving(false);
     };
 
+    const deleteHomework = async () => {
+        if(!window.confirm(`${selectedGrade} sınıfının mevcut görevini tamamen silmek istiyor musunuz?`)) return;
+        setIsSaving(true);
+        try {
+            const confRef = window.FirebaseSDK.doc(db, "maas_config", "k12_global");
+            const hwField = `hw_${selectedGrade.replace(/\s+/g, '').replace(/\./g, '')}`; 
+            await window.FirebaseSDK.setDoc(confRef, { [hwField]: "" }, { merge: true });
+            alert(`SİLİNDİ: ${selectedGrade} sınıfının görevi başarıyla kaldırıldı.`);
+            setHwTopic(''); setHwDetails('');
+        } catch(err) { alert("Hata: " + err.message); }
+        setIsSaving(false);
+    };
+
     if(user?.role !== 'teacher') return null;
 
     return (
@@ -473,9 +486,14 @@ const TeacherPortal = ({ user, db, apiKey, modelName }) => {
                     </div>
                     <textarea value={hwDetails} onChange={e=>setHwDetails(e.target.value)} placeholder="Öğrenciler tam olarak ne yapacak?" rows="3" className="w-full bg-white/10 border border-rose-400/50 p-3 rounded-xl font-medium text-white outline-none focus:border-yellow-300 placeholder-rose-200/50 resize-y"></textarea>
                 </div>
-                <button onClick={assignHomework} disabled={isSaving} className="w-full bg-white text-rose-700 font-black py-4 rounded-xl shadow-lg hover:bg-gray-50 transition-all flex items-center justify-center gap-2">
-                    {isSaving ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-rocket"></i>} GÖREVİ PANOLARA GÖNDER
-                </button>
+                <div className="flex gap-3">
+                    <button onClick={assignHomework} disabled={isSaving} className="flex-1 bg-white text-rose-700 font-black py-4 rounded-xl shadow-lg hover:bg-gray-50 transition-all flex items-center justify-center gap-2">
+                        {isSaving ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-rocket"></i>} GÖREVİ GÖNDER
+                    </button>
+                    <button onClick={deleteHomework} disabled={isSaving} className="w-16 bg-red-500 text-white font-black rounded-xl shadow-lg hover:bg-red-600 transition-all flex items-center justify-center" title="Mevcut Görevi Sil">
+                        <i className="fa-solid fa-trash-can text-xl"></i>
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -1901,212 +1919,205 @@ setPickedStudent(random);
 setTimeout(() => setPickedStudent(null), 3000);
 };
 
-// K12 GİRİŞ YÖNLENDİRİCİSİ
-if (systemRole === 'student' && screenTimeLeft <= 0) return <ScreenTimeLock />;
-if (!systemRole) return <><DraggableRobot apiKey={apiKey} modelName={modelName} /><LoginScreen onLogin={handleLogin} openSettings={()=>setShowSettings(true)} globalConfig={globalConfig} /></>;
-if (systemRole === 'student') return <><DraggableRobot apiKey={apiKey} modelName={modelName} /><StudentPortal user={k12User} logout={handleLogout} timeLeft={screenTimeLeft} globalConfig={globalConfig} /></>;
-if (systemRole === 'parent') return <><DraggableRobot apiKey={apiKey} modelName={modelName} /><ParentPortal user={k12User} logout={handleLogout} globalConfig={globalConfig} /></>;
+// K12 GİRİŞ YÖNLENDİRİCİSİ VE GLOBAL ARAYÜZ (DUYURULAR VE YÖNETİM)
+const renderSharedUI = () => (
+    <>
+        <DraggableRobot apiKey={apiKey} modelName={modelName} />
+        {toastMessage && (
+            <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl z-[99999] flex items-center space-x-2 animate-fade-in no-print font-medium text-sm w-max">
+                <i className="fa-solid fa-bell text-green-400"></i><span>{toastMessage}</span>
+            </div>
+        )}
+        
+        {showUserPopup && globalConfig?.popup && (
+            <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                <div className="bg-white rounded-[2rem] p-8 w-full max-w-sm text-center shadow-2xl relative border-4 border-amber-500 transform scale-105 transition-transform">
+                    <button onClick={() => { setShowUserPopup(false); sessionStorage.setItem('seen_popup', 'true'); }} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center"><i className="fa-solid fa-times"></i></button>
+                    <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner border border-amber-200"><i className="fa-solid fa-bell animate-[pulse_2s_infinite]"></i></div>
+                    <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-widest">ÖNEMLİ DUYURU</h3>
+                    <p className="text-slate-600 mb-8 font-medium text-sm leading-relaxed whitespace-pre-line" dangerouslySetInnerHTML={{ __html: globalConfig.popup.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">$1</a>') }}></p>
+                    <button onClick={() => { setShowUserPopup(false); sessionStorage.setItem('seen_popup', 'true'); }} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3.5 rounded-xl font-black shadow-lg shadow-amber-500/30 transition-all uppercase tracking-widest text-sm">Okudum</button>
+                </div>
+            </div>
+        )}
 
+        {globalConfig?.news && (
+            <div className="fixed top-0 left-0 right-0 bg-slate-900 text-amber-400 text-xs py-2 font-bold z-[9990] border-b border-amber-500/30 overflow-hidden shadow-lg no-print">
+                <div className="flex w-[200%] animate-[marquee_20s_linear_infinite]">
+                    <div className="whitespace-nowrap px-4 w-1/2 flex justify-around"><span className="inline-flex items-center"><i className="fa-solid fa-bullhorn text-white mr-2"></i> {globalConfig.news}</span></div>
+                    <div className="whitespace-nowrap px-4 w-1/2 flex justify-around"><span className="inline-flex items-center"><i className="fa-solid fa-bullhorn text-white mr-2"></i> {globalConfig.news}</span></div>
+                </div>
+            </div>
+        )}
+
+        {showSettings && (
+            <div className="fixed inset-0 z-[99999] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
+                <div className="bg-white rounded-[2.5rem] p-6 md:p-8 w-full max-w-5xl shadow-2xl relative border-4 border-indigo-100 my-auto overflow-hidden mt-10">
+                    <button onClick={()=>setShowSettings(false)} className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition z-50"><i className="fa-solid fa-circle-xmark text-3xl"></i></button>
+                    
+                    {user && !user.isAnonymous ? (
+                        <div className="h-full flex flex-col">
+                            <div className="flex items-center gap-4 mb-8 border-b pb-6">
+                                <div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-2xl shadow-lg shadow-indigo-200"><i className="fa-solid fa-user-shield"></i></div>
+                                <div>
+                                    <h2 className="text-2xl font-black text-slate-800 tracking-tight">Sistem Yönetim Merkezi</h2>
+                                    <p className="text-sm text-slate-500 font-medium">Hoş geldiniz Barış Hocam, tüm dijital ekosistem kontrolünüzde.</p>
+                                </div>
+                                <button onClick={async () => {
+                                    const { getAuth, signInAnonymously } = window.FirebaseSDK;
+                                    const auth = getAuth();
+                                    await auth.signOut();
+                                    await signInAnonymously(auth);
+                                    showToast("Yönetici çıkışı yapıldı.");
+                                }} className="ml-auto bg-rose-50 text-rose-600 px-6 py-2 rounded-xl font-bold hover:bg-rose-100 transition border border-rose-100">Güvenli Çıkış</button>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto max-h-[55vh] pr-2 custom-scroll">
+                                <div className="space-y-5 bg-slate-50 p-6 rounded-3xl border border-slate-200">
+                                    <h3 className="font-bold text-indigo-700 mb-4 flex items-center gap-2"><i className="fa-solid fa-robot"></i> Güvenlik & AI</h3>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Gemini API Anahtarı</label>
+                                            <input type="password" value={apiKey} onChange={(e)=>setApiKey(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-indigo-500 font-mono text-xs transition-all" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Kurum Giriş Kodu (Şifre)</label>
+                                            <input type="text" value={adminInputKurumKodu} onChange={(e)=>setAdminInputKurumKodu(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-indigo-500 font-bold text-indigo-900 transition-all" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Öğretmen Listesi (Virgülle ayırın)</label>
+                                            <textarea value={globalConfig?.teachers || TEACHER_NAMES.join(', ')} onChange={(e)=>{
+                                                const { getFirestore, doc, setDoc } = window.FirebaseSDK;
+                                                const firestore = getFirestore();
+                                                const confRef = doc(firestore, "maas_config", "k12_global");
+                                                setDoc(confRef, { teachers: e.target.value }, { merge: true });
+                                            }} rows="2" className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-indigo-500 text-xs transition-all resize-none"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-5 bg-amber-50 p-6 rounded-3xl border border-amber-200">
+                                    <h3 className="font-bold text-amber-700 mb-4 flex items-center gap-2"><i className="fa-solid fa-bullhorn"></i> Duyuru & Haber</h3>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Kayan Haber Bandı</label>
+                                            <input type="text" value={adminInputNews} onChange={(e)=>setAdminInputNews(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 transition-all font-medium" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Acil Pop-up Mesajı</label>
+                                            <textarea value={adminInputPopup} onChange={(e)=>setAdminInputPopup(e.target.value)} rows="3" className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 resize-none transition-all text-sm font-medium"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 bg-emerald-50 p-6 rounded-3xl border border-emerald-200">
+                                    <h3 className="font-bold text-emerald-700 mb-4 flex items-center gap-2"><i className="fa-solid fa-chalkboard-user"></i> Sınıf Görev Panosu</h3>
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">Anaokulu</label>
+                                            <textarea value={adminHwAnaokulu} onChange={(e)=>setAdminHwAnaokulu(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">İlkokul</label>
+                                            <textarea value={adminHwIlkokul} onChange={(e)=>setAdminHwIlkokul(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">Ortaokul</label>
+                                            <textarea value={adminHwOrtaokul} onChange={(e)=>setAdminHwOrtaokul(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="mt-8 pt-6 border-t flex justify-end gap-3">
+                                <button onClick={async ()=>{
+                                    const { getFirestore, doc, setDoc } = window.FirebaseSDK;
+                                    const firestore = getFirestore();
+                                    const confRef = doc(firestore, "maas_config", "k12_global");
+                                    await setDoc(confRef, { 
+                                        news: adminInputNews, 
+                                        popup: adminInputPopup, 
+                                        kurumKodu: adminInputKurumKodu,
+                                        hwAnaokulu: adminHwAnaokulu,
+                                        hwIlkokul: adminHwIlkokul,
+                                        hwOrtaokul: adminHwOrtaokul
+                                    }, { merge: true });
+                                    showToast("Sistem Güncellendi ve Yayınlandı! 🚀");
+                                    setShowSettings(false);
+                                }} className="bg-indigo-600 text-white px-12 py-4 rounded-2xl font-black shadow-xl shadow-indigo-200 hover:scale-105 active:scale-95 transition-all uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-cloud-arrow-up"></i> GÜNCELLEMELERİ YAYINLA</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-20 animate-fade-in text-center">
+                            <div className="w-24 h-24 bg-indigo-100 text-indigo-600 rounded-[2.5rem] flex items-center justify-center text-5xl mb-8 shadow-inner border-2 border-indigo-50"><i className="fa-solid fa-lock"></i></div>
+                            <h2 className="text-3xl font-black text-slate-800 mb-3 tracking-tight">Yönetici Girişi</h2>
+                            <p className="text-slate-500 mb-10 max-w-sm font-medium leading-relaxed">Sistem ayarlarını, duyuruları ve sınıf görevlerini yönetmek için yetki doğrulamanız gerekmektedir.</p>
+                            <button onClick={() => window.handleGoogleLogin()} className="bg-white border-2 border-slate-200 px-10 py-5 rounded-2xl font-black text-slate-700 flex items-center gap-4 hover:border-indigo-500 hover:shadow-2xl transition-all shadow-xl hover:scale-105 active:scale-95 group">
+                                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-7 h-7 group-hover:rotate-12 transition-transform" alt="G" />
+                                GMAIL İLE YETKİ DOĞRULA
+                            </button>
+                            <p className="mt-12 text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] border-t pt-4">Değişim Koleji Güvenlik Protokolü v2.1</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        )}
+    </>
+);
+
+if (systemRole === 'student' && screenTimeLeft <= 0) return <><ScreenTimeLock /></>;
+if (!systemRole) return <>{renderSharedUI()}<LoginScreen onLogin={handleLogin} openSettings={()=>setShowSettings(true)} globalConfig={globalConfig} /></>;
+if (systemRole === 'student') return <>{renderSharedUI()}<StudentPortal user={k12User} logout={handleLogout} timeLeft={screenTimeLeft} globalConfig={globalConfig} /></>;
+if (systemRole === 'parent') return <>{renderSharedUI()}<ParentPortal user={k12User} logout={handleLogout} globalConfig={globalConfig} /></>;
 
 return (
-<div className="min-h-screen flex flex-col bg-gray-50 pb-safe md:pb-0 relative">
-    <DraggableRobot apiKey={apiKey} modelName={modelName} />
+<div className="min-h-screen flex flex-col bg-gray-50 pb-safe md:pb-0 relative pt-10">
+    {renderSharedUI()}
 
-    {/* Veli/Öğrenci Giriş Yaptığında Çıkacak Pop-up Duyuru */}
-    {showUserPopup && globalConfig?.popup && (
-        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white rounded-[2rem] p-8 w-full max-w-sm text-center shadow-2xl relative border-4 border-amber-500 transform scale-105 transition-transform">
-                <button onClick={() => { setShowUserPopup(false); sessionStorage.setItem('seen_popup', 'true'); }} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center"><i className="fa-solid fa-times"></i></button>
-                <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner border border-amber-200"><i className="fa-solid fa-bell animate-[pulse_2s_infinite]"></i></div>
-                <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-widest">ÖNEMLİ DUYURU</h3>
-                <p className="text-slate-600 mb-8 font-medium text-sm leading-relaxed whitespace-pre-line" dangerouslySetInnerHTML={{ __html: globalConfig.popup.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">$1</a>') }}></p>
-                <button onClick={() => { setShowUserPopup(false); sessionStorage.setItem('seen_popup', 'true'); }} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3.5 rounded-xl font-black shadow-lg shadow-amber-500/30 transition-all uppercase tracking-widest text-sm">Okudum</button>
+    <div className="fixed bottom-6 left-6 z-[9000] flex flex-col gap-3 no-print">
+        <button onClick={()=>setShowSettings(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-2xl font-black text-sm shadow-2xl transition flex items-center justify-center border-2 border-white/20"><i className="fa-solid fa-gear mr-2"></i> Ayarlar</button>
+        <button onClick={handleLogout} className="bg-rose-600 hover:bg-rose-700 text-white px-5 py-3 rounded-2xl font-black text-sm shadow-2xl transition flex items-center justify-center border-2 border-white/20"><i className="fa-solid fa-sign-out-alt mr-2"></i> Çıkış Yap</button>
+    </div>
+
+    {pickedStudent && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-[100] animate-fade-in no-print">
+            <div className="bg-white rounded-3xl p-10 text-center transform scale-100 shadow-2xl animate-bounce">
+                <div className="text-6xl mb-4">🎉</div>
+                <h2 className="text-gray-500 text-lg font-bold uppercase tracking-widest mb-2">Şanslı Öğrenci</h2>
+                <h1 className="text-5xl font-black text-indigo-600 mb-6">{pickedStudent}</h1>
+                <button onClick={() => setPickedStudent(null)} className="text-sm bg-gray-100 px-4 py-2 rounded-lg text-gray-600">Kapat</button>
             </div>
         </div>
     )}
 
-    {/* K12 GLOBAL AYARLAR (GMAIL KORUMALI YÖNETİCİ PANELİ) */}
-    {showSettings && (
-    <div className="fixed inset-0 z-[9999] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
-        <div className="bg-white rounded-[2.5rem] p-6 md:p-8 w-full max-w-5xl shadow-2xl relative border-4 border-indigo-100 my-auto overflow-hidden">
-            <button onClick={()=>setShowSettings(false)} className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition z-50"><i className="fa-solid fa-circle-xmark text-3xl"></i></button>
-            
-            {user && !user.isAnonymous ? (
-                /* YÖNETİM MERKEZİ (Maaş Robotu Entegrasyonu) */
-                <div className="h-full flex flex-col">
-                    <div className="flex items-center gap-4 mb-8 border-b pb-6">
-                        <div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-2xl shadow-lg shadow-indigo-200"><i className="fa-solid fa-user-shield"></i></div>
-                        <div>
-                            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Sistem Yönetim Merkezi</h2>
-                            <p className="text-sm text-slate-500 font-medium">Hoş geldiniz Barış Hocam, tüm dijital ekosistem kontrolünüzde.</p>
-                        </div>
-                        <button onClick={async () => {
-                            const { getAuth, signInAnonymously } = window.FirebaseSDK;
-                            const auth = getAuth();
-                            await auth.signOut();
-                            await signInAnonymously(auth);
-                            showToast("Yönetici çıkışı yapıldı.");
-                        }} className="ml-auto bg-rose-50 text-rose-600 px-6 py-2 rounded-xl font-bold hover:bg-rose-100 transition border border-rose-100">Güvenli Çıkış</button>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto max-h-[55vh] pr-2 custom-scroll">
-                        {/* GÜVENLİK VE AI AYARLARI */}
-                        <div className="space-y-5 bg-slate-50 p-6 rounded-3xl border border-slate-200">
-                            <h3 className="font-bold text-indigo-700 mb-4 flex items-center gap-2"><i className="fa-solid fa-robot"></i> Güvenlik & AI</h3>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Gemini API Anahtarı</label>
-                                    <input type="password" value={apiKey} onChange={(e)=>setApiKey(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-indigo-500 font-mono text-xs transition-all" />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Kurum Giriş Kodu (Şifre)</label>
-                                    <input type="text" value={adminInputKurumKodu} onChange={(e)=>setAdminInputKurumKodu(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-indigo-500 font-bold text-indigo-900 transition-all" />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Öğretmen Listesi (Virgülle ayırın)</label>
-                                    <textarea value={globalConfig?.teachers || TEACHER_NAMES.join(', ')} onChange={(e)=>{
-                                        const { getFirestore, doc, setDoc } = window.FirebaseSDK;
-                                        const firestore = getFirestore();
-                                        const confRef = doc(firestore, "maas_config", "k12_global");
-                                        setDoc(confRef, { teachers: e.target.value }, { merge: true });
-                                    }} rows="2" className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-indigo-500 text-xs transition-all resize-none"></textarea>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* DUYURU YÖNETİMİ */}
-                        <div className="space-y-5 bg-amber-50 p-6 rounded-3xl border border-amber-200">
-                            <h3 className="font-bold text-amber-700 mb-4 flex items-center gap-2"><i className="fa-solid fa-bullhorn"></i> Duyuru & Haber</h3>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Kayan Haber Bandı</label>
-                                    <input type="text" value={adminInputNews} onChange={(e)=>setAdminInputNews(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 transition-all font-medium" />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Acil Pop-up Mesajı</label>
-                                    <textarea value={adminInputPopup} onChange={(e)=>setAdminInputPopup(e.target.value)} rows="3" className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 resize-none transition-all text-sm font-medium"></textarea>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* SINIF GÖREVLERİ (ÖDEVLER) */}
-                        <div className="space-y-4 bg-emerald-50 p-6 rounded-3xl border border-emerald-200">
-                            <h3 className="font-bold text-emerald-700 mb-4 flex items-center gap-2"><i className="fa-solid fa-chalkboard-user"></i> Sınıf Görev Panosu</h3>
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">Anaokulu</label>
-                                    <textarea value={adminHwAnaokulu} onChange={(e)=>setAdminHwAnaokulu(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">İlkokul</label>
-                                    <textarea value={adminHwIlkokul} onChange={(e)=>setAdminHwIlkokul(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">Ortaokul</label>
-                                    <textarea value={adminHwOrtaokul} onChange={(e)=>setAdminHwOrtaokul(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="mt-8 pt-6 border-t flex justify-end gap-3">
-                        <button onClick={async ()=>{
-                            const { getFirestore, doc, setDoc } = window.FirebaseSDK;
-                            const firestore = getFirestore();
-                            const confRef = doc(firestore, "maas_config", "k12_global");
-                            await setDoc(confRef, { 
-                                news: adminInputNews, 
-                                popup: adminInputPopup, 
-                                kurumKodu: adminInputKurumKodu,
-                                hwAnaokulu: adminHwAnaokulu,
-                                hwIlkokul: adminHwIlkokul,
-                                hwOrtaokul: adminHwOrtaokul
-                            }, { merge: true });
-                            showToast("Sistem Güncellendi ve Yayınlandı! 🚀");
-                            setShowSettings(false);
-                        }} className="bg-indigo-600 text-white px-12 py-4 rounded-2xl font-black shadow-xl shadow-indigo-200 hover:scale-105 active:scale-95 transition-all uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-cloud-arrow-up"></i> GÜNCELLEMELERİ YAYINLA</button>
-                    </div>
+    <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40 no-print">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-xl flex items-center justify-center text-lg font-extrabold shadow-md">DK</div>
+                <div>
+                    <h1 className="text-lg md:text-xl font-bold text-gray-900 leading-tight">Değişim Koleji</h1>
+                    <p className="text-[10px] md:text-xs text-indigo-600 font-semibold uppercase tracking-wider">Dijital Eğitim Ekosistemi - Barış Öğretmen</p>
                 </div>
-            ) : (
-                /* GİRİŞ EKRANI (Maaş Robotu Kilitli Görünüm) */
-                <div className="flex flex-col items-center justify-center py-20 animate-fade-in text-center">
-                    <div className="w-24 h-24 bg-indigo-100 text-indigo-600 rounded-[2.5rem] flex items-center justify-center text-5xl mb-8 shadow-inner border-2 border-indigo-50"><i className="fa-solid fa-lock"></i></div>
-                    <h2 className="text-3xl font-black text-slate-800 mb-3 tracking-tight">Yönetici Girişi</h2>
-                    <p className="text-slate-500 mb-10 max-w-sm font-medium leading-relaxed">Sistem ayarlarını, duyuruları ve sınıf görevlerini yönetmek için Gmail hesabınızla yetki doğrulamanız gerekmektedir.</p>
-                    
-                    <button onClick={() => window.handleGoogleLogin()} className="bg-white border-2 border-slate-200 px-10 py-5 rounded-2xl font-black text-slate-700 flex items-center gap-4 hover:border-indigo-500 hover:shadow-2xl transition-all shadow-xl hover:scale-105 active:scale-95 group">
-                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-7 h-7 group-hover:rotate-12 transition-transform" alt="G" />
-                        GMAIL İLE YETKİ DOĞRULA
-                    </button>
-                    <p className="mt-12 text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] border-t pt-4">Değişim Koleji Güvenlik Protokolü v2.1</p>
+            </div>
+            <div className="flex items-center space-x-4">
+                <div className="hidden sm:flex items-center bg-gray-100 rounded-full px-3 py-1 shadow-inner border border-gray-200">
+                    <i className="fa-solid fa-stopwatch text-indigo-500 mr-2"></i>
+                    <span className="font-mono font-bold text-gray-800 mr-3 text-sm">{formatTime(timeLeft)}</span>
+                    <button onClick={() => setTimerActive(!timerActive)} className={`text-xs px-2 py-0.5 rounded font-bold transition ${timerActive ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-green-100 text-green-600 hover:bg-green-200'}`}>{timerActive ? 'Durdur' : 'Başlat'}</button>
+                    <button onClick={() => {setTimerActive(false); setTimeLeft(2400);}} className="text-gray-400 hover:text-gray-600 ml-2" title="Sıfırla"><i className="fa-solid fa-rotate-right"></i></button>
                 </div>
-            )}
+                <div className="hidden lg:flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                    <button onClick={() => {setActiveTab('new_report'); setEditingReportId(null); setEditableResult(null);}} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'new_report' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-pen-nib mr-2"></i>Rapor</button>
+                    <button onClick={() => setActiveTab('contacts')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'contacts' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-address-book mr-2"></i>Rehber</button>
+                    <button onClick={() => setActiveTab('archive')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'archive' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-users-viewfinder mr-2"></i>Arşiv</button>
+                    <button onClick={() => setActiveTab('tools')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'tools' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-wand-magic-sparkles mr-2"></i>Araçlar & Matbaa</button>
+                    <button onClick={() => setActiveTab('notepad')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'notepad' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-book-journal-whills mr-2"></i>Notlar</button>
+                    <button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'settings' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-gear mr-2"></i>Ayarlar</button>
+                </div>
+            </div>
         </div>
-    </div>
-)}
+    </header>
 
-    {/* Öğretmen Çıkış ve Ayarlar Butonu (Sabit Alt Sol) */}
-    <div className="fixed bottom-6 left-6 z-[9000] flex flex-col gap-3 no-print">
-        <button onClick={()=>setShowSettings(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-2xl font-black text-sm shadow-2xl transition flex items-center justify-center border-2 border-white/20"><i className="fa-solid fa-gear mr-2"></i> Ayarlar</button>
-        <button onClick={handleLogout} className="bg-rose-600 hover:bg-rose-700 text-white px-5 py-3 rounded-2xl font-black text-sm shadow-2xl transition flex items-center justify-center border-2 border-white/20"><i className="fa-solid fa-sign-out-alt mr-2"></i> Çıkış Yap</button>
- 
-</div>
-{/* Rastgele Seçilen Öğrenci Ekrani */}
-{pickedStudent && (
-<div className="fixed inset-0 flex items-center justify-center bg-black/80 z-[100] animate-fade-in no-print">
-<div className="bg-white rounded-3xl p-10 text-center transform scale-100 shadow-2xl animate-bounce">
-<div className="text-6xl mb-4">🎉</div>
-<h2 className="text-gray-500 text-lg font-bold uppercase tracking-widest mb-2">Şanslı Öğrenci</h2>
-<h1 className="text-5xl font-black text-indigo-600 mb-6">{pickedStudent}</h1>
-<button onClick={() => setPickedStudent(null)} className="text-sm bg-gray-100 px-4 py-2 rounded-lg text-gray-600">Kapat</button>
-</div>
-</div>
-)}
-{toastMessage && (
-<div className="fixed top-5 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl z-50 flex items-center space-x-2 animate-fade-in no-print font-medium text-sm w-max z-[9999]">
-<i className="fa-solid fa-bell text-green-400"></i><span>{toastMessage}</span>
-</div>
-)}
-
-{/* Üst Header */}
-{/* HABER BANDI (Yönetici Kontrollü) */}
-<div className="bg-slate-900 text-amber-400 text-xs py-2 font-bold relative z-50 border-b border-amber-500/30 overflow-hidden shadow-lg no-print">
-    <div className="flex w-[200%] animate-[marquee_20s_linear_infinite]">
-        <div className="whitespace-nowrap px-4 w-1/2 flex justify-around">
-            <span className="inline-flex items-center"><i className="fa-solid fa-bullhorn text-white mr-2"></i> {globalConfig?.news || "Değişim Koleji Akıllı Kampüsüne Hoş Geldiniz..."}</span>
-        </div>
-        <div className="whitespace-nowrap px-4 w-1/2 flex justify-around">
-            <span className="inline-flex items-center"><i className="fa-solid fa-bullhorn text-white mr-2"></i> {globalConfig?.news || "Değişim Koleji Akıllı Kampüsüne Hoş Geldiniz..."}</span>
-        </div>
-    </div>
-</div>
-<header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40 no-print">
-<div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-<div className="flex items-center space-x-3">
-<div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-700 text-white rounded-xl flex items-center justify-center text-lg font-extrabold shadow-md">DK</div>
-<div>
-<h1 className="text-lg md:text-xl font-bold text-gray-900 leading-tight">Değişim Koleji</h1>
-<p className="text-[10px] md:text-xs text-indigo-600 font-semibold uppercase tracking-wider">Dijital Eğitim Ekosistemi - Barış Öğretmen</p>
-</div>
-</div>
-<div className="flex items-center space-x-4">
-<div className="hidden sm:flex items-center bg-gray-100 rounded-full px-3 py-1 shadow-inner border border-gray-200">
-<i className="fa-solid fa-stopwatch text-indigo-500 mr-2"></i>
-<span className="font-mono font-bold text-gray-800 mr-3 text-sm">{formatTime(timeLeft)}</span>
-<button onClick={() => setTimerActive(!timerActive)} className={`text-xs px-2 py-0.5 rounded font-bold transition ${timerActive ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-green-100 text-green-600 hover:bg-green-200'}`}>{timerActive ? 'Durdur' : 'Başlat'}</button>
-<button onClick={() => {setTimerActive(false); setTimeLeft(2400);}} className="text-gray-400 hover:text-gray-600 ml-2" title="Sıfırla"><i className="fa-solid fa-rotate-right"></i></button>
-</div>
-<div className="hidden lg:flex space-x-1 bg-gray-100 p-1 rounded-lg">
-<button onClick={() => {setActiveTab('new_report'); setEditingReportId(null); setEditableResult(null);}} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'new_report' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-pen-nib mr-2"></i>Rapor</button>
-<button onClick={() => setActiveTab('contacts')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'contacts' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-address-book mr-2"></i>Rehber</button>
-<button onClick={() => setActiveTab('archive')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'archive' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-users-viewfinder mr-2"></i>Arşiv</button>
-<button onClick={() => setActiveTab('tools')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'tools' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-wand-magic-sparkles mr-2"></i>Araçlar & Matbaa</button>
-<button onClick={() => setActiveTab('notepad')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'notepad' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-book-journal-whills mr-2"></i>Notlar</button>
-<button onClick={() => setActiveTab('settings')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'settings' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-gear mr-2"></i>Ayarlar</button>
-</div>
-</div>
-</div>
-</header>
 
 <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
 
