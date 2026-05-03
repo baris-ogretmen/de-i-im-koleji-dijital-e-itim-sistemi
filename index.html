@@ -14,11 +14,11 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import { getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 window.FirebaseSDK = {
-initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged,
+initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup,
 getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc
 };
 window.dispatchEvent(new Event('firebase-sdk-ready'));
@@ -117,6 +117,17 @@ body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #1f29
 </style>
 </head>
 <body>
+<script>
+  window.addEventListener('error', function(event) {
+    document.body.innerHTML = '<div style="padding:40px; background:#fff3cd; border:5px solid #dc3545; color:#212529; font-family:sans-serif; margin:20px; border-radius:15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index:999999; position:relative;">' +
+      '<h1 style="color:#dc3545; font-size:30px; font-weight:900; margin-top:0;">🚨 BEYAZ EKRAN KALKANI DEVREDE 🚨</h1>' +
+      '<p style="font-size:18px;">Barış Hocam, kodda bir yazım hatası var ve sistem çökmek üzereyken kalkan devreye girdi. Hata tam olarak şu:</p>' +
+      '<div style="background:#212529; color:#00ff00; padding:15px; border-radius:8px; font-family:monospace; margin:15px 0;">' + event.message + '</div>' +
+      '<p style="font-size:16px; font-weight:bold;">Hatalı Satır Numarası: ' + event.lineno + '</p>' +
+      '<p style="font-size:14px; color:#6c757d; margin-top:10px;">Lütfen yukarıdaki yeşil yazılı hata mesajını ve satır numarasını bana gönder, anında o satırı düzeltelim ve bitsin bu iş.</p>' +
+      '</div>';
+  });
+</script>
 <div id="root"></div>
 
 <script type="text/babel">
@@ -182,7 +193,542 @@ return (
 {data.length === 0 && <p className="text-gray-400 text-sm">Henüz veri yok.</p>}
 </div>
 );
-};const App = () => {
+};
+
+// --- K12 AKILLI KAMPÜS BİLEŞENLERİ (ÖĞRENCİ, VELİ, GİRİŞ, EKRAN SÜRESİ) ---
+const ScreenTimeLock = () => (
+    <div className="fixed inset-0 z-[9999] bg-slate-900 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+        <div className="bg-red-500/20 w-40 h-40 rounded-full flex items-center justify-center mb-8 animate-pulse border-4 border-red-500/50 shadow-[0_0_50px_rgba(239,68,68,0.5)]">
+            <i className="fa-solid fa-stopwatch text-[80px] text-red-500"></i>
+        </div>
+        <h1 className="text-5xl md:text-7xl font-black text-white mb-6 tracking-widest drop-shadow-lg">SÜRE DOLDU!</h1>
+        <div className="bg-white/10 border border-white/20 p-6 md:p-8 rounded-3xl max-w-2xl backdrop-blur-md">
+            <h2 className="text-xl md:text-2xl font-bold text-yellow-400 mb-4">Değişim Koleji Pedagojik Kuralı</h2>
+            <p className="text-slate-200 text-lg md:text-xl font-medium leading-relaxed">Sınıf kademeniz için belirlenen günlük güvenli ekran sürenizi doldurdunuz. Bilişsel ve fiziksel gelişiminiz için şimdi ekranı kapatıp hareket etme veya kitap okuma zamanı! Yarın yeni görevlerde görüşmek üzere. 🏃‍♂️📚🌳</p>
+        </div>
+        <button onClick={() => window.location.reload()} className="mt-10 text-slate-500 font-bold hover:text-white transition uppercase tracking-widest"><i className="fa-solid fa-sign-out-alt inline mb-1 mr-2 text-lg"></i> Güvenli Çıkış Yap</button>
+    </div>
+);
+
+const TEACHER_NAMES = ["Barış Hocam", "Ahmet Öğretmen", "Ayşe Öğretmen", "Fatma Öğretmen", "Mustafa Öğretmen", "Sınıf Öğretmeni", "Bilişim Öğretmeni", "İngilizce Öğretmeni"];
+const ALL_GRADES = ["Anaokulu", "1. Sınıf", "2. Sınıf", "3. Sınıf", "4. Sınıf", "5. Sınıf", "6. Sınıf", "7. Sınıf", "8. Sınıf"];
+const ALL_SUBJECTS = ["Sınıf Öğretmenliği (Genel)", "Türkçe / Edebiyat", "Matematik", "Fen Bilimleri", "Sosyal Bilgiler", "İngilizce", "Bilişim & Robotik", "Din Kültürü", "Görsel Sanatlar", "Müzik", "Beden Eğitimi"];
+
+const DraggableRobot = ({ apiKey, modelName }) => {
+    const [pos, setPos] = useState({ x: window.innerWidth > 768 ? window.innerWidth - 100 : 20, y: window.innerHeight - 150 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [rel, setRel] = useState(null);
+    const [chatOpen, setChatOpen] = useState(false);
+    const [prompt, setPrompt] = useState('');
+    const [response, setResponse] = useState('Merhaba! Ben Değişim AI. Sana nasıl yardım edebilirim?');
+    const [loading, setLoading] = useState(false);
+
+    const onMouseDown = (e) => {
+        if (e.target.closest('.no-drag')) return;
+        setIsDragging(true);
+        setRel({ x: e.clientX - pos.x, y: e.clientY - pos.y });
+        e.preventDefault();
+    };
+    const onTouchStart = (e) => {
+        if (e.target.closest('.no-drag')) return;
+        setIsDragging(true);
+        setRel({ x: e.touches[0].clientX - pos.x, y: e.touches[0].clientY - pos.y });
+    };
+
+    useEffect(() => {
+        const onMouseMove = (e) => { if (isDragging) setPos({ x: e.clientX - rel.x, y: e.clientY - rel.y }); };
+        const onMouseUp = () => setIsDragging(false);
+        const onTouchMove = (e) => { if (isDragging) setPos({ x: e.touches[0].clientX - rel.x, y: e.touches[0].clientY - rel.y }); };
+        if (isDragging) {
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+            window.addEventListener('touchmove', onTouchMove, { passive: false });
+            window.addEventListener('touchend', onMouseUp);
+        }
+        return () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('touchmove', onTouchMove);
+            window.removeEventListener('touchend', onMouseUp);
+        };
+    }, [isDragging, rel]);
+
+    const askAI = async () => {
+        if (!apiKey || !prompt.trim()) return alert("Sistem yöneticisi API anahtarını girmemiş.");
+        setLoading(true);
+        try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: "Sen Değişim Koleji'nin zeki asistanısın. Kısa ve net yanıt ver: " + prompt }] }] })
+            });
+            const data = await res.json();
+            setResponse(data.candidates[0].content.parts[0].text);
+        } catch (err) { setResponse("Bağlantı hatası oluştu."); }
+        setLoading(false);
+        setPrompt('');
+    };
+
+    return (
+        <div className="fixed z-[99999]" style={{ left: pos.x + 'px', top: pos.y + 'px' }}>
+            <div 
+                onMouseDown={onMouseDown} 
+                onTouchStart={onTouchStart} 
+                onClick={(e) => { if(!isDragging && !rel) setChatOpen(!chatOpen); setRel(null); }} 
+                className="w-20 h-20 bg-white rounded-full shadow-[0_0_30px_rgba(56,189,248,0.6)] border-4 border-sky-300 cursor-move flex items-center justify-center overflow-hidden hover:scale-110 transition-transform relative group"
+            >
+                <img src="https://cdn-icons-png.flaticon.com/512/4712/4712035.png" alt="Değişim AI Robot" className="w-full h-full object-cover p-1 hover:animate-pulse pointer-events-none" draggable="false" />
+            </div>
+            
+            {chatOpen && (
+                <div className="absolute bottom-24 right-0 w-80 bg-white rounded-3xl shadow-2xl border-2 border-sky-200 p-4 flex flex-col gap-3 animate-fade-in no-drag cursor-auto">
+                    <div className="flex justify-between items-center border-b pb-2">
+                        <h3 className="font-black text-sky-700"><i className="fa-solid fa-robot mr-2"></i>Değişim AI</h3>
+                        <button onClick={()=>setChatOpen(false)} className="text-red-500 font-bold"><i className="fa-solid fa-times"></i></button>
+                    </div>
+                    <div className="h-48 overflow-y-auto bg-slate-50 rounded-xl p-3 text-sm text-slate-700 whitespace-pre-wrap font-medium border border-slate-200">
+                        {loading ? <span className="animate-pulse text-sky-600"><i className="fa-solid fa-spinner fa-spin mr-2"></i>Düşünüyorum...</span> : response}
+                    </div>
+                    <div className="flex gap-2">
+                        <input type="text" value={prompt} onChange={e=>setPrompt(e.target.value)} onKeyDown={e => e.key === 'Enter' && askAI()} placeholder="Bana bir şey sor..." className="flex-1 bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-sky-500"/>
+                        <button onClick={askAI} className="bg-sky-500 text-white w-10 rounded-xl flex items-center justify-center hover:bg-sky-600 transition"><i className="fa-solid fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
+    const dynamicTeachers = globalConfig?.teachers ? globalConfig.teachers.split(',').map(t=>t.trim()).filter(Boolean) : TEACHER_NAMES;
+    const [role, setRole] = useState('student');
+    const [name, setName] = useState('');
+    const [teacherName, setTeacherName] = useState(dynamicTeachers[0] || "");
+    const [grade, setGrade] = useState(ALL_GRADES[0]);
+    const [kurumKodu, setKurumKodu] = useState('');
+
+    useEffect(() => {
+        if (dynamicTeachers.length > 0 && !dynamicTeachers.includes(teacherName)) {
+            setTeacherName(dynamicTeachers[0]);
+        }
+    }, [globalConfig?.teachers]);
+
+    useEffect(() => {
+        if (dynamicTeachers.length > 0 && !dynamicTeachers.includes(teacherName)) {
+            setTeacherName(dynamicTeachers[0]);
+        }
+    }, [globalConfig?.teachers]);
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+            <div className="absolute top-4 right-4 z-50">
+                <button onClick={openSettings} className="bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-full backdrop-blur-md transition shadow-lg border border-white/20 font-bold flex items-center gap-2"><i className="fa-solid fa-user-shield text-lg"></i> Yönetici Girişi</button>
+            </div>
+            
+            <div className="absolute -top-32 -left-32 w-96 h-96 bg-purple-600/20 rounded-full mix-blend-screen filter blur-[100px] animate-pulse"></div>
+            <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-orange-600/20 rounded-full mix-blend-screen filter blur-[100px] animate-pulse" style={{animationDelay: '2s'}}></div>
+
+            <div className="bg-white/10 backdrop-blur-2xl border border-white/20 p-8 md:p-12 rounded-[3rem] w-full max-w-xl shadow-[0_0_50px_rgba(0,0,0,0.5)] relative z-10 animate-fade-in">
+                <div className="w-32 h-32 mx-auto rounded-3xl shadow-[0_0_30px_rgba(56,189,248,0.4)] mb-8 transform -rotate-3 hover:rotate-0 transition-transform duration-500 overflow-hidden border-4 border-white/20 bg-white">
+                    <img src="image_5.png" alt="Değişim Koleji" className="w-full h-full object-cover" />
+                </div>
+                <h1 className="text-3xl md:text-4xl font-black text-white text-center mb-2 tracking-widest uppercase">Değişim Koleji</h1>
+                <p className="text-indigo-300 text-center font-bold text-sm mb-10 uppercase tracking-[0.3em]">K12 Akıllı Kampüs Portalı</p>
+                
+                <div className="flex gap-2 mb-8 p-1.5 bg-black/40 rounded-2xl border border-white/5">
+                    <button onClick={()=>setRole('student')} className={`flex-1 py-3.5 rounded-xl font-black text-sm transition-all ${role==='student'?'bg-indigo-500 text-white shadow-lg scale-[1.02]':'text-slate-400 hover:text-white'}`}>Öğrenci</button>
+                    <button onClick={()=>setRole('parent')} className={`flex-1 py-3.5 rounded-xl font-black text-sm transition-all ${role==='parent'?'bg-emerald-500 text-white shadow-lg scale-[1.02]':'text-slate-400 hover:text-white'}`}>Veli</button>
+                    <button onClick={()=>setRole('teacher')} className={`flex-1 py-3.5 rounded-xl font-black text-sm transition-all ${role==='teacher'?'bg-rose-500 text-white shadow-lg scale-[1.02]':'text-slate-400 hover:text-white'}`}>Öğretmen</button>
+                </div>
+
+                <div className="space-y-4">
+                    {role !== 'teacher' ? (
+                        <div>
+                            <input 
+                                type="text" 
+                                placeholder="Öğrenci / Veli Adı Soyadı" 
+                                value={name} 
+                                onChange={e=>setName(e.target.value)} 
+                                className="w-full bg-black/30 border border-white/10 text-white px-6 py-4 rounded-2xl outline-none focus:border-indigo-400 focus:bg-black/50 transition font-bold text-center text-sm md:text-base placeholder-gray-400"
+                            />
+                        </div>
+                    ) : (
+                        <div className="relative">
+                            <select value={teacherName} onChange={e=>setTeacherName(e.target.value)} className="w-full bg-black/30 border border-white/10 text-white px-6 py-4 rounded-2xl outline-none focus:border-rose-400 appearance-none font-bold text-sm md:text-base cursor-pointer text-center">
+                                {dynamicTeachers.map(t => <option key={t} value={t} className="text-black font-bold">{t}</option>)}
+                            </select>
+                            <i className="fa-solid fa-chevron-down absolute right-5 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none text-xl"></i>
+                        </div>
+                    )}
+                    
+                    {role !== 'teacher' && (
+                        <div className="relative">
+                            <select value={grade} onChange={e=>setGrade(e.target.value)} className="w-full bg-black/30 border border-white/10 text-white px-6 py-4 rounded-2xl outline-none focus:border-indigo-400 appearance-none font-bold text-sm md:text-base cursor-pointer text-center">
+                                {ALL_GRADES.map(g => <option key={g} value={g} className="text-black font-bold">{g}</option>)}
+                            </select>
+                            <i className="fa-solid fa-chevron-down absolute right-5 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none text-xl"></i>
+                        </div>
+                    )}
+
+                    <div>
+                        <input 
+                            type="password" 
+                            placeholder="Kurum Kodu (Şifre)" 
+                            value={kurumKodu} 
+                            onChange={e=>setKurumKodu(e.target.value)} 
+                            className="w-full bg-black/30 border border-white/10 text-white px-6 py-4 rounded-2xl outline-none focus:border-amber-400 focus:bg-black/50 transition font-bold text-center text-sm md:text-base placeholder-gray-400"
+                        />
+                    </div>
+
+                    <button onClick={()=>{
+                        let finalName = role === 'teacher' ? teacherName : name.trim();
+                        if (role !== 'teacher' && finalName.length < 2) return alert('Lütfen geçerli bir isim girin!');
+                        
+                        const dogruKod = globalConfig?.kurumKodu || 'değişim2026';
+                        if(kurumKodu !== dogruKod) return alert('Güvenlik İhlali: Kurum Kodu hatalı! Sadece Değişim Koleji üyeleri giriş yapabilir.');
+                        
+                        let finalGrade = role === 'teacher' ? 'teacher' : grade;
+                        onLogin({ role, name: finalName, grade: finalGrade });
+                    }} className={`w-full py-5 rounded-2xl font-black text-white text-xl shadow-2xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 mt-6 ${
+                        role==='student' ? 'bg-gradient-to-r from-indigo-600 to-purple-600' : 
+                        role==='parent' ? 'bg-gradient-to-r from-emerald-600 to-teal-600' :
+                        'bg-gradient-to-r from-rose-600 to-pink-600'
+                    }`}>
+                        KAMPÜSE GİRİŞ YAP <i className="fa-solid fa-door-open text-2xl"></i>
+                    </button>
+                </div>
+            </div>
+            <p className="absolute bottom-6 text-slate-500 text-xs font-bold tracking-widest uppercase">Değişim Koleji Eğitim Ekosistemi V16</p>
+        </div>
+    );
+};
+
+const TeacherPortal = ({ user, db, apiKey, modelName }) => {
+    const [selectedGrade, setSelectedGrade] = useState(ALL_GRADES[0]);
+    const [selectedSubject, setSelectedSubject] = useState(ALL_SUBJECTS[0]);
+    const [hwTopic, setHwTopic] = useState('');
+    const [hwDetails, setHwDetails] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [isAILoading, setIsAILoading] = useState(false);
+
+    const generateAIIdea = async () => {
+        if (!apiKey) return alert("Ayarlardan API anahtarınızı girin.");
+        setIsAILoading(true);
+        try {
+            const prompt = `Sen vizyoner bir eğitimcisin. ${selectedGrade} seviyesi, ${selectedSubject} dersi için öğrencilerin çok seveceği, uygulamalı ve yaratıcı 1 adet ev görevi fikri yaz. Klasik test olmasın. Sadece doğrudan görevi ve nasıl yapılacağını kısaca yaz.`;
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+            const data = await res.json();
+            setHwDetails(data.candidates[0].content.parts[0].text.trim());
+        } catch(e) { alert("AI Fikir üretemedi."); }
+        setIsAILoading(false);
+    };
+
+    const assignHomework = async () => {
+        if(!hwDetails.trim() || !hwTopic.trim()) return alert("Konu ve detay boş olamaz!");
+        setIsSaving(true);
+        try {
+            const confRef = window.FirebaseSDK.doc(db, "maas_config", "k12_global");
+            const hwField = `hw_${selectedGrade.replace(/\s+/g, '').replace(/\./g, '')}`; 
+            const hwText = `📌 DERS: ${selectedSubject}\n🎯 KONU: ${hwTopic}\n📝 GÖREV: ${hwDetails}\n👨‍🏫 Ekleyen: ${user?.name || "Öğretmen"}`;
+            await window.FirebaseSDK.setDoc(confRef, { [hwField]: hwText }, { merge: true });
+            alert(`Harika! Ödev ${selectedGrade} sınıfına gönderildi.`);
+            setHwTopic(''); setHwDetails('');
+        } catch(err) { alert("Hata: " + err.message); }
+        setIsSaving(false);
+    };
+
+    if(user?.role !== 'teacher') return null;
+
+    return (
+        <div className="bg-gradient-to-br from-rose-600 to-pink-700 rounded-2xl shadow-xl p-6 md:p-8 mb-8 text-white relative overflow-hidden border-2 border-rose-400 no-print">
+            <i className="fa-solid fa-chalkboard-user absolute -right-4 -bottom-4 text-[120px] opacity-10 pointer-events-none"></i>
+            <div className="relative z-10">
+                <h2 className="text-2xl font-black mb-4 flex items-center"><i className="fa-solid fa-paper-plane mr-3 text-yellow-300"></i> Sınıflara Görev Ata (Öğretmen Paneli)</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-[10px] font-bold text-rose-200 uppercase mb-1">Sınıf Seçimi</label>
+                        <select value={selectedGrade} onChange={e=>setSelectedGrade(e.target.value)} className="w-full bg-white/10 border border-rose-400/50 p-3 rounded-xl font-bold text-white outline-none focus:border-yellow-300">
+                            {ALL_GRADES.map(g => <option key={g} value={g} className="text-slate-800">{g}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-bold text-rose-200 uppercase mb-1">Ders Branşı</label>
+                        <select value={selectedSubject} onChange={e=>setSelectedSubject(e.target.value)} className="w-full bg-white/10 border border-rose-400/50 p-3 rounded-xl font-bold text-white outline-none focus:border-yellow-300">
+                            {ALL_SUBJECTS.map(s => <option key={s} value={s} className="text-slate-800">{s}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <div className="mb-4">
+                    <label className="block text-[10px] font-bold text-rose-200 uppercase mb-1">Konu Başlığı</label>
+                    <input type="text" value={hwTopic} onChange={e=>setHwTopic(e.target.value)} placeholder="Örn: Kesirlerde Toplama..." className="w-full bg-white/10 border border-rose-400/50 p-3 rounded-xl font-bold text-white outline-none focus:border-yellow-300 placeholder-rose-200/50"/>
+                </div>
+                <div className="mb-4">
+                    <div className="flex justify-between items-end mb-1">
+                        <label className="block text-[10px] font-bold text-rose-200 uppercase">Görev Detayı</label>
+                        <button onClick={generateAIIdea} disabled={isAILoading} className="bg-yellow-400 text-rose-900 hover:bg-yellow-300 px-3 py-1 rounded-lg text-[10px] font-black transition shadow-sm">
+                            {isAILoading ? <i className="fa-solid fa-spinner fa-spin mr-1"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-1"></i>} Yapay Zekadan Fikir Al
+                        </button>
+                    </div>
+                    <textarea value={hwDetails} onChange={e=>setHwDetails(e.target.value)} placeholder="Öğrenciler tam olarak ne yapacak?" rows="3" className="w-full bg-white/10 border border-rose-400/50 p-3 rounded-xl font-medium text-white outline-none focus:border-yellow-300 placeholder-rose-200/50 resize-y"></textarea>
+                </div>
+                <button onClick={assignHomework} disabled={isSaving} className="w-full bg-white text-rose-700 font-black py-4 rounded-xl shadow-lg hover:bg-gray-50 transition-all flex items-center justify-center gap-2">
+                    {isSaving ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-rocket"></i>} GÖREVİ PANOLARA GÖNDER
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const StudentPortal = ({ user, logout, timeLeft, globalConfig }) => {
+    const [showHomework, setShowHomework] = useState(false);
+
+    const formatMinSec = (sec) => {
+        const m = Math.floor(sec / 60).toString().padStart(2, '0');
+        const s = (sec % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+    };
+
+    const gradeKey = user.grade.replace(/\s+/g, '').replace(/\./g, '');
+    const myHwField = `hw_${gradeKey}`;
+    const myHomework = globalConfig?.[myHwField];
+
+    return (
+        <div className="min-h-screen bg-slate-50 flex flex-col p-4 md:p-8 animate-fade-in pb-24 relative">
+            {showHomework && (
+                <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl border-4 border-orange-400 relative">
+                        <button onClick={() => setShowHomework(false)} className="absolute top-4 right-4 bg-gray-100 text-gray-600 w-8 h-8 rounded-full hover:bg-gray-200"><i className="fa-solid fa-times"></i></button>
+                        <h2 className="text-2xl font-black text-slate-800 mb-4 flex items-center"><i className="fa-solid fa-bullseye text-orange-500 mr-3"></i> {user.grade} Görev Panosu</h2>
+                        
+                        <div className="bg-orange-50 p-5 rounded-xl border border-orange-200 text-slate-700 font-medium whitespace-pre-wrap leading-relaxed min-h-[150px]">
+                            {myHomework || 'Şu an sınıfınız için atanmış yeni bir görev bulunmuyor. Kitap okuyabilirsiniz! 📚'}
+                        </div>
+                        
+                        <button onClick={() => setShowHomework(false)} className="w-full mt-6 bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition">Anladım, Kapat</button>
+                    </div>
+                </div>
+            )}
+
+            <div className="max-w-5xl mx-auto w-full bg-gradient-to-br from-indigo-600 to-blue-700 rounded-[3rem] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 border-4 border-white">
+                <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none"><i className="fa-solid fa-gamepad text-[250px]"></i></div>
+                <div className="relative z-10 text-center md:text-left">
+                    <div className="bg-white/20 px-5 py-2 rounded-full inline-block font-black text-xs uppercase tracking-widest mb-4 backdrop-blur-md border border-white/30 shadow-sm">{user.grade} Kademesi</div>
+                    <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-2">Merhaba, {user.name}!</h1>
+                    <p className="text-indigo-200 font-bold text-lg md:text-xl">Değişim Koleji'nde bugün harikalar yaratacaksın.</p>
+                </div>
+                <div className="relative z-10 flex flex-col items-center bg-black/30 p-6 rounded-3xl border-2 border-white/10 backdrop-blur-md min-w-[200px] shadow-xl">
+                    <span className="text-[11px] uppercase font-black tracking-[0.2em] text-indigo-200 mb-2">Kalan Ekran Süren</span>
+                    <span className={`text-5xl font-mono font-black tracking-tighter ${timeLeft < 300 ? 'text-red-400 animate-pulse drop-shadow-[0_0_15px_rgba(248,113,113,0.8)]' : 'text-white'}`}>{formatMinSec(timeLeft)}</span>
+                  {timeLeft < 300 && <span className="text-[10px] text-red-300 font-bold mt-2 uppercase bg-red-900/50 px-2 py-1 rounded-md">Son 5 Dakika!</span>}
+                </div>
+            </div>
+
+            {/* DİREKT ANA SAYFADA GÖRÜNEN ÖDEV PANOSU */}
+            <div className="max-w-5xl mx-auto w-full mt-8 bg-gradient-to-r from-orange-100 to-amber-100 border-4 border-orange-300 rounded-[2.5rem] p-6 md:p-8 shadow-xl relative overflow-hidden">
+                <i className="fa-solid fa-thumbtack absolute -top-4 -right-4 text-7xl text-orange-300/40 transform rotate-45"></i>
+                <h2 className="text-2xl md:text-3xl font-black text-orange-900 mb-4 flex items-center"><i className="fa-solid fa-bullseye text-orange-500 mr-3"></i> {user.grade} Sınıfı Aktif Görev Panosu</h2>
+                <div className="bg-white p-5 rounded-2xl text-slate-800 font-medium whitespace-pre-wrap leading-relaxed shadow-inner border border-orange-200 min-h-[100px] text-lg">
+                    {myHomework || 'Şu an öğretmeniniz tarafından atanmış yeni bir görev bulunmuyor. Kitap okuyabilirsiniz! 📚'}
+                </div>
+            </div>
+            
+            <div className="max-w-5xl mx-auto w-full mt-10 grid grid-cols-1 sm:grid-cols-2 gap-8">
+                <button onClick={()=>window.open('https://baris-ogretmen.github.io/site-1/', '_blank')} className="bg-white border-4 border-slate-100 hover:border-cyan-400 p-10 rounded-[3rem] shadow-xl hover:-translate-y-2 transition-all flex flex-col items-center justify-center gap-5 group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 bg-cyan-100 text-cyan-700 text-[10px] font-black px-4 py-2 rounded-bl-2xl uppercase tracking-widest">Akademi</div>
+                    <div className="bg-gradient-to-br from-cyan-400 to-blue-500 text-white w-24 h-24 flex items-center justify-center rounded-3xl group-hover:scale-110 transition-transform shadow-lg"><i className="fa-solid fa-globe text-[50px]"></i></div>
+                    <div className="text-center">
+                        <h3 className="font-black text-3xl text-slate-800 mb-2">Eğitim Ekosistemi</h3>
+                        <p className="text-slate-500 font-bold text-sm px-4">Barış Öğretmen Akademi platformuna git ve çalışmalarına başla!</p>
+                    </div>
+                </button>
+                <button onClick={()=>setShowHomework(true)} className="bg-white border-4 border-slate-100 hover:border-orange-400 p-10 rounded-[3rem] shadow-xl hover:-translate-y-2 transition-all flex flex-col items-center justify-center gap-5 group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 bg-orange-100 text-orange-700 text-[10px] font-black px-4 py-2 rounded-bl-2xl uppercase tracking-widest">Görevler</div>
+                    <div className="bg-gradient-to-br from-orange-400 to-red-500 text-white w-24 h-24 flex items-center justify-center rounded-full group-hover:scale-110 transition-transform shadow-lg"><i className="fa-solid fa-bullseye text-[50px]"></i></div>
+                    <div className="text-center">
+                        <h3 className="font-black text-3xl text-slate-800 mb-2">Sınıf Görevleri</h3>
+                        <p className="text-slate-500 font-bold text-sm px-4">Öğretmeninin sınıfına atadığı görevleri tamamla, D-Coin kazan!</p>
+                    </div>
+                </button>
+            </div>
+            <div className="max-w-5xl mx-auto w-full mt-12 text-center"><button onClick={logout} className="bg-slate-200 text-slate-600 font-black hover:bg-red-500 hover:text-white px-8 py-4 rounded-full transition-all shadow-md uppercase tracking-widest text-sm"><i className="fa-solid fa-sign-out-alt inline mb-1 mr-2 text-lg"></i> Kampüsten Çıkış Yap</button></div>
+        </div>
+    );
+};
+
+const ParentPortal = ({ user, logout, globalConfig }) => {
+    const [showAnnouncements, setShowAnnouncements] = useState(false);
+    const [showHomework, setShowHomework] = useState(false);
+
+    const gradeKey = user.grade.replace(/\s+/g, '').replace(/\./g, '');
+    const myHwField = `hw_${gradeKey}`;
+    const myHomework = globalConfig?.[myHwField];
+
+    return (
+        <div className="min-h-screen bg-slate-50 flex flex-col p-4 md:p-8 animate-fade-in pb-24 relative">
+            
+            {showHomework && (
+                <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl border-4 border-orange-400 relative">
+                        <button onClick={() => setShowHomework(false)} className="absolute top-4 right-4 bg-gray-100 text-gray-600 w-8 h-8 rounded-full hover:bg-gray-200"><i className="fa-solid fa-times"></i></button>
+                        <h2 className="text-2xl font-black text-slate-800 mb-4 flex items-center"><i className="fa-solid fa-bullseye text-orange-500 mr-3"></i> {user.grade} Görev Panosu</h2>
+                        <div className="bg-orange-50 p-5 rounded-xl border border-orange-200 text-slate-700 font-medium whitespace-pre-wrap leading-relaxed min-h-[150px]">
+                            {myHomework || 'Şu an sınıfınız için atanmış yeni bir görev bulunmuyor. Kitap okuyabilirsiniz! 📚'}
+                        </div>
+                        <button onClick={() => setShowHomework(false)} className="w-full mt-6 bg-orange-500 text-white py-3 rounded-xl font-bold hover:bg-orange-600 transition">Anladım, Kapat</button>
+                    </div>
+                </div>
+            )}
+
+            {showAnnouncements && (
+                <div className="fixed inset-0 z-[100] bg-slate-50 overflow-y-auto animate-fade-in">
+                    <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-md p-4 border-b flex justify-between items-center shadow-sm">
+                        <div className="flex items-center gap-2">
+                            <div className="w-12 h-12 rounded-xl shadow-lg overflow-hidden border-2 border-amber-400 shrink-0 bg-white p-1">
+                                <img src="image_5.png" alt="Değişim Koleji" className="w-full h-full object-cover" />
+                            </div>
+                            <h1 className="font-bold text-xl tracking-tight text-slate-900">Değişim <span className="text-amber-600">Koleji</span></h1>
+                        </div>
+                        <button onClick={() => setShowAnnouncements(false)} className="bg-red-100 hover:bg-red-200 text-red-600 px-4 py-2 rounded-xl font-bold transition"><i className="fa-solid fa-times mr-1"></i> Kapat</button>
+                    </div>
+
+                    <section className="relative py-16 px-6">
+                        <div className="max-w-4xl mx-auto text-center z-10">
+                            <div className="inline-block mb-4 px-4 py-1.5 rounded-full bg-white/60 backdrop-blur-md border border-amber-400/50 text-amber-600 font-semibold text-sm shadow-sm">
+                                <i className="fa-solid fa-star mr-1"></i> 2026-2027 Erken Kayıt Fırsatları
+                            </div>
+                            <h2 className="text-4xl md:text-6xl font-extrabold text-slate-900 leading-tight mb-6">
+                                Geleceğin Liderleri <br className="hidden md:block" />
+                                <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-amber-600">Değişim'de</span> Yetişiyor!
+                            </h2>
+                            <p className="text-lg md:text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed font-medium">
+                                Eğitimde standartları yeniden belirliyoruz. Çocuğunuzun içindeki potansiyeli keşfedeceği, sevgiyle büyüyeceği yeni nesil eğitim kampüsümüze davetlisiniz.
+                            </p>
+                        </div>
+                    </section>
+
+                    <section className="pb-8 px-4 md:px-6">
+                        <div className="max-w-6xl mx-auto bg-gradient-to-br from-indigo-900 to-purple-900 rounded-[3rem] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden border-4 border-indigo-400/30">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full translate-x-1/2 -translate-y-1/2"></div>
+                            <h3 className="text-3xl font-black text-yellow-400 mb-2 text-center"><i className="fa-solid fa-dna mr-2"></i> Öğrenme DNA'sı (VAK) İnfografiği</h3>
+                            <p className="text-center text-indigo-200 mb-8 text-sm">{user.name} isimli öğrencimizin bilgiyi en iyi nasıl işlediğinin bilimsel haritası.</p>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-3xl text-center hover:-translate-y-2 transition-transform">
+                                    <div className="w-16 h-16 mx-auto bg-blue-500/30 rounded-full flex items-center justify-center text-blue-300 text-2xl mb-4"><i className="fa-solid fa-eye"></i></div>
+                                    <h4 className="font-bold text-lg text-blue-200 mb-1">Görsel</h4>
+                                    <p className="text-3xl font-black text-white mb-2">%45</p>
+                                    <p className="text-[10px] text-blue-100">Renkler, haritalar ve grafiklerle öğrenir.</p>
+                                </div>
+                                <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-3xl text-center hover:-translate-y-2 transition-transform">
+                                    <div className="w-16 h-16 mx-auto bg-emerald-500/30 rounded-full flex items-center justify-center text-emerald-300 text-2xl mb-4"><i className="fa-solid fa-ear-listen"></i></div>
+                                    <h4 className="font-bold text-lg text-emerald-200 mb-1">İşitsel</h4>
+                                    <p className="text-3xl font-black text-white mb-2">%25</p>
+                                    <p className="text-[10px] text-emerald-100">Dinleyerek, tartışarak ve ritimle öğrenir.</p>
+                                </div>
+                                <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-3xl text-center hover:-translate-y-2 transition-transform">
+                                    <div className="w-16 h-16 mx-auto bg-orange-500/30 rounded-full flex items-center justify-center text-orange-300 text-2xl mb-4"><i className="fa-solid fa-child-reaching"></i></div>
+                                    <h4 className="font-bold text-lg text-orange-200 mb-1">Kinestetik</h4>
+                                    <p className="text-3xl font-black text-white mb-2">%30</p>
+                                    <p className="text-[10px] text-orange-100">Dokunarak, hareket ederek ve deneyerek öğrenir.</p>
+                                </div>
+                            </div>
+                            <div className="mt-8 bg-black/30 p-4 rounded-xl text-center border border-white/10 text-sm font-medium">
+                                <span className="text-yellow-400 font-bold"><i className="fa-solid fa-lightbulb"></i> Uzman Önerisi:</span> Öğrencimiz görsel materyallere ve deneylere ağırlık vererek ders çalışmalıdır.
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="pb-8 px-4 md:px-6">
+                        <div className="max-w-6xl mx-auto bg-slate-900 rounded-[3rem] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                            <i className="fa-solid fa-compass absolute -right-10 -bottom-10 text-[200px] text-white opacity-5 pointer-events-none"></i>
+                            <div className="relative z-10 flex flex-col lg:flex-row items-center gap-8">
+                                <div className="flex-1">
+                                    <div className="inline-block mb-3 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/50 text-amber-400 font-black text-[10px] uppercase tracking-widest shadow-sm">Profesyonel Mentörlük</div>
+                                    <h3 className="text-3xl md:text-4xl font-black text-white mb-4 leading-tight">Barış Öğretmen ile <br/><span className="text-amber-400">Özel Eğitim Koçluğu</span></h3>
+                                    <p className="text-slate-300 font-medium mb-6 leading-relaxed">Özellikle son sınıf (LGS/YKS) öğrencilerimiz için sınav senesi bir stres kaynağı değil, stratejik bir projedir. Barış Öğretmen liderliğindeki profesyonel eğitim koçluğu ile öğrencimizin potansiyelini zirveye taşıyoruz.</p>
+                                    
+                                    <ul className="space-y-4 text-sm font-medium text-slate-200">
+                                        <li className="flex items-start"><i className="fa-solid fa-check-circle text-emerald-400 mt-1 mr-3 text-lg"></i> <div><strong className="text-white block">Sıfır Sınav Kaygısı:</strong> Psikolojik destek ve stres yönetimi ile öğrencinin motivasyonunu her zaman diri tutuyoruz.</div></li>
+                                        <li className="flex items-start"><i className="fa-solid fa-check-circle text-emerald-400 mt-1 mr-3 text-lg"></i> <div><strong className="text-white block">Zaman Mühendisliği:</strong> Hangi derse, hangi konuya ne kadar süre ayrılacağını yapay zeka destekli analizlerle planlıyoruz.</div></li>
+                                        <li className="flex items-start"><i className="fa-solid fa-check-circle text-emerald-400 mt-1 mr-3 text-lg"></i> <div><strong className="text-white block">Kişiye Özel Strateji:</strong> Öğrenme DNA'sına (VAK) uygun, sadece öğrencimize özel ders çalışma taktikleri geliştiriyoruz.</div></li>
+                                    </ul>
+                                </div>
+                                <div className="w-full lg:w-1/3 bg-gradient-to-br from-amber-400 to-orange-500 p-8 rounded-[2.5rem] shadow-lg text-center transform hover:scale-105 transition-transform duration-300">
+                                    <div className="w-20 h-20 mx-auto bg-white/20 rounded-full flex items-center justify-center text-4xl text-white mb-4 shadow-inner"><i className="fa-solid fa-user-tie"></i></div>
+                                    <h4 className="text-2xl font-black text-slate-900 mb-2">Birebir Koçluk</h4>
+                                    <p className="text-slate-800 text-sm font-bold mb-6">Sınırlı kontenjan ile çocuğunuza özel akademik yol arkadaşlığı.</p>
+                                    <button onClick={()=>alert("Barış Öğretmen ile Koçluk görüşmesi planlamak için lütfen kurumla iletişime geçin.")} className="bg-slate-900 text-white w-full py-3.5 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-slate-800 transition shadow-md">Detaylı Bilgi Al</button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="py-4 px-4 md:px-6 h-[80vh] w-full pb-20">
+                        <div className="max-w-6xl mx-auto h-full rounded-[3rem] overflow-hidden shadow-2xl border-4 border-amber-400 relative bg-white">
+                            <div className="absolute top-0 left-0 bg-amber-500 text-white font-black px-6 py-2 rounded-br-2xl z-10 shadow-lg tracking-widest uppercase text-xs">2026-2027 Erken Kayıt Platformu</div>
+                            <a href="https://baris-ogretmen.github.io/erken-kay-t/" target="_blank" rel="noopener noreferrer" className="absolute top-2 right-4 z-10 bg-slate-900 text-white px-4 py-1.5 rounded-full text-xs font-bold hover:bg-slate-800 shadow-lg transition"><i className="fa-solid fa-external-link-alt mr-1"></i> Yeni Sekmede Aç</a>
+                            <iframe src="https://baris-ogretmen.github.io/erken-kay-t/" className="w-full h-full border-none pt-10" title="Erken Kayıt"></iframe>
+                        </div>
+                    </section>
+                </div>
+            )}
+
+            <div className="max-w-5xl mx-auto w-full bg-gradient-to-br from-emerald-600 to-teal-700 rounded-[3rem] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 border-4 border-white">
+                <div className="absolute -right-10 -bottom-10 opacity-10 pointer-events-none"><i className="fa-solid fa-users text-[250px]"></i></div>
+                <div className="relative z-10 text-center md:text-left">
+                    <div className="bg-white/20 px-5 py-2 rounded-full inline-block font-black text-xs uppercase tracking-widest mb-4 backdrop-blur-md border border-white/30 shadow-sm">Veli İletişim Portalı</div>
+                    <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-2">Sayın {user.name}</h1>
+                    <p className="text-emerald-100 font-bold text-lg md:text-xl">Çocuğunuzun gelişim dünyası parmaklarınızın ucunda.</p>
+                </div>
+            </div>
+            
+            <div className="max-w-5xl mx-auto w-full mt-10 grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="bg-white border-4 border-slate-100 hover:border-blue-300 p-8 rounded-[2.5rem] shadow-lg flex flex-col items-center text-center transition-colors cursor-pointer group">
+                    <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"><i className="fa-solid fa-bell text-[40px]"></i></div>
+                    <h3 className="font-black text-2xl text-slate-800 mb-2">Duyurular & Kayıt</h3>
+                    <p className="text-slate-500 font-medium text-sm mb-6 flex-1">Değişim Koleji duyuruları ve VAK analiziniz.</p>
+                    <button onClick={() => setShowAnnouncements(true)} className="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-md hover:bg-blue-600 transition-colors uppercase tracking-widest text-sm">Görüntüle</button>
+                </div>
+
+                <div className="bg-white border-4 border-slate-100 hover:border-orange-300 p-8 rounded-[2.5rem] shadow-lg flex flex-col items-center text-center transition-colors cursor-pointer group">
+                    <div className="w-20 h-20 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"><i className="fa-solid fa-clipboard-list text-[40px]"></i></div>
+                    <h3 className="font-black text-2xl text-slate-800 mb-2">Sınıf Görevleri</h3>
+                    <p className="text-slate-500 font-medium text-sm mb-6 flex-1">Öğretmenlerimizin atadığı güncel ödevler ve görevler.</p>
+                    <button onClick={() => setShowHomework(true)} className="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-md hover:bg-orange-600 transition-colors uppercase tracking-widest text-sm">Görevleri Aç</button>
+                </div>
+                
+                <div className="bg-white border-4 border-slate-100 hover:border-purple-300 p-8 rounded-[2.5rem] shadow-lg flex flex-col items-center text-center transition-colors cursor-pointer group" onClick={()=>alert('Karneler öğretmen tarafından yüklendiğinde aktif olacaktır.')}>
+                    <div className="w-20 h-20 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform rotate-3 group-hover:rotate-0"><i className="fa-solid fa-chart-pie text-[40px]"></i></div>
+                    <h3 className="font-black text-2xl text-slate-800 mb-2">AI İnfografik Karne</h3>
+                    <p className="text-slate-500 font-medium text-sm mb-6 flex-1">Yapay Zeka tarafından hazırlanan akademik gelişim analizleri.</p>
+                    <button className="w-full bg-slate-800 text-white py-4 rounded-2xl font-black shadow-md hover:bg-purple-600 transition-colors uppercase tracking-widest text-sm">Raporları Aç</button>
+                </div>
+            </div>
+            <div className="max-w-5xl mx-auto w-full mt-12 text-center"><button onClick={logout} className="bg-slate-200 text-slate-600 font-black hover:bg-red-500 hover:text-white px-8 py-4 rounded-full transition-all shadow-md uppercase tracking-widest text-sm"><i className="fa-solid fa-sign-out-alt inline mb-1 mr-2 text-lg"></i> Güvenli Çıkış</button></div>
+        </div>
+    );
+};
+
+const App = () => {
+
+// K12 SİSTEM STATELERİ VE EKRAN SÜRESİ
+const [systemRole, setSystemRole] = useState(null);
+const [k12User, setK12User] = useState(null);
+const [screenTimeLeft, setScreenTimeLeft] = useState(0);
+const [showSettings, setShowSettings] = useState(false);
+
+// DİNAMİK DUYURU (HABER BANDI VE POPUP) YÖNETİMİ
+const [globalConfig, setGlobalConfig] = useState({ news: "", popup: "" });
+const [showUserPopup, setShowUserPopup] = useState(false);
+const [adminInputNews, setAdminInputNews] = useState("");
+const [adminInputPopup, setAdminInputPopup] = useState("");
+const [adminInputKurumKodu, setAdminInputKurumKodu] = useState("değişim2026");
+const [adminHwAnaokulu, setAdminHwAnaokulu] = useState("");
+const [adminHwIlkokul, setAdminHwIlkokul] = useState("");
+const [adminHwOrtaokul, setAdminHwOrtaokul] = useState("");
+
 const [activeTab, setActiveTab] = useState('new_report');
 const [apiKey, setApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
 const [modelName, setModelName] = useState(localStorage.getItem('gemini_model_name') || 'gemini-2.5-pro');
@@ -197,7 +743,7 @@ const [savedReports, setSavedReports] = useState([]);
 const [contacts, setContacts] = useState([]);
 const [notes, setNotes] = useState([]);
 const [savedAnalyses, setSavedAnalyses] = useState([]);
-const [localMedia, setLocalMedia] = useState([]); // YENİ MODÜL: Medya Galerisi İçin
+const [localMedia, setLocalMedia] = useState([]);
 
 const [editingReportId, setEditingReportId] = useState(null);
 const [studentName, setStudentName] = useState('');
@@ -227,7 +773,7 @@ const [materialTopic, setMaterialTopic] = useState('');
 const [materialType, setMaterialType] = useState('Fark Etmez (Yapay Zeka Seçsin)');
 const [materialResult, setMaterialResult] = useState(null);
 const [isGeneratingMaterial, setIsGeneratingMaterial] = useState(false);
-const [lastPromptContext, setLastPromptContext] = useState(''); // BARIŞ HOCA HAFIZA MODÜLÜ
+const [lastPromptContext, setLastPromptContext] = useState(''); 
 const [matStudentName, setMatStudentName] = useState('');
 const [matInterests, setMatInterests] = useState('');
 const [matDifficulty, setMatDifficulty] = useState('Fark Etmez (Yapay Zeka Belirlesin)');
@@ -263,7 +809,7 @@ const [lessonTopic, setLessonTopic] = useState('');
 const [lessonResult, setLessonResult] = useState(null);
 const [isGeneratingLesson, setIsGeneratingLesson] = useState(false);
 
-const [storyTheme, setStoryTheme] = useState('');
+const [storyTheme, setTheme] = useState('');
 const [storyResult, setStoryResult] = useState(null);
 const [isGeneratingStory, setIsGeneratingStory] = useState(false);
 
@@ -279,7 +825,6 @@ const [gameTopic, setGameTopic] = useState('');
 const [gameResult, setGameResult] = useState(null);
 const [isGeneratingGame, setIsGeneratingGame] = useState(false);
 
-// KOLEJ VE YOKLAMA ARAÇLARI STATELERİ
 const [prTopic, setPrTopic] = useState('');
 const [prResult, setPrResult] = useState(null);
 const [isGeneratingPR, setIsGeneratingPR] = useState(false);
@@ -296,7 +841,6 @@ const [absentStudentName, setAbsentStudentName] = useState('');
 const [attendanceResult, setAttendanceResult] = useState(null);
 const [isGeneratingAttendance, setIsGeneratingAttendance] = useState(false);
 
-// BARIŞ HOCA: 1. SINIF CHECK-UP STATELERİ EKLENDİ
 const [readinessMotor, setReadinessMotor] = useState('');
 const [readinessDikkat, setReadinessDikkat] = useState('');
 const [readinessSosyal, setReadinessSosyal] = useState('');
@@ -311,6 +855,36 @@ const [noteDate, setNoteDate] = useState(new Date().toISOString().split('T')[0])
 
 const [timerActive, setTimerActive] = useState(false);
 const [timeLeft, setTimeLeft] = useState(2400);
+
+useEffect(() => {
+    let interval = null;
+    if (systemRole === 'student' && screenTimeLeft > 0) {
+        interval = setInterval(() => {
+            setScreenTimeLeft(prev => prev - 1);
+        }, 1000);
+    }
+    return () => clearInterval(interval);
+}, [systemRole]);
+
+const handleLogin = (data) => {
+    setSystemRole(data.role);
+    setK12User(data);
+    if(data.role === 'student') {
+        let seconds = 1800; // Varsayılan 30 Dk
+        if(data.grade === 'anaokulu') seconds = 1200; // 20 Dk
+        else if(data.grade === 'ortaokul') seconds = 2700; // 45 Dk
+        setScreenTimeLeft(seconds);
+    }
+    showToast(`${data.role === 'teacher' ? 'Öğretmen' : data.name} girişi başarılı!`);
+};
+
+const handleLogout = () => {
+    if(confirm("Çıkış yapmak istediğinize emin misiniz?")) {
+        setSystemRole(null);
+        setK12User(null);
+        setScreenTimeLeft(0);
+    }
+};
 
 useEffect(() => {
 if (apiKey) localStorage.setItem('gemini_api_key', apiKey);
@@ -370,12 +944,33 @@ return () => window.removeEventListener('firebase-sdk-ready', listener);
 
 useEffect(() => {
 if (!isFbReady || !user || !db) return;
+
+// Veritabanı ve Global Config (Şifre ve Ödev) Çekimi
+const confRef = window.FirebaseSDK.doc(db, "maas_config", "k12_global");
+const unsubConf = window.FirebaseSDK.onSnapshot(confRef, (docSnap) => {
+    if (docSnap) { 
+        const data = docSnap.data();
+        if(data) {
+            setGlobalConfig(data);
+            setAdminInputNews(data.news || "");
+            setAdminInputPopup(data.popup || "");
+            setAdminInputKurumKodu(data.kurumKodu || "değişim2026");
+            setAdminHwAnaokulu(data.hwAnaokulu || "");
+            setAdminHwIlkokul(data.hwIlkokul || "");
+            setAdminHwOrtaokul(data.hwOrtaokul || "");
+            
+            if (data.popup && !sessionStorage.getItem('seen_popup')) {
+                setShowUserPopup(true);
+            }
+        }
+    }
+});
+
 const { collection, onSnapshot } = window.FirebaseSDK;
 const unsubReports = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'reports'), (snapshot) => {
 const reps = []; 
 snapshot.forEach((doc) => {
     const data = doc.data();
-    // EĞER "SİLİNDİ" ETİKETİ YOKSA EKRANA GETİR (Yumuşak Silme Filtresi)
     if (!data.isDeleted) { 
         reps.push({ id: doc.id, ...data });
     }
@@ -397,7 +992,7 @@ const nts = []; snapshot.forEach((doc) => nts.push({ id: doc.id, ...doc.data() }
 nts.sort((a, b) => new Date(b.date) - new Date(a.date));
 setNotes(nts);
 });
-return () => { unsubReports(); unsubContacts(); unsubNotes(); unsubAnalyses(); };
+return () => { unsubReports(); unsubContacts(); unsubNotes(); unsubAnalyses(); unsubConf(); };
 }, [isFbReady, user, db, appId]);
 const [isApiValid, setIsApiValid] = useState(false);
 
@@ -1269,8 +1864,148 @@ setPickedStudent(random);
 setTimeout(() => setPickedStudent(null), 3000);
 };
 
+// K12 GİRİŞ YÖNLENDİRİCİSİ
+if (systemRole === 'student' && screenTimeLeft <= 0) return <ScreenTimeLock />;
+if (!systemRole) return <><DraggableRobot apiKey={apiKey} modelName={modelName} /><LoginScreen onLogin={handleLogin} openSettings={()=>setShowSettings(true)} globalConfig={globalConfig} /></>;
+if (systemRole === 'student') return <><DraggableRobot apiKey={apiKey} modelName={modelName} /><StudentPortal user={k12User} logout={handleLogout} timeLeft={screenTimeLeft} globalConfig={globalConfig} /></>;
+if (systemRole === 'parent') return <><DraggableRobot apiKey={apiKey} modelName={modelName} /><ParentPortal user={k12User} logout={handleLogout} globalConfig={globalConfig} /></>;
+
+
 return (
-<div className="min-h-screen flex flex-col bg-gray-50 pb-safe md:pb-0">
+<div className="min-h-screen flex flex-col bg-gray-50 pb-safe md:pb-0 relative">
+    <DraggableRobot apiKey={apiKey} modelName={modelName} />
+
+    {/* Veli/Öğrenci Giriş Yaptığında Çıkacak Pop-up Duyuru */}
+    {showUserPopup && globalConfig?.popup && (
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white rounded-[2rem] p-8 w-full max-w-sm text-center shadow-2xl relative border-4 border-amber-500 transform scale-105 transition-transform">
+                <button onClick={() => { setShowUserPopup(false); sessionStorage.setItem('seen_popup', 'true'); }} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center"><i className="fa-solid fa-times"></i></button>
+                <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-4xl mx-auto mb-6 shadow-inner border border-amber-200"><i className="fa-solid fa-bell animate-[pulse_2s_infinite]"></i></div>
+                <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-widest">ÖNEMLİ DUYURU</h3>
+                <p className="text-slate-600 mb-8 font-medium text-sm leading-relaxed whitespace-pre-line" dangerouslySetInnerHTML={{ __html: globalConfig.popup.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" class="text-blue-600 underline font-bold hover:text-blue-800">$1</a>') }}></p>
+                <button onClick={() => { setShowUserPopup(false); sessionStorage.setItem('seen_popup', 'true'); }} className="w-full bg-amber-500 hover:bg-amber-600 text-white py-3.5 rounded-xl font-black shadow-lg shadow-amber-500/30 transition-all uppercase tracking-widest text-sm">Okudum</button>
+            </div>
+        </div>
+    )}
+
+    {/* K12 GLOBAL AYARLAR (GMAIL KORUMALI YÖNETİCİ PANELİ) */}
+    {showSettings && (
+        <div className="fixed inset-0 z-[9999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
+            <div className="bg-white rounded-[2rem] p-6 md:p-8 w-full max-w-5xl shadow-2xl relative border-4 border-indigo-50 my-auto">
+                <button onClick={()=>setShowSettings(false)} className="absolute top-6 right-6 bg-slate-100 hover:bg-slate-200 text-slate-600 w-10 h-10 rounded-full flex items-center justify-center transition"><i className="fa-solid fa-times"></i></button>
+                
+                {user && !user.isAnonymous ? (
+                    <>
+                        <h2 className="text-2xl md:text-3xl font-black text-indigo-900 mb-8 flex items-center border-b pb-4"><i className="fa-solid fa-gear mr-3 text-indigo-500"></i> Sistem Yönetim Paneli</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="space-y-5 bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                                <h3 className="font-black text-slate-800 text-lg flex items-center"><i className="fa-solid fa-robot text-purple-500 mr-2"></i> Güvenlik & AI</h3>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Gemini API Anahtarı</label>
+                                    <input type="password" value={apiKey} onChange={(e)=>setApiKey(e.target.value)} placeholder="AIzaSy..." className="w-full bg-white border-2 border-slate-200 p-3 rounded-xl font-mono text-sm outline-none focus:border-indigo-500 transition shadow-sm"/>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-rose-500 uppercase tracking-widest mb-2">Sistem Giriş (Kurum) Kodu</label>
+                                    <input type="text" value={adminInputKurumKodu} onChange={(e)=>setAdminInputKurumKodu(e.target.value)} placeholder="Örn: değişim2026" className="w-full bg-white border-2 border-rose-200 p-3 rounded-xl font-bold text-sm outline-none focus:border-rose-500 transition shadow-sm text-rose-700"/>
+                                    <p className="text-[10px] text-gray-500 mt-1">Öğrenci, veli ve öğretmenlerin sisteme girerken kullanacağı ortak şifredir.</p>
+                                </div>
+                                <div className="pt-4 border-t border-slate-200 mt-4">
+                                    <label className="block text-xs font-bold text-indigo-500 uppercase tracking-widest mb-2">Sistemdeki Öğretmenler</label>
+                                    <textarea value={globalConfig?.teachers || TEACHER_NAMES.join(', ')} onChange={(e)=>{
+                                        const confRef = window.FirebaseSDK.doc(db, "maas_config", "k12_global");
+                                        window.FirebaseSDK.setDoc(confRef, { teachers: e.target.value }, { merge: true });
+                                    }} rows="2" className="w-full bg-white border-2 border-indigo-200 p-3 rounded-xl font-bold text-sm outline-none focus:border-indigo-500 transition shadow-sm resize-y"></textarea>
+                                    <p className="text-[10px] text-gray-500 mt-1">Öğretmen isimlerini aralarına VİRGÜL koyarak yazın. Silmek istediğinizi buradan silebilirsiniz.</p>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-5 bg-amber-50 p-6 rounded-2xl border border-amber-200">
+                                <h3 className="font-black text-amber-900 text-lg flex items-center"><i className="fa-solid fa-bullhorn text-amber-500 mr-2"></i> Duyuru Yönetimi</h3>
+                                <div>
+                                    <label className="block text-xs font-bold text-amber-700 uppercase tracking-widest mb-2">Kayan Haber Bandı</label>
+                                    <input type="text" value={adminInputNews} onChange={(e)=>setAdminInputNews(e.target.value)} placeholder="Örn: 2026 Erken Kayıtları Başladı..." className="w-full bg-white border-2 border-amber-200 p-3 rounded-xl font-medium text-sm outline-none focus:border-amber-500 transition shadow-sm"/>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-amber-700 uppercase tracking-widest mb-2">Pop-up Duyuru (Acil)</label>
+                                    <textarea value={adminInputPopup} onChange={(e)=>setAdminInputPopup(e.target.value)} placeholder="Sisteme giren herkese fırlayacak mesaj." rows="3" className="w-full bg-white border-2 border-amber-200 p-3 rounded-xl font-medium text-sm outline-none focus:border-amber-500 transition shadow-sm resize-none"></textarea>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 bg-emerald-50 p-6 rounded-2xl border border-emerald-200">
+                                <h3 className="font-black text-emerald-900 text-lg flex items-center"><i className="fa-solid fa-chalkboard-user text-emerald-500 mr-2"></i> Sınıf Ödev Panosu</h3>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">Anaokulu Görevleri</label>
+                                    <textarea value={adminHwAnaokulu} onChange={(e)=>setAdminHwAnaokulu(e.target.value)} placeholder="Anaokulu öğrencileri için..." rows="2" className="w-full bg-white border border-emerald-200 p-2 rounded-lg font-medium text-sm outline-none focus:border-emerald-500 resize-none"></textarea>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">İlkokul Görevleri</label>
+                                    <textarea value={adminHwIlkokul} onChange={(e)=>setAdminHwIlkokul(e.target.value)} placeholder="İlkokul öğrencileri için..." rows="2" className="w-full bg-white border border-emerald-200 p-2 rounded-lg font-medium text-sm outline-none focus:border-emerald-500 resize-none"></textarea>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">Ortaokul Görevleri</label>
+                                    <textarea value={adminHwOrtaokul} onChange={(e)=>setAdminHwOrtaokul(e.target.value)} placeholder="Ortaokul öğrencileri için..." rows="2" className="w-full bg-white border border-emerald-200 p-2 rounded-lg font-medium text-sm outline-none focus:border-emerald-500 resize-none"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-8 pt-6 border-t flex justify-end gap-3">
+                            <button onClick={()=>{
+                                window.FirebaseSDK.getAuth().signOut().then(()=> {
+                                    window.FirebaseSDK.signInAnonymously(window.FirebaseSDK.getAuth());
+                                    showToast("Yönetici çıkışı yapıldı.");
+                                });
+                            }} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-4 px-6 rounded-2xl transition-all">Güvenli Çıkış</button>
+                            <button onClick={async ()=>{
+                                localStorage.setItem('gemini_api_key', apiKey);
+                                localStorage.setItem('gemini_model_name', modelName);
+                                
+                                if(db) {
+                                    try {
+                                        const confRef = window.FirebaseSDK.doc(db, "maas_config", "k12_global");
+                                        await window.FirebaseSDK.setDoc(confRef, { 
+                                            news: adminInputNews, 
+                                            popup: adminInputPopup,
+                                            kurumKodu: adminInputKurumKodu,
+                                            hwAnaokulu: adminHwAnaokulu,
+                                            hwIlkokul: adminHwIlkokul,
+                                            hwOrtaokul: adminHwOrtaokul
+                                        }, { merge: true });
+                                    } catch(e) { console.error("Veritabanı kayıt hatası", e); }
+                                }
+                                showToast("Tüm ayarlar, duyurular ve şifre başarıyla kaydedildi!");
+                                setShowSettings(false);
+                            }} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 px-10 rounded-2xl shadow-xl transition-all active:scale-95 text-lg uppercase tracking-widest"><i className="fa-solid fa-save mr-2"></i> Kaydet ve Yayınla</button>
+                        </div>
+                    </>
+                ) : (
+                    <div className="h-full flex flex-col items-center justify-center py-10">
+                        <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-4xl mb-6 shadow-lg"><i className="fa-solid fa-lock"></i></div>
+                        <h3 className="text-2xl font-black mb-2 text-slate-800">Yönetici Paneli Kilitli</h3>
+                        <p className="text-slate-500 mb-8 text-center max-w-sm">Ayarları, duyuruları ve ödevleri değiştirmek için yetkili (Gmail) hesabıyla giriş yapmalısınız.</p>
+                        <button onClick={async () => {
+                            try {
+                                const { getAuth, GoogleAuthProvider, signInWithPopup } = window.FirebaseSDK;
+                                const auth = getAuth();
+                                const provider = new GoogleAuthProvider();
+                                await signInWithPopup(auth, provider);
+                                showToast("Yönetici girişi başarılı!", "success");
+                            } catch (error) {
+                                alert("Google ile giriş yapılamadı: " + error.message);
+                            }
+                        }} className="bg-white hover:bg-gray-50 text-slate-800 py-4 px-8 rounded-2xl font-black text-lg shadow-xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 border-2 border-slate-200">
+                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Logo" className="w-6 h-6"/> GMAIL İLE GİRİŞ YAP
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    )}
+
+    {/* Öğretmen Çıkış ve Ayarlar Butonu (Sabit Alt Sol) */}
+    <div className="fixed bottom-6 left-6 z-[9000] flex flex-col gap-3 no-print">
+        <button onClick={()=>setShowSettings(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-3 rounded-2xl font-black text-sm shadow-2xl transition flex items-center justify-center border-2 border-white/20"><i className="fa-solid fa-gear mr-2"></i> Ayarlar</button>
+        <button onClick={handleLogout} className="bg-rose-600 hover:bg-rose-700 text-white px-5 py-3 rounded-2xl font-black text-sm shadow-2xl transition flex items-center justify-center border-2 border-white/20"><i className="fa-solid fa-sign-out-alt mr-2"></i> Çıkış Yap</button>
+ 
+</div>
 {/* Rastgele Seçilen Öğrenci Ekrani */}
 {pickedStudent && (
 <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-[100] animate-fade-in no-print">
@@ -1289,6 +2024,17 @@ return (
 )}
 
 {/* Üst Header */}
+{/* HABER BANDI (Yönetici Kontrollü) */}
+<div className="bg-slate-900 text-amber-400 text-xs py-2 font-bold relative z-50 border-b border-amber-500/30 overflow-hidden shadow-lg no-print">
+    <div className="flex w-[200%] animate-[marquee_20s_linear_infinite]">
+        <div className="whitespace-nowrap px-4 w-1/2 flex justify-around">
+            <span className="inline-flex items-center"><i className="fa-solid fa-bullhorn text-white mr-2"></i> {globalConfig?.news || "Değişim Koleji Akıllı Kampüsüne Hoş Geldiniz..."}</span>
+        </div>
+        <div className="whitespace-nowrap px-4 w-1/2 flex justify-around">
+            <span className="inline-flex items-center"><i className="fa-solid fa-bullhorn text-white mr-2"></i> {globalConfig?.news || "Değişim Koleji Akıllı Kampüsüne Hoş Geldiniz..."}</span>
+        </div>
+    </div>
+</div>
 <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40 no-print">
 <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
 <div className="flex items-center space-x-3">
@@ -1799,6 +2545,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 <p className="text-gray-500 mt-2">Tüm materyallerinizi üretin ve AI asistanları kullanın.</p>
 </div>
 
+{systemRole === 'teacher' && <TeacherPortal user={k12User} db={db} apiKey={apiKey} modelName={modelName} />}
 {/* BARIŞ HOCA HIZLI MEDYA VE QR KONTROL PANELİ */}
 <div className="bg-slate-800 rounded-2xl p-6 mb-8 text-white shadow-lg no-print border-2 border-slate-600">
     <h3 className="font-bold text-lg mb-3 text-slate-200"><i className="fa-solid fa-qrcode text-yellow-400 mr-2"></i> Anında Görsel / QR Ekle (Baskı Öncesi)</h3>
@@ -2474,7 +3221,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
                     <div className="bg-slate-900 text-white p-6 rounded-[2rem] shadow-xl border-l-8 border-yellow-500 relative overflow-hidden">
                         <i className="fa-solid fa-print absolute -right-4 -bottom-4 text-6xl opacity-10"></i>
                         <h5 className="font-black text-yellow-400 mb-3 text-xs uppercase tracking-[0.2em] flex items-center"><i className="fa-solid fa-layer-group mr-2"></i>Akademi Matbaası Yol Haritası</h5>
-                        <p className="text-xs text-slate-300 font-bold leading-relaxed">{readinessResult.akademi_matbaasi_plani || "Öğrencinin profiline uygun materyaller V16 Matbaa birimimiz tarafından hazırlanacaktır."}</p>
+                        <p className="text-xs text-slate-300 font-bold leading-relaxed">Öğrencinin profiline uygun materyaller V16 Matbaa birimimiz tarafından hazırlanacaktır.</p>
                     </div>
                     <div className="bg-gradient-to-br from-indigo-50 to-sky-50 p-6 rounded-[2rem] border-2 border-indigo-100 shadow-inner relative">
                          <i className="fa-solid fa-comment-dots absolute -right-2 -top-2 text-indigo-200 text-4xl"></i>
