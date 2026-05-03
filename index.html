@@ -932,24 +932,40 @@ window.handleGoogleLogin = async () => {
     provider.setCustomParameters({ prompt: 'select_account' });
     try {
         const result = await signInWithPopup(auth, provider);
-        showToast("Hoş geldiniz: " + result.user.displayName);
+        
+        // YALNIZCA BARIŞ HOCANIN GİRİŞ YAPABİLECEĞİ MAİL LİSTESİ
+        const YONETICI_MAILLERI = ["barilkay466@gmail.com"]; 
+        
+        if (YONETICI_MAILLERI.includes(result.user.email)) {
+            showToast("Yönetici Girişi Başarılı: " + result.user.displayName);
+        } else {
+            alert("🚨 GÜVENLİK İHLALİ 🚨\n\nBu e-posta adresi yönetici paneline erişim yetkisine sahip değildir!");
+            await getAuth().signOut();
+            await signInAnonymously(auth);
+        }
     } catch (error) {
         if (error.code === 'auth/unauthorized-domain') {
             alert("ALAN ADI HATASI: Firebase Console'da 'baris-ogretmen.github.io' eklenmelidir.");
         } else {
-            showToast("Giriş denemesi başarısız!");
+            showToast("Giriş iptal edildi veya başarısız!");
         }
     }
 };
 
 await signInAnonymously(auth);
 
-onAuthStateChanged(auth, (u) => { 
-    setUser(u); 
-    setIsFbReady(true); 
-    if(u && !u.isAnonymous) {
+onAuthStateChanged(auth, async (u) => { 
+    if (u && !u.isAnonymous) {
+        const YONETICI_MAILLERI = ["barilkay466@gmail.com"]; 
+        if(!YONETICI_MAILLERI.includes(u.email)) {
+            await getAuth().signOut();
+            await signInAnonymously(auth);
+            return;
+        }
         setIsApiValid(true);
     }
+    setUser(u); 
+    setIsFbReady(true); 
 });
 } catch (err) { showToast("Veritabanı bağlantısı kurulamadı."); }
 };
