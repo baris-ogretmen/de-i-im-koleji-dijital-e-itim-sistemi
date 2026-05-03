@@ -1002,15 +1002,17 @@ const conts = []; snapshot.forEach((doc) => conts.push({ id: doc.id, ...doc.data
 setContacts(conts);
 });
 const unsubNotes = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'notes'), (snapshot) => {
+    const nts = []; snapshot.forEach((doc) => nts.push({ id: doc.id, ...doc.data() }));
+    nts.sort((a, b) => new Date(b.date) - new Date(a.date));
+    setNotes(nts);
+});
+
 const unsubAnalyses = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'analyses'), (snapshot) => {
     const ans = []; snapshot.forEach((doc) => ans.push({ id: doc.id, ...doc.data() }));
     ans.sort((a, b) => new Date(b.date) - new Date(a.date));
     setSavedAnalyses(ans);
 });
-const nts = []; snapshot.forEach((doc) => nts.push({ id: doc.id, ...doc.data() }));
-nts.sort((a, b) => new Date(b.date) - new Date(a.date));
-setNotes(nts);
-});
+
 return () => { unsubReports(); unsubContacts(); unsubNotes(); unsubAnalyses(); unsubConf(); };
 }, [isFbReady, user, db, appId]);
 const [isApiValid, setIsApiValid] = useState(false);
