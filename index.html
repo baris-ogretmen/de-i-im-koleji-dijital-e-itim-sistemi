@@ -13,15 +13,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-import { getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+  import { getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-window.FirebaseSDK = {
-initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup,
-getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc
-};
-window.dispatchEvent(new Event('firebase-sdk-ready'));
+  window.FirebaseSDK = {
+    initializeApp, getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup,
+    getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, setDoc
+  };
+  window.dispatchEvent(new Event('firebase-sdk-ready'));
 </script>
 
 <style>
@@ -912,26 +912,45 @@ return `${m}:${s}`;
 useEffect(() => {
 const setupFirebase = async () => {
 try {
-const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore } = window.FirebaseSDK;
-const finalConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-apiKey: "AIzaSyAqeO-yQyQPnLsOqKmSNvVH23WPvneIjaU",
-authDomain: "shaped-totem-481514-c5.firebaseapp.com",
-projectId: "shaped-totem-481514-c5",
-storageBucket: "shaped-totem-481514-c5.firebasestorage.app",
-messagingSenderId: "519295049418",
-appId: "1:519295049418:web:7d04e18c4ea36bc088de33"
+const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, getFirestore } = window.FirebaseSDK;
+const finalConfig = {
+    apiKey: "AIzaSyAqeO-yQyQPnLsOqKmSNvVH23WPvneIjaU",
+    authDomain: "shaped-totem-481514-c5.firebaseapp.com",
+    projectId: "shaped-totem-481514-c5",
+    storageBucket: "shaped-totem-481514-c5.firebasestorage.app",
+    messagingSenderId: "519295049418",
+    appId: "1:519295049418:web:7d04e18c4ea36bc088de33"
 };
-if (typeof __app_id !== 'undefined') setAppId(__app_id);
 const app = initializeApp(finalConfig);
 const auth = getAuth(app);
 const firestore = getFirestore(app);
 setDb(firestore);
-if (typeof __firebase_config === 'undefined' && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-await signInWithCustomToken(auth, __initial_auth_token);
-} else {
+
+// GMAIL GİRİŞ FONKSİYONU
+window.handleGoogleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    try {
+        const result = await signInWithPopup(auth, provider);
+        showToast("Hoş geldiniz: " + result.user.displayName);
+    } catch (error) {
+        if (error.code === 'auth/unauthorized-domain') {
+            alert("ALAN ADI HATASI: Firebase Console'da 'baris-ogretmen.github.io' eklenmelidir.");
+        } else {
+            showToast("Giriş denemesi başarısız!");
+        }
+    }
+};
+
 await signInAnonymously(auth);
-}
-onAuthStateChanged(auth, (u) => { setUser(u); setIsFbReady(true); });
+
+onAuthStateChanged(auth, (u) => { 
+    setUser(u); 
+    setIsFbReady(true); 
+    if(u && !u.isAnonymous) {
+        setIsApiValid(true);
+    }
+});
 } catch (err) { showToast("Veritabanı bağlantısı kurulamadı."); }
 };
 if (window.FirebaseSDK) setupFirebase();
@@ -1890,115 +1909,123 @@ return (
 
     {/* K12 GLOBAL AYARLAR (GMAIL KORUMALI YÖNETİCİ PANELİ) */}
     {showSettings && (
-        <div className="fixed inset-0 z-[9999] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
-            <div className="bg-white rounded-[2rem] p-6 md:p-8 w-full max-w-5xl shadow-2xl relative border-4 border-indigo-50 my-auto">
-                <button onClick={()=>setShowSettings(false)} className="absolute top-6 right-6 bg-slate-100 hover:bg-slate-200 text-slate-600 w-10 h-10 rounded-full flex items-center justify-center transition"><i className="fa-solid fa-times"></i></button>
-                
-                {user && !user.isAnonymous ? (
-                    <>
-                        <h2 className="text-2xl md:text-3xl font-black text-indigo-900 mb-8 flex items-center border-b pb-4"><i className="fa-solid fa-gear mr-3 text-indigo-500"></i> Sistem Yönetim Paneli</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="space-y-5 bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                                <h3 className="font-black text-slate-800 text-lg flex items-center"><i className="fa-solid fa-robot text-purple-500 mr-2"></i> Güvenlik & AI</h3>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Gemini API Anahtarı</label>
-                                    <input type="password" value={apiKey} onChange={(e)=>setApiKey(e.target.value)} placeholder="AIzaSy..." className="w-full bg-white border-2 border-slate-200 p-3 rounded-xl font-mono text-sm outline-none focus:border-indigo-500 transition shadow-sm"/>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-rose-500 uppercase tracking-widest mb-2">Sistem Giriş (Kurum) Kodu</label>
-                                    <input type="text" value={adminInputKurumKodu} onChange={(e)=>setAdminInputKurumKodu(e.target.value)} placeholder="Örn: değişim2026" className="w-full bg-white border-2 border-rose-200 p-3 rounded-xl font-bold text-sm outline-none focus:border-rose-500 transition shadow-sm text-rose-700"/>
-                                    <p className="text-[10px] text-gray-500 mt-1">Öğrenci, veli ve öğretmenlerin sisteme girerken kullanacağı ortak şifredir.</p>
-                                </div>
-                                <div className="pt-4 border-t border-slate-200 mt-4">
-                                    <label className="block text-xs font-bold text-indigo-500 uppercase tracking-widest mb-2">Sistemdeki Öğretmenler</label>
-                                    <textarea value={globalConfig?.teachers || TEACHER_NAMES.join(', ')} onChange={(e)=>{
-                                        const confRef = window.FirebaseSDK.doc(db, "maas_config", "k12_global");
-                                        window.FirebaseSDK.setDoc(confRef, { teachers: e.target.value }, { merge: true });
-                                    }} rows="2" className="w-full bg-white border-2 border-indigo-200 p-3 rounded-xl font-bold text-sm outline-none focus:border-indigo-500 transition shadow-sm resize-y"></textarea>
-                                    <p className="text-[10px] text-gray-500 mt-1">Öğretmen isimlerini aralarına VİRGÜL koyarak yazın. Silmek istediğinizi buradan silebilirsiniz.</p>
-                                </div>
-                            </div>
-                            
-                            <div className="space-y-5 bg-amber-50 p-6 rounded-2xl border border-amber-200">
-                                <h3 className="font-black text-amber-900 text-lg flex items-center"><i className="fa-solid fa-bullhorn text-amber-500 mr-2"></i> Duyuru Yönetimi</h3>
-                                <div>
-                                    <label className="block text-xs font-bold text-amber-700 uppercase tracking-widest mb-2">Kayan Haber Bandı</label>
-                                    <input type="text" value={adminInputNews} onChange={(e)=>setAdminInputNews(e.target.value)} placeholder="Örn: 2026 Erken Kayıtları Başladı..." className="w-full bg-white border-2 border-amber-200 p-3 rounded-xl font-medium text-sm outline-none focus:border-amber-500 transition shadow-sm"/>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-amber-700 uppercase tracking-widest mb-2">Pop-up Duyuru (Acil)</label>
-                                    <textarea value={adminInputPopup} onChange={(e)=>setAdminInputPopup(e.target.value)} placeholder="Sisteme giren herkese fırlayacak mesaj." rows="3" className="w-full bg-white border-2 border-amber-200 p-3 rounded-xl font-medium text-sm outline-none focus:border-amber-500 transition shadow-sm resize-none"></textarea>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4 bg-emerald-50 p-6 rounded-2xl border border-emerald-200">
-                                <h3 className="font-black text-emerald-900 text-lg flex items-center"><i className="fa-solid fa-chalkboard-user text-emerald-500 mr-2"></i> Sınıf Ödev Panosu</h3>
-                                <div>
-                                    <label className="block text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">Anaokulu Görevleri</label>
-                                    <textarea value={adminHwAnaokulu} onChange={(e)=>setAdminHwAnaokulu(e.target.value)} placeholder="Anaokulu öğrencileri için..." rows="2" className="w-full bg-white border border-emerald-200 p-2 rounded-lg font-medium text-sm outline-none focus:border-emerald-500 resize-none"></textarea>
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">İlkokul Görevleri</label>
-                                    <textarea value={adminHwIlkokul} onChange={(e)=>setAdminHwIlkokul(e.target.value)} placeholder="İlkokul öğrencileri için..." rows="2" className="w-full bg-white border border-emerald-200 p-2 rounded-lg font-medium text-sm outline-none focus:border-emerald-500 resize-none"></textarea>
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold text-emerald-700 uppercase tracking-widest mb-1">Ortaokul Görevleri</label>
-                                    <textarea value={adminHwOrtaokul} onChange={(e)=>setAdminHwOrtaokul(e.target.value)} placeholder="Ortaokul öğrencileri için..." rows="2" className="w-full bg-white border border-emerald-200 p-2 rounded-lg font-medium text-sm outline-none focus:border-emerald-500 resize-none"></textarea>
-                                </div>
-                            </div>
+    <div className="fixed inset-0 z-[9999] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
+        <div className="bg-white rounded-[2.5rem] p-6 md:p-8 w-full max-w-5xl shadow-2xl relative border-4 border-indigo-100 my-auto overflow-hidden">
+            <button onClick={()=>setShowSettings(false)} className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition z-50"><i className="fa-solid fa-circle-xmark text-3xl"></i></button>
+            
+            {user && !user.isAnonymous ? (
+                /* YÖNETİM MERKEZİ (Maaş Robotu Entegrasyonu) */
+                <div className="h-full flex flex-col">
+                    <div className="flex items-center gap-4 mb-8 border-b pb-6">
+                        <div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center text-2xl shadow-lg shadow-indigo-200"><i className="fa-solid fa-user-shield"></i></div>
+                        <div>
+                            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Sistem Yönetim Merkezi</h2>
+                            <p className="text-sm text-slate-500 font-medium">Hoş geldiniz Barış Hocam, tüm dijital ekosistem kontrolünüzde.</p>
                         </div>
-                        <div className="mt-8 pt-6 border-t flex justify-end gap-3">
-                            <button onClick={()=>{
-                                window.FirebaseSDK.getAuth().signOut().then(()=> {
-                                    window.FirebaseSDK.signInAnonymously(window.FirebaseSDK.getAuth());
-                                    showToast("Yönetici çıkışı yapıldı.");
-                                });
-                            }} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-4 px-6 rounded-2xl transition-all">Güvenli Çıkış</button>
-                            <button onClick={async ()=>{
-                                localStorage.setItem('gemini_api_key', apiKey);
-                                localStorage.setItem('gemini_model_name', modelName);
-                                
-                                if(db) {
-                                    try {
-                                        const confRef = window.FirebaseSDK.doc(db, "maas_config", "k12_global");
-                                        await window.FirebaseSDK.setDoc(confRef, { 
-                                            news: adminInputNews, 
-                                            popup: adminInputPopup,
-                                            kurumKodu: adminInputKurumKodu,
-                                            hwAnaokulu: adminHwAnaokulu,
-                                            hwIlkokul: adminHwIlkokul,
-                                            hwOrtaokul: adminHwOrtaokul
-                                        }, { merge: true });
-                                    } catch(e) { console.error("Veritabanı kayıt hatası", e); }
-                                }
-                                showToast("Tüm ayarlar, duyurular ve şifre başarıyla kaydedildi!");
-                                setShowSettings(false);
-                            }} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 px-10 rounded-2xl shadow-xl transition-all active:scale-95 text-lg uppercase tracking-widest"><i className="fa-solid fa-save mr-2"></i> Kaydet ve Yayınla</button>
-                        </div>
-                    </>
-                ) : (
-                    <div className="h-full flex flex-col items-center justify-center py-10">
-                        <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-4xl mb-6 shadow-lg"><i className="fa-solid fa-lock"></i></div>
-                        <h3 className="text-2xl font-black mb-2 text-slate-800">Yönetici Paneli Kilitli</h3>
-                        <p className="text-slate-500 mb-8 text-center max-w-sm">Ayarları, duyuruları ve ödevleri değiştirmek için yetkili (Gmail) hesabıyla giriş yapmalısınız.</p>
                         <button onClick={async () => {
-                            try {
-                                const { getAuth, GoogleAuthProvider, signInWithPopup } = window.FirebaseSDK;
-                                const auth = getAuth();
-                                const provider = new GoogleAuthProvider();
-                                await signInWithPopup(auth, provider);
-                                showToast("Yönetici girişi başarılı!", "success");
-                            } catch (error) {
-                                alert("Google ile giriş yapılamadı: " + error.message);
-                            }
-                        }} className="bg-white hover:bg-gray-50 text-slate-800 py-4 px-8 rounded-2xl font-black text-lg shadow-xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 border-2 border-slate-200">
-                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Logo" className="w-6 h-6"/> GMAIL İLE GİRİŞ YAP
-                        </button>
+                            const { getAuth, signInAnonymously } = window.FirebaseSDK;
+                            const auth = getAuth();
+                            await auth.signOut();
+                            await signInAnonymously(auth);
+                            showToast("Yönetici çıkışı yapıldı.");
+                        }} className="ml-auto bg-rose-50 text-rose-600 px-6 py-2 rounded-xl font-bold hover:bg-rose-100 transition border border-rose-100">Güvenli Çıkış</button>
                     </div>
-                )}
-            </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto max-h-[55vh] pr-2 custom-scroll">
+                        {/* GÜVENLİK VE AI AYARLARI */}
+                        <div className="space-y-5 bg-slate-50 p-6 rounded-3xl border border-slate-200">
+                            <h3 className="font-bold text-indigo-700 mb-4 flex items-center gap-2"><i className="fa-solid fa-robot"></i> Güvenlik & AI</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Gemini API Anahtarı</label>
+                                    <input type="password" value={apiKey} onChange={(e)=>setApiKey(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-indigo-500 font-mono text-xs transition-all" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Kurum Giriş Kodu (Şifre)</label>
+                                    <input type="text" value={adminInputKurumKodu} onChange={(e)=>setAdminInputKurumKodu(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-indigo-500 font-bold text-indigo-900 transition-all" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">Öğretmen Listesi (Virgülle ayırın)</label>
+                                    <textarea value={globalConfig?.teachers || TEACHER_NAMES.join(', ')} onChange={(e)=>{
+                                        const { getFirestore, doc, setDoc } = window.FirebaseSDK;
+                                        const firestore = getFirestore();
+                                        const confRef = doc(firestore, "maas_config", "k12_global");
+                                        setDoc(confRef, { teachers: e.target.value }, { merge: true });
+                                    }} rows="2" className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-indigo-500 text-xs transition-all resize-none"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* DUYURU YÖNETİMİ */}
+                        <div className="space-y-5 bg-amber-50 p-6 rounded-3xl border border-amber-200">
+                            <h3 className="font-bold text-amber-700 mb-4 flex items-center gap-2"><i className="fa-solid fa-bullhorn"></i> Duyuru & Haber</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Kayan Haber Bandı</label>
+                                    <input type="text" value={adminInputNews} onChange={(e)=>setAdminInputNews(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 transition-all font-medium" />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Acil Pop-up Mesajı</label>
+                                    <textarea value={adminInputPopup} onChange={(e)=>setAdminInputPopup(e.target.value)} rows="3" className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 resize-none transition-all text-sm font-medium"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* SINIF GÖREVLERİ (ÖDEVLER) */}
+                        <div className="space-y-4 bg-emerald-50 p-6 rounded-3xl border border-emerald-200">
+                            <h3 className="font-bold text-emerald-700 mb-4 flex items-center gap-2"><i className="fa-solid fa-chalkboard-user"></i> Sınıf Görev Panosu</h3>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">Anaokulu</label>
+                                    <textarea value={adminHwAnaokulu} onChange={(e)=>setAdminHwAnaokulu(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">İlkokul</label>
+                                    <textarea value={adminHwIlkokul} onChange={(e)=>setAdminHwIlkokul(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">Ortaokul</label>
+                                    <textarea value={adminHwOrtaokul} onChange={(e)=>setAdminHwOrtaokul(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="mt-8 pt-6 border-t flex justify-end gap-3">
+                        <button onClick={async ()=>{
+                            const { getFirestore, doc, setDoc } = window.FirebaseSDK;
+                            const firestore = getFirestore();
+                            const confRef = doc(firestore, "maas_config", "k12_global");
+                            await setDoc(confRef, { 
+                                news: adminInputNews, 
+                                popup: adminInputPopup, 
+                                kurumKodu: adminInputKurumKodu,
+                                hwAnaokulu: adminHwAnaokulu,
+                                hwIlkokul: adminHwIlkokul,
+                                hwOrtaokul: adminHwOrtaokul
+                            }, { merge: true });
+                            showToast("Sistem Güncellendi ve Yayınlandı! 🚀");
+                            setShowSettings(false);
+                        }} className="bg-indigo-600 text-white px-12 py-4 rounded-2xl font-black shadow-xl shadow-indigo-200 hover:scale-105 active:scale-95 transition-all uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-cloud-arrow-up"></i> GÜNCELLEMELERİ YAYINLA</button>
+                    </div>
+                </div>
+            ) : (
+                /* GİRİŞ EKRANI (Maaş Robotu Kilitli Görünüm) */
+                <div className="flex flex-col items-center justify-center py-20 animate-fade-in text-center">
+                    <div className="w-24 h-24 bg-indigo-100 text-indigo-600 rounded-[2.5rem] flex items-center justify-center text-5xl mb-8 shadow-inner border-2 border-indigo-50"><i className="fa-solid fa-lock"></i></div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-3 tracking-tight">Yönetici Girişi</h2>
+                    <p className="text-slate-500 mb-10 max-w-sm font-medium leading-relaxed">Sistem ayarlarını, duyuruları ve sınıf görevlerini yönetmek için Gmail hesabınızla yetki doğrulamanız gerekmektedir.</p>
+                    
+                    <button onClick={() => window.handleGoogleLogin()} className="bg-white border-2 border-slate-200 px-10 py-5 rounded-2xl font-black text-slate-700 flex items-center gap-4 hover:border-indigo-500 hover:shadow-2xl transition-all shadow-xl hover:scale-105 active:scale-95 group">
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-7 h-7 group-hover:rotate-12 transition-transform" alt="G" />
+                        GMAIL İLE YETKİ DOĞRULA
+                    </button>
+                    <p className="mt-12 text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] border-t pt-4">Değişim Koleji Güvenlik Protokolü v2.1</p>
+                </div>
+            )}
         </div>
-    )}
+    </div>
+)}
 
     {/* Öğretmen Çıkış ve Ayarlar Butonu (Sabit Alt Sol) */}
     <div className="fixed bottom-6 left-6 z-[9000] flex flex-col gap-3 no-print">
