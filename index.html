@@ -14,11 +14,11 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-  import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
   import { getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
   window.FirebaseSDK = {
-    initializeApp, getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider, signInWithPopup,
+    initializeApp, getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword,
     getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, setDoc
   };
   window.dispatchEvent(new Event('firebase-sdk-ready'));
@@ -953,29 +953,22 @@ const auth = getAuth(app);
 const firestore = getFirestore(app);
 setDb(firestore);
 
-// GMAIL GİRİŞ FONKSİYONU
-window.handleGoogleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
+// ESKİ SİSTEM: E-POSTA VE ŞİFRE İLE GİRİŞ FONKSİYONU
+window.handleEmailLogin = async (email, password) => {
+    if(!email || !password) { alert("Lütfen e-posta ve şifrenizi girin!"); return; }
     try {
-        const result = await signInWithPopup(auth, provider);
-        
-        // YALNIZCA BARIŞ HOCANIN GİRİŞ YAPABİLECEĞİ MAİL LİSTESİ
+        const { signInWithEmailAndPassword, getAuth, signInAnonymously } = window.FirebaseSDK;
+        const result = await signInWithEmailAndPassword(auth, email, password);
         const YONETICI_MAILLERI = ["barilkay466@gmail.com"]; 
-        
         if (YONETICI_MAILLERI.includes(result.user.email)) {
-            showToast("Yönetici Girişi Başarılı: " + result.user.displayName);
+            showToast("Yönetici Girişi Başarılı!");
         } else {
-            alert("🚨 GÜVENLİK İHLALİ 🚨\n\nBu e-posta adresi yönetici paneline erişim yetkisine sahip değildir!");
+            alert("🚨 GÜVENLİK İHLALİ 🚨\n\nBu e-posta adresi yetkili değildir!");
             await getAuth().signOut();
             await signInAnonymously(auth);
         }
     } catch (error) {
-        if (error.code === 'auth/unauthorized-domain') {
-            alert("ALAN ADI HATASI: Firebase Console'da 'baris-ogretmen.github.io' eklenmelidir.");
-        } else {
-            showToast("Giriş iptal edildi veya başarısız!");
-        }
+        alert("Hatalı e-posta veya şifre! Lütfen tekrar deneyin.");
     }
 };
 
@@ -2062,10 +2055,11 @@ const renderSharedUI = () => (
                             <div className="flex flex-col items-center justify-center py-8 text-center bg-slate-50 rounded-3xl border border-slate-200">
                                 <div className="w-16 h-16 bg-slate-200 text-slate-500 rounded-2xl flex items-center justify-center text-3xl mb-4"><i className="fa-solid fa-lock"></i></div>
                                 <h3 className="text-xl font-black text-slate-800 mb-2">Merkezi Yönetim Paneli</h3>
-                                <p className="text-slate-500 mb-6 max-w-sm text-sm font-medium">Duyuruları, okul şifresini ve ödevleri yönetmek için Kurucu yetkisi gereklidir.</p>
-                                <button onClick={() => window.handleGoogleLogin()} className="bg-white border-2 border-slate-200 px-8 py-4 rounded-xl font-black text-slate-700 flex items-center gap-3 hover:border-indigo-500 hover:shadow-lg transition-all shadow-sm active:scale-95 group text-sm">
-                                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5 group-hover:rotate-12 transition-transform" alt="G" />
-                                    YÖNETİCİ GİRİŞİ YAP
+<p className="text-slate-500 mb-6 max-w-sm text-sm font-medium">Lütfen yönetici e-posta ve şifrenizle giriş yapın.</p>
+                                <input type="email" id="adminMail" placeholder="E-posta Adresi" className="w-full px-4 py-3 mb-3 bg-white border border-slate-300 rounded-xl outline-none focus:border-indigo-500 text-sm font-bold text-slate-800" />
+                                <input type="password" id="adminPass" placeholder="Şifre" className="w-full px-4 py-3 mb-4 bg-white border border-slate-300 rounded-xl outline-none focus:border-indigo-500 text-sm font-bold text-slate-800" />
+                                <button onClick={() => window.handleEmailLogin(document.getElementById('adminMail').value, document.getElementById('adminPass').value)} className="w-full bg-slate-800 text-white px-8 py-4 rounded-xl font-black flex items-center justify-center gap-3 hover:bg-indigo-600 transition-all shadow-md active:scale-95 text-sm">
+                                    <i className="fa-solid fa-right-to-bracket"></i> YÖNETİCİ GİRİŞİ YAP
                                 </button>
                             </div>
                         )}
