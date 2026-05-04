@@ -118,6 +118,12 @@ body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #1f29
 /* HABER BANDI KAYMA ANİMASYONU */
 @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
 .animate-marquee { animation: marquee 20s linear infinite; }
+
+/* BARIŞ HOCA MEGA: DOKUNMATİK HASSASİYET VE ANİMASYONLAR */
+.robot-hover:active { transform: scale(0.9) !important; transition: transform 0.1s; }
+.kolej-shadow { box-shadow: 0 10px 40px -10px rgba(79,70,229,0.3); }
+@keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 70% { box-shadow: 0 0 0 15px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); } }
+.animate-pulse-border { animation: pulse-border 2s infinite; }
 </style>
 </head>
 <body>
@@ -219,67 +225,68 @@ const ALL_GRADES = ["Anaokulu", "1. Sınıf", "2. Sınıf", "3. Sınıf", "4. S�
 const ALL_SUBJECTS = ["Sınıf Öğretmenliği (Genel)", "Türkçe / Edebiyat", "Matematik", "Fen Bilimleri", "Sosyal Bilgiler", "İngilizce", "Bilişim & Robotik", "Din Kültürü", "Görsel Sanatlar", "Müzik", "Beden Eğitimi"];
 
 const DraggableRobot = ({ apiKey, modelName }) => {
-    const [pos, setPos] = useState({ x: window.innerWidth > 768 ? window.innerWidth - 100 : 20, y: window.innerHeight - 150 });
-    const [isDragging, setIsDragging] = useState(false);
-    const [rel, setRel] = useState(null);
-    const [chatOpen, setChatOpen] = useState(false);
-    const [prompt, setPrompt] = useState('');
-    const [response, setResponse] = useState('Merhaba! Ben Değişim AI. Sana nasıl yardım edebilirim?');
-    const [loading, setLoading] = useState(false);
+    const [pos, setPos] = useState({ x: window.innerWidth > 768 ? window.innerWidth - 100 : 20, y: window.innerHeight - 150 });
+    const [isDragging, setIsDragging] = useState(false);
+    const [rel, setRel] = useState(null);
+    const [dragDistance, setDragDistance] = useState(0); // Tıklama vs Sürükleme kontrolü
+    const [chatOpen, setChatOpen] = useState(false);
+    const [prompt, setPrompt] = useState('');
+    const [response, setResponse] = useState('Merhaba! Ben Değişim Eğitim Asistanı. Geleceğin liderlerini yetiştirirken sana nasıl yardımcı olabilirim?');
+    const [loading, setLoading] = useState(false);
 
-    const onMouseDown = (e) => {
-        if (e.target.closest('.no-drag')) return;
-        setIsDragging(true);
-        setRel({ x: e.clientX - pos.x, y: e.clientY - pos.y });
-        e.preventDefault();
-    };
-    const onTouchStart = (e) => {
-        if (e.target.closest('.no-drag')) return;
-        setIsDragging(true);
-        setRel({ x: e.touches[0].clientX - pos.x, y: e.touches[0].clientY - pos.y });
-    };
+    const onMouseDown = (e) => {
+        if (e.target.closest('.no-drag')) return;
+        setIsDragging(true); setDragDistance(0);
+        setRel({ x: e.clientX - pos.x, y: e.clientY - pos.y });
+        e.preventDefault();
+    };
+    const onTouchStart = (e) => {
+        if (e.target.closest('.no-drag')) return;
+        setIsDragging(true); setDragDistance(0);
+        setRel({ x: e.touches[0].clientX - pos.x, y: e.touches[0].clientY - pos.y });
+    };
 
-    useEffect(() => {
-        const onMouseMove = (e) => { if (isDragging) setPos({ x: e.clientX - rel.x, y: e.clientY - rel.y }); };
-        const onMouseUp = () => setIsDragging(false);
-        const onTouchMove = (e) => { if (isDragging) setPos({ x: e.touches[0].clientX - rel.x, y: e.touches[0].clientY - rel.y }); };
-        if (isDragging) {
-            window.addEventListener('mousemove', onMouseMove);
-            window.addEventListener('mouseup', onMouseUp);
-            window.addEventListener('touchmove', onTouchMove, { passive: false });
-            window.addEventListener('touchend', onMouseUp);
-        }
-        return () => {
-            window.removeEventListener('mousemove', onMouseMove);
-            window.removeEventListener('mouseup', onMouseUp);
-            window.removeEventListener('touchmove', onTouchMove);
-            window.removeEventListener('touchend', onMouseUp);
-        };
-    }, [isDragging, rel]);
+    useEffect(() => {
+        const onMouseMove = (e) => { if (isDragging) { setPos({ x: e.clientX - rel.x, y: e.clientY - rel.y }); setDragDistance(prev => prev + 1); } };
+        const onMouseUp = () => setIsDragging(false);
+        const onTouchMove = (e) => { if (isDragging) { setPos({ x: e.touches[0].clientX - rel.x, y: e.touches[0].clientY - rel.y }); setDragDistance(prev => prev + 1); } };
+        if (isDragging) {
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+            window.addEventListener('touchmove', onTouchMove, { passive: false });
+            window.addEventListener('touchend', onMouseUp);
+        }
+        return () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+            window.removeEventListener('touchmove', onTouchMove);
+            window.removeEventListener('touchend', onMouseUp);
+        };
+    }, [isDragging, rel]);
 
-    const askAI = async () => {
-        if (!apiKey || !prompt.trim()) return alert("Sistem yöneticisi API anahtarını girmemiş.");
-        setLoading(true);
-        try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: "Sen Değişim Koleji'nin zeki asistanısın. Kısa ve net yanıt ver: " + prompt }] }] })
-            });
-            const data = await res.json();
-            setResponse(data.candidates[0].content.parts[0].text);
-        } catch (err) { setResponse("Bağlantı hatası oluştu."); }
-        setLoading(false);
-        setPrompt('');
-    };
+    const askAI = async () => {
+        if (!apiKey || !prompt.trim()) return alert("Sistem yöneticisi API anahtarını girmemiş.");
+        setLoading(true);
+        try {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: "Sen Değişim Koleji'nin zeki ve kurumsal eğitim asistanısın. Kısa, prestijli ve net yanıt ver: " + prompt }] }] })
+            });
+            const data = await res.json();
+            setResponse(data.candidates[0].content.parts[0].text);
+        } catch (err) { setResponse("Bağlantı hatası oluştu."); }
+        setLoading(false);
+        setPrompt('');
+    };
 
-    return (
-        <div className="fixed z-[99999]" style={{ left: pos.x + 'px', top: pos.y + 'px' }}>
-            <div 
-                onMouseDown={onMouseDown} 
-                onTouchStart={onTouchStart} 
-                onClick={(e) => { if(!isDragging && !rel) setChatOpen(!chatOpen); setRel(null); }} 
-                className="w-20 h-20 bg-white rounded-full shadow-[0_0_30px_rgba(56,189,248,0.6)] border-4 border-sky-300 cursor-move flex items-center justify-center overflow-hidden hover:scale-110 transition-transform relative group"
-            >
+    return (
+        <div className="fixed z-[99999]" style={{ left: pos.x + 'px', top: pos.y + 'px' }}>
+            <div 
+                onMouseDown={onMouseDown} 
+                onTouchStart={onTouchStart} 
+                onClick={(e) => { if(!isDragging || dragDistance < 5) setChatOpen(!chatOpen); setRel(null); }} 
+                className="robot-hover w-20 h-20 bg-white rounded-full shadow-[0_0_30px_rgba(56,189,248,0.6)] border-4 border-sky-300 cursor-pointer md:cursor-move flex items-center justify-center overflow-hidden hover:scale-110 transition-transform relative group"
+            >
                 <img src="https://cdn-icons-png.flaticon.com/512/4712/4712035.png" alt="Değişim AI Robot" className="w-full h-full object-cover p-1 hover:animate-pulse pointer-events-none" draggable="false" />
             </div>
             
@@ -615,25 +622,77 @@ const ParentPortal = ({ user, logout, globalConfig }) => {
                         <button onClick={() => setShowAnnouncements(false)} className="bg-red-100 hover:bg-red-200 text-red-600 px-4 py-2 rounded-xl font-bold transition"><i className="fa-solid fa-times mr-1"></i> Kapat</button>
                     </div>
 
-                    <section className="relative py-16 px-6">
+                   <section className="relative py-16 px-6 overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-b from-amber-50 to-white -z-10"></div>
+                        <i className="fa-solid fa-shapes absolute top-10 left-10 text-6xl text-amber-200/50 transform -rotate-12 animate-pulse"></i>
+                        <i className="fa-solid fa-puzzle-piece absolute bottom-10 right-10 text-6xl text-rose-200/50 transform rotate-12 animate-bounce"></i>
+                        
                         <div className="max-w-4xl mx-auto text-center z-10">
-                            <div className="inline-block mb-4 px-4 py-1.5 rounded-full bg-white/60 backdrop-blur-md border border-amber-400/50 text-amber-600 font-semibold text-sm shadow-sm">
-                                <i className="fa-solid fa-star mr-1"></i> 2026-2027 Erken Kayıt Fırsatları
+                            <div className="inline-block mb-4 px-5 py-2 rounded-full bg-white border-2 border-amber-400 text-amber-600 font-black text-sm shadow-md animate-pulse-border">
+                                <i className="fa-solid fa-star mr-2 text-yellow-400"></i> Değişim Anaokulu: Geleceğin Liderleri
                             </div>
                             <h2 className="text-4xl md:text-6xl font-extrabold text-slate-900 leading-tight mb-6">
-                                Geleceğin Liderleri <br className="hidden md:block" />
-                                <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-amber-600">Değişim'de</span> Yetişiyor!
+                                Potansiyeli Keşfetmenin <br className="hidden md:block" />
+                                <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-500 to-rose-500">En Neşeli</span> Yolu!
                             </h2>
                             <p className="text-lg md:text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed font-medium">
-                                Eğitimde standartları yeniden belirliyoruz. Çocuğunuzun içindeki potansiyeli keşfedeceği, sevgiyle büyüyeceği yeni nesil eğitim kampüsümüze davetlisiniz.
+                                Anaokulumuz sadece bir oyun alanı değil; çocukların bilişsel, sosyal ve motor becerilerini akademik temellerle harmanladığı, "Öğrenme DNA'larının" çözüldüğü bir vizyon merkezidir.
                             </p>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left mt-12">
+                                <div className="bg-white p-6 rounded-3xl shadow-xl border-b-4 border-sky-400 hover:-translate-y-2 transition-transform">
+                                    <div className="w-14 h-14 bg-sky-100 rounded-2xl flex items-center justify-center text-sky-500 text-2xl mb-4"><i className="fa-solid fa-brain"></i></div>
+                                    <h4 className="font-black text-slate-800 text-lg mb-2">Bilişsel Temeller</h4>
+                                    <p className="text-sm text-slate-500 font-medium">Satranç, kodlama ve mantık oyunlarıyla analitik düşünme yeteneğini erken yaşta kodluyoruz.</p>
+                                </div>
+                                <div className="bg-white p-6 rounded-3xl shadow-xl border-b-4 border-emerald-400 hover:-translate-y-2 transition-transform">
+                                    <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-500 text-2xl mb-4"><i className="fa-solid fa-seedling"></i></div>
+                                    <h4 className="font-black text-slate-800 text-lg mb-2">Sosyal Ekosistem</h4>
+                                    <p className="text-sm text-slate-500 font-medium">İletişim, empati ve paylaşma becerilerini yaşayarak öğreniyor, özgüvenli bireyler yetiştiriyoruz.</p>
+                                </div>
+                                <div className="bg-white p-6 rounded-3xl shadow-xl border-b-4 border-rose-400 hover:-translate-y-2 transition-transform">
+                                    <div className="w-14 h-14 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-500 text-2xl mb-4"><i className="fa-solid fa-microscope"></i></div>
+                                    <h4 className="font-black text-slate-800 text-lg mb-2">Gelişim Haritası</h4>
+                                    <p className="text-sm text-slate-500 font-medium">Yapay zeka destekli VAK analizlerimizle çocuğunuzun en iyi nasıl öğrendiğini keşfediyoruz.</p>
+                                </div>
+                            </div>
                         </div>
                     </section>
 
-                    <section className="pb-8 px-4 md:px-6">
-                        <div className="max-w-6xl mx-auto bg-gradient-to-br from-indigo-900 to-purple-900 rounded-[3rem] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden border-4 border-indigo-400/30">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full translate-x-1/2 -translate-y-1/2"></div>
-                            <h3 className="text-3xl font-black text-yellow-400 mb-2 text-center"><i className="fa-solid fa-dna mr-2"></i> Öğrenme DNA'sı (VAK) İnfografiği</h3>
+                   {/* BARIŞ HOCA MEGA YAZ ANAOKULU BÖLÜMÜ */}
+                    <section className="pb-12 px-4 md:px-6">
+                        <div className="max-w-6xl mx-auto bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 rounded-[3rem] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden border-4 border-white/20">
+                            <i className="fa-solid fa-sun absolute -right-10 -top-10 text-[200px] text-white opacity-20 hover:rotate-180 transition-transform duration-1000"></i>
+                            <div className="relative z-10 text-center mb-10">
+                                <div className="inline-block bg-white text-orange-600 font-black px-6 py-2 rounded-full mb-4 text-sm uppercase tracking-widest shadow-lg">☀️ 2026 Yaz Dönemi</div>
+                                <h3 className="text-4xl md:text-5xl font-black text-white mb-4 drop-shadow-md">Değişim Yaz Anaokulu Başlıyor!</h3>
+                                <p className="text-orange-50 text-lg md:text-xl font-medium max-w-3xl mx-auto">Sıradan bir yaz okulu değil, geleceğin liderleri için teknoloji ve vizyon üssü! Yapay zekadan satranca, çocuğunuz bu yaz hem eğlenecek hem de fark yaratacak.</p>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+                                <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-3xl hover:-translate-y-2 transition-transform shadow-xl">
+                                    <div className="w-16 h-16 bg-sky-400 text-white rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-lg"><i className="fa-solid fa-robot"></i></div>
+                                    <h4 className="font-black text-xl text-white mb-2">Robotik & Yapay Zeka</h4>
+                                    <p className="text-sm text-orange-50 font-medium">Algoritma mantığını oyunlarla öğretiyor, yapay zeka ile tanışmalarını sağlıyoruz. Ekran bağımlısı değil, teknoloji üreticisi olacaklar!</p>
+                                </div>
+                                <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-3xl hover:-translate-y-2 transition-transform shadow-xl">
+                                    <div className="w-16 h-16 bg-purple-500 text-white rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-lg"><i className="fa-solid fa-chess-knight"></i></div>
+                                    <h4 className="font-black text-xl text-white mb-2">Strateji & Satranç</h4>
+                                    <p className="text-sm text-orange-50 font-medium">Sadece hamle yapmayı değil, 3 adım sonrasını düşünmeyi öğreten özel satranç antrenmanlarımızla odaklanma sürelerini arşa çıkarıyoruz.</p>
+                                </div>
+                                <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-3xl hover:-translate-y-2 transition-transform shadow-xl">
+                                    <div className="w-16 h-16 bg-emerald-400 text-white rounded-2xl flex items-center justify-center text-3xl mb-4 shadow-lg"><i className="fa-solid fa-palette"></i></div>
+                                    <h4 className="font-black text-xl text-white mb-2">Sanat & Bilişsel Oyunlar</h4>
+                                    <p className="text-sm text-orange-50 font-medium">İnce motor becerilerini geliştiren yaratıcı atölyeler, STEM etkinlikleri ve limitsiz hayal gücü ile dolu eğlenceli bir yaz onları bekliyor.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="pb-8 px-4 md:px-6">
+                        <div className="max-w-6xl mx-auto bg-gradient-to-br from-indigo-900 to-purple-900 rounded-[3rem] p-8 md:p-12 text-white shadow-2xl relative overflow-hidden border-4 border-indigo-400/30">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full translate-x-1/2 -translate-y-1/2"></div>
+                            <h3 className="text-3xl font-black text-yellow-400 mb-2 text-center"><i className="fa-solid fa-dna mr-2"></i> Öğrenme DNA'sı (VAK) İnfografiği</h3>
                             <p className="text-center text-indigo-200 mb-8 text-sm">{user.name} isimli öğrencimizin bilgiyi en iyi nasıl işlediğinin bilimsel haritası.</p>
                             
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2007,48 +2066,53 @@ const renderSharedUI = () => (
                                                 <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Acil Pop-up Mesajı</label>
                                                 <textarea value={adminInputPopup} onChange={(e)=>setAdminInputPopup(e.target.value)} rows="3" className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 resize-none transition-all text-sm font-medium"></textarea>
                                             </div>
-                                            <div>
-                                                <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Kurum Giriş Kodu (Şifre)</label>
-                                                <input type="text" value={adminInputKurumKodu} onChange={(e)=>setAdminInputKurumKodu(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 font-bold text-amber-900 transition-all" />
-                                            </div>
-                                        </div>
-                                    </div>
+                                           <div>
+                                                <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Öğretmen İsimleri (Virgülle Ayırın)</label>
+                                                <input type="text" value={globalConfig?.teachers || "Barış Hocam, Sınıf Öğretmeni, İngilizce Öğretmeni"} onChange={(e)=>setGlobalConfig({...globalConfig, teachers: e.target.value})} placeholder="Örn: Ayşe Hoca, Ali Bey..." className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 font-medium transition-all text-sm" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Kurum Giriş Kodu (Şifre)</label>
+                                                <input type="text" value={adminInputKurumKodu} onChange={(e)=>setAdminInputKurumKodu(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 font-bold text-amber-900 transition-all" />
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                    <div className="space-y-4 bg-emerald-50 p-6 rounded-3xl border border-emerald-200">
-                                        <h3 className="font-bold text-emerald-700 mb-4 flex items-center gap-2"><i className="fa-solid fa-chalkboard-user"></i> Sınıf Görev Panosu</h3>
-                                        <div className="space-y-3">
-                                            <div>
-                                                <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">Anaokulu</label>
-                                                <textarea value={adminHwAnaokulu} onChange={(e)=>setAdminHwAnaokulu(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
-                                            </div>
-                                            <div>
-                                                <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">İlkokul</label>
-                                                <textarea value={adminHwIlkokul} onChange={(e)=>setAdminHwIlkokul(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
-                                            </div>
-                                            <div>
-                                                <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">Ortaokul</label>
-                                                <textarea value={adminHwOrtaokul} onChange={(e)=>setAdminHwOrtaokul(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div className="mt-6 pt-6 border-t flex justify-end gap-3">
-                                    <button onClick={async ()=>{
-                                        const { getFirestore, doc, setDoc } = window.FirebaseSDK;
-                                        const firestore = getFirestore();
-                                        const confRef = doc(firestore, "maas_config", "k12_global");
-                                        await setDoc(confRef, { 
-                                            news: adminInputNews, 
-                                            popup: adminInputPopup, 
-                                            kurumKodu: adminInputKurumKodu,
-                                            hwAnaokulu: adminHwAnaokulu,
-                                            hwIlkokul: adminHwIlkokul,
-                                            hwOrtaokul: adminHwOrtaokul
-                                        }, { merge: true });
-                                        showToast("Sistem Güncellendi ve Yayınlandı! 🚀");
-                                        setShowSettings(false);
-                                    }} className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-black shadow-lg shadow-emerald-200 hover:scale-105 active:scale-95 transition-all uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-cloud-arrow-up"></i> GÜNCELLEMELERİ YAYINLA</button>
+                                    <div className="space-y-4 bg-emerald-50 p-6 rounded-3xl border border-emerald-200">
+                                        <h3 className="font-bold text-emerald-700 mb-4 flex items-center gap-2"><i className="fa-solid fa-chalkboard-user"></i> Sınıf Görev Panosu</h3>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">Anaokulu</label>
+                                                <textarea value={adminHwAnaokulu} onChange={(e)=>setAdminHwAnaokulu(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">İlkokul</label>
+                                                <textarea value={adminHwIlkokul} onChange={(e)=>setAdminHwIlkokul(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
+                                            </div>
+                                            <div>
+                                                <label className="block text-[10px] font-black text-emerald-600 uppercase mb-1">Ortaokul</label>
+                                                <textarea value={adminHwOrtaokul} onChange={(e)=>setAdminHwOrtaokul(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="mt-6 pt-6 border-t flex justify-end gap-3">
+                                    <button onClick={async ()=>{
+                                        const { getFirestore, doc, setDoc } = window.FirebaseSDK;
+                                        const firestore = getFirestore();
+                                        const confRef = doc(firestore, "maas_config", "k12_global");
+                                        await setDoc(confRef, { 
+                                            teachers: globalConfig?.teachers || "Barış Hocam, Sınıf Öğretmeni, İngilizce Öğretmeni",
+                                            news: adminInputNews, 
+                                            popup: adminInputPopup, 
+                                            kurumKodu: adminInputKurumKodu,
+                                            hwAnaokulu: adminHwAnaokulu,
+                                            hwIlkokul: adminHwIlkokul,
+                                            hwOrtaokul: adminHwOrtaokul
+                                        }, { merge: true });
+                                        showToast("Sistem Güncellendi ve Yayınlandı! 🚀");
+                                        setShowSettings(false);
+                                    }} className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-black shadow-lg shadow-emerald-200 hover:scale-105 active:scale-95 transition-all uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-cloud-arrow-up"></i> GÜNCELLEMELERİ YAYINLA</button>
                                 </div>
                             </div>
                         ) : (
