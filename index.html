@@ -1416,7 +1416,8 @@ const generateMaterial = async () => {
 
     // YAPAY ZEKANIN TEMBELLİĞİNİ KIRAN ANA EMİR:
    // YAPAY ZEKANIN TEMBELLİĞİNİ KIRAN ANA EMİR:
-    const fasikulKurali = "MEGA KURAL: Kullanıcı ne istiyorsa, SADECE ONA ODAKLAN! Şema tiplerine (test, boşluk) takılma, kullanıcının promptunda ne diyorsa o blokları kullan. BANA DEVASA VE ZENGİN BİR İÇERİK SUN! Kısa kesme, ayrıntıya in!";
+   // YAPAY ZEKANIN TEMBELLİĞİNİ KIRAN ANA EMİR:
+    const fasikulKurali = "MEGA KURAL: Kullanıcı kutuya sadece kısacık bir konu yazsa bile (Örn: Toplama işlemi yap), sen inisiyatif alıp BİR ÖĞRETMEN GİBİ DÜŞÜN! Otomatik olarak 'bilgi_kutusu' ile konuyu anlat, ardından 'standart_soru', 'eslestirme_tablosu', 'bosluk_doldurma', 'hatali_islem' gibi ETKİLEŞİMLİ BLOKLARI KESİNLİKLE KULLANARAK en az 10 maddelik devasa bir fasikül üret. Kullanıcı blok adı belirtmese bile, o konuyu öğretmek için en uygun 4-5 farklı blok tipini ZORUNLU olarak seç ve içini sorularla doldur!";
 
     if (materialType === 'Fark Etmez (Yapay Zeka Seçsin)') {
         kuralMetni = `DİKKAT: Kullanıcının metin içinde talep ettiği TÜM BLOK TİPLERİNİ özgürce kullan! ${fasikulKurali} ${soruKurali} ${gorselKural}`;
