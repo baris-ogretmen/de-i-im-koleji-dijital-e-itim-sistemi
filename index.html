@@ -1451,7 +1451,7 @@ const generateMaterial = async () => {
                     temperature: 0.8,
                     topP: 0.8,
                     topK: 40,
-                    maxOutputTokens: 8192,
+                    maxOutputTokens: 24000,
                     responseSchema: {
                         type: "OBJECT",
                         properties: {
@@ -1510,7 +1510,10 @@ const generateMaterial = async () => {
                     if (!onarilmis.trim().endsWith('}')) {
                         let isQuoteOpen = (onarilmis.match(/(?<!\\)"/g) || []).length % 2 !== 0;
                         if (isQuoteOpen) onarilmis += '"';
-                        onarilmis += '}] }'; 
+                        let acikKose = (onarilmis.match(/\[/g) || []).length - (onarilmis.match(/\]/g) || []).length;
+                        let acikSusluu = (onarilmis.match(/{/g) || []).length - (onarilmis.match(/}/g) || []).length;
+                        for (let i = 0; i < acikKose; i++) onarilmis += ']';
+                        for (let i = 0; i < acikSusluu; i++) onarilmis += '}';
                     }
                     const ayristirilmisData2 = JSON.parse(onarilmis);
                     setMaterialResult(ayristirilmisData2);
@@ -2805,6 +2808,60 @@ title="Veli ödevi yaptıysa buraya tıklayın."
         )}
     </div>
 )}
+{/* HAZIR ŞABLON BUTONLARI - KADEME BAZLI */}
+<div className="mb-3 bg-teal-800/20 p-3 rounded-xl border border-teal-500/20">
+  <p className="text-[11px] font-bold text-teal-300 uppercase mb-2"><i className="fa-solid fa-bolt mr-1"></i> Hazır Şablonlar — tıkla, sınıfı/konuyu değiştir, üret</p>
+  {[
+    { grup: "🧸 Anaokulu", items: [
+      { e: "Çizgi Çalışması", t: "cizgi_calismasi", m: "Okul öncesi 5 yaş için el-göz koordinasyonu çizgi çalışması hazırla. Her satırda kalemle üzerinden geçilecek farklı bir desen olsun: düz çizgi, dalgalı çizgi, zikzak, yay, halka. 6 satır olsun." },
+      { e: "Görsel Dikte", t: "gorsel_dikte", m: "Okul öncesi için emojili görsel dikte çalışması hazırla. Her emojinin altına kelimeyi yazması için boşluk bırak. 6 kelime olsun." },
+      { e: "Emoji Farkı Bul", t: "gorsel_fark_emoji", m: "Okul öncesi için emoji matrisi hazırla. Çocuk belirli bir emojiyi (örneğin gülen yüz) diğerleri arasından bulup işaretlesin. 6 satır olsun." },
+      { e: "Sırala ve Yapıştır", t: "sirala_yapistir", m: "Okul öncesi için bir hikayenin karışık verilmiş olaylarını doğru sıraya koyma çalışması hazırla." },
+      { e: "Rakam Tanıma", t: "Fark Etmez (Yapay Zeka Seçsin)", m: "Okul öncesi için 1'den 10'a kadar rakamları tanıma ve sayma çalışması hazırla. Her rakamın yanında o sayıda nesne emojisi olsun." },
+      { e: "Sosyal Hikaye", t: "Fark Etmez (Yapay Zeka Seçsin)", m: "Okul öncesi çocuklar için paylaşmayı anlatan, kısa ve olumlu cümlelerden oluşan bir hikaye yaz. Sonuna 3 basit soru ekle." },
+      { e: "Ev Görevi Tombalası", t: "Fark Etmez (Yapay Zeka Seçsin)", m: "Okul öncesi çocuk ve velisi için birlikte yapılacak eğlenceli ev görevlerini içeren 9 kareli bir tombala hazırla." }
+    ]},
+    { grup: "🎒 İlkokul (1-4. Sınıf)", items: [
+      { e: "Genel Değerlendirme Testi", t: "test", m: "4. sınıf için tüm derslerden dengeli dağılmış 10 soruluk çoktan seçmeli genel değerlendirme testi hazırla. Her sorunun cevap anahtarını ve kısa açıklamasını ekle." },
+      { e: "Çoktan Seçmeli Test", t: "test", m: "3. sınıf matematik için 10 soruluk çoktan seçmeli test hazırla. Cevap anahtarı ekle." },
+      { e: "Boşluk Doldurma", t: "bosluk", m: "2. sınıf Türkçe için 10 cümlelik boşluk doldurma çalışması hazırla. Cevap anahtarı ekle." },
+      { e: "Doğru / Yanlış", t: "dogru_yanlis", m: "4. sınıf sosyal bilgiler için 10 maddelik doğru-yanlış çalışması hazırla. Cevap anahtarı ekle." },
+      { e: "Sütun Eşleştirme", t: "eslestirme", m: "2. sınıf için hayvanlar ve yaşam alanlarını eşleştirme çalışması hazırla. Sol sütunda hayvanlar, sağ sütunda yaşam alanları karışık olsun. Cevap anahtarı ekle." },
+      { e: "Renkli Konu Anlatımı", t: "konu_anlatimi", m: "3. sınıf matematik için toplama işlemini örneklerle anlatan renkli bir konu özeti hazırla." },
+      { e: "Konu + Mini Quiz", t: "karma", m: "3. sınıf için çarpma işlemini anlatan renkli konu özeti hazırla, ardından 5 soruluk mini quiz ekle. Cevap anahtarı olsun." },
+      { e: "5N1K Okuma", t: "Fark Etmez (Yapay Zeka Seçsin)", m: "3. sınıf için kısa bir okuma parçası ve ardından 5N1K (kim, ne, nerede, ne zaman, neden, nasıl) sorularını renkli kutularda hazırla." },
+      { e: "Fiş & Fatura", t: "gercek_hayat_fatura", m: "4. sınıf matematik için market alışverişi temalı bir fiş-fatura problemi hazırla. Ürünler, adetler ve fiyatlar olsun, toplam tutarı hesaplasın." },
+      { e: "Hata Dedektifi", t: "hata_dedektifi", m: "4. sınıf matematik için içinde bilinçli hatalar bulunan çözülmüş işlemler hazırla. Öğrenci hataları bulup düzeltsin. Cevap anahtarı ekle." },
+      { e: "Şifre Kırıcı", t: "sifre_kirici", m: "4. sınıf matematik için şifre kırıcı etkinliği hazırla. İşlemlerin sonuçları harflere karşılık gelsin, gizli kelimeyi bulsun." },
+      { e: "Bilgi Kartları", t: "flashcard", m: "4. sınıf İngilizce için kesilebilir bilgi kartları hazırla. Bir yüzünde İngilizce kelime, diğer yüzünde Türkçesi olsun. 8 kart olsun." }
+    ]},
+    { grup: "📚 Ortaokul (5-8. Sınıf)", items: [
+      { e: "Genel Değerlendirme Testi", t: "test", m: "6. sınıf için tüm derslerden dengeli dağılmış 15 soruluk çoktan seçmeli genel değerlendirme testi hazırla. Cevap anahtarı ve açıklamaları ekle." },
+      { e: "Yeni Nesil Test", t: "yeni_nesil_test", m: "7. sınıf fen bilimleri için günlük hayatla ilişkili, paragraf ve grafik içeren 10 soruluk yeni nesil test hazırla. Cevap anahtarı ekle." },
+      { e: "LGS Deneme Sınavı", t: "deneme_sinavi", m: "8. sınıf LGS tarzı, Türkçe ve matematikten oluşan kapsamlı bir deneme sınavı hazırla. Cevap anahtarı ekle." },
+      { e: "Konu Anlatımı + Test", t: "karma", m: "6. sınıf matematik için kesirler konusunu anlatan renkli konu özeti hazırla, ardından 8 soruluk test ekle. Cevap anahtarı olsun." },
+      { e: "Zihin Haritası", t: "zihin_haritasi", m: "5. sınıf fen için 'canlılar' konusunu merkeze alan bir zihin haritası hazırla. Yan dallar ve alt kavramlar olsun." },
+      { e: "Venn Şeması", t: "venn_semasi", m: "6. sınıf için memeliler ve kuşları karşılaştıran bir Venn şeması hazırla. Ortak ve farklı özellikleri yaz." },
+      { e: "Tablo & Veri Analizi", t: "gorsel_veri", m: "7. sınıf matematik için bir grafik/veri tablosu hazırla, ardından tabloyla ilgili yorumlama soruları ekle." },
+      { e: "İnfografik", t: "infografik", m: "6. sınıf fen için su döngüsü konusunu görsel infografik çalışması olarak hazırla. Ana kavramlar ve kısa açıklamalar olsun." },
+      { e: "Karikatür / Diyalog", t: "karikatur_diyalog", m: "5. sınıf için iki karakter arasında geçen kısa, eğitici bir diyalog hazırla. Sonuna anlama soruları ekle." },
+      { e: "Gazete Manşeti", t: "haber_bulteni", m: "7. sınıf için güncel bir konuda gazete manşeti ve kısa haber metni hazırla. Sonuna anlama ve yorum soruları ekle." },
+      { e: "Sudoku / Mantık", t: "sudoku_bulmaca", m: "Ortaokul seviyesine uygun sayılarla bir sudoku / mantık gridi hazırla. İpucu ve çözüm ekle." },
+      { e: "Dönüşüm Makinesi", t: "on_sonra_makine", m: "5. sınıf matematik için girdi-çıktı dönüşüm makinesi hazırla. Kural belli olsun, öğrenci eksik çıktıları bulsun." }
+    ]}
+  ].map((kategori, ki) => (
+    <div key={ki} className="mb-2">
+      <p className="text-[10px] font-bold text-teal-400/80 mb-1">{kategori.grup}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {kategori.items.map((sablon, i) => (
+          <button key={i} onClick={() => { if (typeof setMaterialType === 'function') { try { setMaterialType(sablon.t); } catch(_){} } setMaterialTopic(sablon.m); }} className="text-[11px] bg-white/10 hover:bg-yellow-400 hover:text-teal-900 text-teal-50 px-2.5 py-1 rounded-md font-semibold transition border border-teal-400/20 hover:border-yellow-400">
+            {sablon.e}
+          </button>
+        ))}
+      </div>
+    </div>
+  ))}
+</div>
 <textarea value={materialTopic} onChange={(e) => setMaterialTopic(e.target.value)} rows="6" placeholder="Ne üretmek istiyorsun veya yüklediğin dosyaya ne yapalım? Örn: Bu testteki soruları uzay temasına göre baştan yaz... veya 5. sınıf matematik 10 zor soru üret..." className="w-full px-4 py-3 bg-white/10 border border-teal-400/50 rounded-xl outline-none text-white placeholder-teal-200/50 resize-y focus:bg-white focus:text-teal-900 transition mb-2"></textarea>
 </div>
 <button onClick={generateMaterial} disabled={isGeneratingMaterial || !materialTopic.trim()} className="mt-4 w-full bg-yellow-400 text-teal-900 hover:bg-yellow-300 py-3.5 rounded-xl font-extrabold text-lg transition shadow-lg disabled:opacity-50 flex justify-center items-center">
@@ -4019,7 +4076,30 @@ return (
 </div>
 );
 
-default: return null;
+default: {
+const _metinAlan = blok.baslik || blok.icerik_metni || blok.html_icerik || blok.soru_metni;
+const _diziAlan = (blok.secenekler&&blok.secenekler.length) || (blok.cizim_adimlari&&blok.cizim_adimlari.length) || (blok.adimlar&&blok.adimlar.length) || (blok.malzemeler&&blok.malzemeler.length) || (blok.hece_gruplari&&blok.hece_gruplari.length) || (blok.emojiler&&blok.emojiler.length) || (blok.kartlar&&blok.kartlar.length) || (blok.dikte_kelimeleri&&blok.dikte_kelimeleri.length) || (blok.yan_kavramlar&&blok.yan_kavramlar.length) || (blok.satirlar&&blok.satirlar.length) || (blok.tombala_gorevleri&&blok.tombala_gorevleri.length) || (blok.karisik_adimlar&&blok.karisik_adimlar.length);
+if (!_metinAlan && !_diziAlan) return null;
+return (
+<div key={idx} className="break-inside-avoid mb-8 bg-white border-2 border-indigo-100 rounded-xl p-6 shadow-sm print:shadow-none print:border-gray-300">
+{blok.baslik && <h3 className="font-bold text-2xl text-indigo-900 mb-4 border-b border-indigo-100 pb-2 print-high-contrast whitespace-pre-wrap">{blok.baslik}</h3>}
+{blok.html_icerik && <div className="prose max-w-none text-gray-800 leading-relaxed text-lg print-high-contrast" dangerouslySetInnerHTML={{ __html: blok.html_icerik }}></div>}
+{blok.icerik_metni && <p className="text-gray-800 leading-relaxed text-lg print-high-contrast whitespace-pre-wrap mb-3">{blok.icerik_metni}</p>}
+{blok.soru_metni && <p className="font-semibold text-gray-900 text-lg print-high-contrast whitespace-pre-wrap mb-2">{blok.soru_metni}</p>}
+{blok.secenekler && blok.secenekler.length > 0 && (<div className="pl-4 space-y-2 mb-2">{blok.secenekler.map((sec, sI) => (<div key={sI} className="text-gray-700 font-medium print-high-contrast"><span className="w-7 h-7 rounded-full border-2 border-gray-400 inline-flex items-center justify-center mr-2 font-bold text-xs bg-gray-50 print:bg-transparent align-middle">{['A','B','C','D','E','F'][sI]}</span><span className="inline-block align-middle whitespace-pre-wrap">{sec}</span></div>))}</div>)}
+{blok.cizim_adimlari && blok.cizim_adimlari.length > 0 && (<div className="space-y-6 mt-4">{blok.cizim_adimlari.map((cz, i) => (<div key={i} className="text-gray-400 font-black tracking-[0.4em] text-3xl whitespace-nowrap overflow-hidden print-high-contrast border-b border-dashed border-gray-200 pb-2">{cz}</div>))}</div>)}
+{blok.adimlar && blok.adimlar.length > 0 && (<ol className="list-decimal pl-6 space-y-1 mt-2 text-gray-800">{blok.adimlar.map((a,i)=><li key={i} className="print-high-contrast whitespace-pre-wrap">{a}</li>)}</ol>)}
+{blok.malzemeler && blok.malzemeler.length > 0 && (<ul className="list-disc pl-6 space-y-1 mt-2 text-gray-800">{blok.malzemeler.map((m,i)=><li key={i} className="print-high-contrast whitespace-pre-wrap">{m}</li>)}</ul>)}
+{blok.hece_gruplari && blok.hece_gruplari.length > 0 && (<div className="flex flex-wrap gap-3 mt-2">{blok.hece_gruplari.map((h,i)=><span key={i} className="bg-blue-50 border-2 border-blue-300 text-blue-900 font-black text-2xl px-4 py-2 rounded-lg print-high-contrast">{h}</span>)}</div>)}
+{blok.emojiler && blok.emojiler.length > 0 && (<div className="text-3xl leading-loose tracking-widest mt-2 print-high-contrast">{blok.emojiler.map((e,i)=><div key={i}>{e}</div>)}</div>)}
+{blok.dikte_kelimeleri && blok.dikte_kelimeleri.length > 0 && (<div className="grid grid-cols-3 gap-4 mt-2">{blok.dikte_kelimeleri.map((d,i)=><div key={i} className="text-center"><div className="text-5xl">{d.emoji}</div><div className="border-b-2 border-dashed border-gray-400 mt-2 h-6"></div></div>)}</div>)}
+{blok.kartlar && blok.kartlar.length > 0 && (<div className="grid grid-cols-2 gap-4 mt-2">{blok.kartlar.map((k,i)=><div key={i} className="border-2 border-dashed border-gray-400 rounded-lg p-3 text-center print-high-contrast"><div className="font-black text-lg">{k.on_yuz}</div><div className="text-sm text-gray-600 border-t mt-2 pt-2">{k.arka_yuz}</div></div>)}</div>)}
+{blok.yan_kavramlar && blok.yan_kavramlar.length > 0 && (<ul className="list-disc pl-6 space-y-1 mt-2 text-gray-800">{blok.yan_kavramlar.map((y,i)=><li key={i} className="print-high-contrast whitespace-pre-wrap">{y}</li>)}</ul>)}
+{blok.tombala_gorevleri && blok.tombala_gorevleri.length > 0 && (<div className="grid grid-cols-3 gap-2 mt-2">{blok.tombala_gorevleri.map((g,i)=><div key={i} className="border-2 border-green-300 rounded-lg p-2 text-center text-xs font-bold print-high-contrast">{g}</div>)}</div>)}
+{blok.karisik_adimlar && blok.karisik_adimlar.length > 0 && (<ul className="list-disc pl-6 space-y-1 mt-2 text-gray-800">{blok.karisik_adimlar.map((k,i)=><li key={i} className="print-high-contrast whitespace-pre-wrap">{k}</li>)}</ul>)}
+</div>
+);
+}
 }
 })}
 </div>
