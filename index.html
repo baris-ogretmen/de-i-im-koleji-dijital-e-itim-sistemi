@@ -140,6 +140,884 @@ body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #1f29
 </script>
 <div id="root"></div>
 
+<!-- ===== ZİRVE KATMANI · API + 124 şablon + hece renklendirme ===== -->
+<script>
+/* ============================================================
+   ZİRVE API KATMANI  ·  çoklu anahtar + otomatik model + teşhis
+   Uygulamanın kendi kodu DEĞİŞTİRİLMEDİ. Bu katman fetch'i sarar;
+   generativelanguage.googleapis.com'a giden her isteği yakalar,
+   anahtarı/modeli kendisi seçer, kota dolunca devreye girer.
+   ============================================================ */
+(function(){
+"use strict";
+
+// ---------- Depolama ----------
+const LS = { keys:'zirve_keys', cool:'zirve_keycool', model:'gemini_model_name', rpm:'zirve_rpm', legacy:'gemini_api_key' };
+const RING = { keys:[], cool:{}, aktif:null };
+let MODEL = localStorage.getItem(LS.model) || 'gemini-2.5-flash';
+let RPM = parseInt(localStorage.getItem(LS.rpm)||'8',10);
+
+// Kotası kapanmış eski modelleri otomatik yükselt
+const OLU_MODELLER = ['gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash','gemini-1.5-pro','gemini-pro'];
+if (OLU_MODELLER.indexOf(MODEL) !== -1) { MODEL = 'gemini-2.5-flash'; localStorage.setItem(LS.model, MODEL); }
+
+function ringSet(list){ RING.keys = list.map(x=>String(x||'').trim()).filter(k=>k.length>8); }
+function ringLoad(){
+  try{ const r=localStorage.getItem(LS.keys); if(r) ringSet(JSON.parse(r)); }catch(e){}
+  if(!RING.keys.length){ const eski=localStorage.getItem(LS.legacy); if(eski) ringSet([eski]); }
+  try{ const c=localStorage.getItem(LS.cool); if(c) RING.cool=JSON.parse(c); }catch(e){}
+}
+function ringSave(){
+  try{
+    localStorage.setItem(LS.keys, JSON.stringify(RING.keys));
+    localStorage.setItem(LS.cool, JSON.stringify(RING.cool));
+    // Uygulamanın kendi kontrolü (if(!apiKey) return) için ilk anahtarı eski yere de yaz
+    if(RING.keys[0]) localStorage.setItem(LS.legacy, RING.keys[0]);
+  }catch(e){}
+}
+// Kota Google'da MODEL BAZINDA tutulur → dinlenme kaydı "model|anahtar"
+function coolKey(m,k){ return (m||'?')+'|'+k; }
+function ringHazir(m){ const n=Date.now(); return RING.keys.filter(k=>!(RING.cool[coolKey(m,k)]>n)); }
+function ringPick(m){
+  const h=ringHazir(m); if(!h.length) return null;
+  if(RING.aktif && h.indexOf(RING.aktif)!==-1) return RING.aktif;
+  RING.aktif=h[0]; return RING.aktif;
+}
+function ringNo(k){ return RING.keys.indexOf(k)+1; }
+function ringCool(key, mesaj, m){
+  const gunluk = /per day|PerDay|daily|GenerateRequestsPerDay/i.test(String(mesaj||''));
+  let ms = 70000;                                  // dakikalık kota → ~70 sn
+  if(gunluk){                                      // günlük kota → Pasifik gece yarısına kadar
+    const now=new Date();
+    const pt=new Date(now.toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+    const mid=new Date(pt); mid.setHours(24,0,0,0);
+    ms=Math.max(60000, mid-pt);
+  }
+  RING.cool[coolKey(m,key)] = Date.now()+ms; ringSave();
+  return gunluk;
+}
+function ringBekleme(m){
+  const n=Date.now(); let en=Infinity;
+  RING.keys.forEach(k=>{ const c=RING.cool[coolKey(m,k)]||0; if(c>n) en=Math.min(en,c-n); });
+  if(en===Infinity) return '';
+  const dk=Math.ceil(en/60000);
+  return dk>60 ? Math.ceil(dk/60)+' saat' : dk+' dakika';
+}
+
+// ---------- Yedek model zinciri ----------
+// Tercih sırası (hızlı/bol kotalı → yavaş/kısıtlı). Test Et'e basınca anahtarının
+// GERÇEKTEN erişebildiği modeller öğrenilir ve zincir ona göre kurulur; böylece
+// var olmayan bir model adına düşmeyiz.
+const MODEL_TERCIH = [
+  "gemini-2.5-flash-lite", "gemini-flash-lite-latest",
+  "gemini-2.5-flash", "gemini-flash-latest",
+  "gemini-2.0-flash-lite", "gemini-2.0-flash",
+  "gemini-2.5-pro", "gemini-pro-latest"
+];
+let KULLANILABILIR = [];
+try{ const r=localStorage.getItem('zirve_models'); if(r) KULLANILABILIR=JSON.parse(r)||[]; }catch(e){}
+
+function modelHavuzu(){
+  if(!KULLANILABILIR.length) return MODEL_TERCIH.slice();
+  const havuz = MODEL_TERCIH.filter(m => KULLANILABILIR.indexOf(m)!==-1);
+  // Listede olup tercihimizde olmayan flash modelleri de sona ekle (yeni çıkanlar için)
+  KULLANILABILIR.forEach(m=>{
+    if(havuz.indexOf(m)===-1 && /flash/.test(m) && !/thinking|exp|8b/.test(m)) havuz.push(m);
+  });
+  return havuz.length ? havuz : MODEL_TERCIH.slice();
+}
+function modelSonraki(simdiki, denenenler){
+  return modelHavuzu().find(m => m!==simdiki && denenenler.indexOf(m)===-1) || null;
+}
+
+// ---------- Hız sınırlayıcı (kotayı boşa harcamamak için) ----------
+const RL = { calisan:0, maxEs:2, gecmis:[] };
+function rpmLimit(){ return RPM; }
+async function rateGate(){
+  while(true){
+    const n=Date.now();
+    RL.gecmis = RL.gecmis.filter(t=>n-t<60000);
+    if(RL.calisan<RL.maxEs && RL.gecmis.length<rpmLimit()){ RL.calisan++; RL.gecmis.push(n); return; }
+    await new Promise(r=>setTimeout(r,250));
+  }
+}
+function rateRelease(){ RL.calisan=Math.max(0,RL.calisan-1); }
+
+// ---------- Model ailesine göre generationConfig düzeltmeleri ----------
+function aile(m){
+  m=String(m||'');
+  if(/gemini-3|gemini-flash-latest|gemini-flash-lite-latest|-latest$/.test(m)) return 'yeni';   // thinkingLevel ister
+  if(/2\.5-(flash|flash-lite)/.test(m)) return 'flash25';                                       // thinkingBudget ister
+  if(/pro/.test(m)) return 'pro';
+  return 'diger';
+}
+// Gövde dönüşümleri: sırayla denenir, çalışan hatırlanır.
+// ASIL ARIZA: Gemini 2.5+ modellerde "düşünme modu" varsayılan AÇIK. responseMimeType:json ve
+// maxOutputTokens:16000 ile istek atılınca bütçe düşünmeye gidiyor, JSON YARIDA KESİLİYOR,
+// uygulamanın JSON.parse'ı patlıyor ve hata catch{} ile yutulduğu için ekranda hiçbir şey olmuyor.
+// Aşağıdaki varyantlar düşünmeyi kapatır/asgariye indirir.
+function govdeVaryantlari(m){
+  const f=aile(m);
+  const temiz=(b)=>{ const c=JSON.parse(JSON.stringify(b)); if(c.generationConfig){ delete c.generationConfig.thinkingConfig; } return c; };
+  const dusunme=(b,cfg)=>{ const c=temiz(b); c.generationConfig=Object.assign({}, c.generationConfig, {thinkingConfig:cfg}); return c; };
+  // SON ÇARE: responseSchema'yı at. Şema devasa olduğunda model bazen tıkanıyor;
+  // uygulamanın promptu istenen JSON biçimini zaten ayrıntısıyla anlatıyor, o yüzden şemasız da çalışır.
+  const semasiz=(b,cfg)=>{ const c=dusunme(b,cfg); if(c.generationConfig) delete c.generationConfig.responseSchema; return c; };
+  if(f==='yeni') return [
+    (b)=>{ const c=dusunme(b,{thinkingLevel:"low"}); delete c.generationConfig.temperature; return c; },
+    (b)=>{ const c=semasiz(b,{thinkingLevel:"low"}); delete c.generationConfig.temperature; return c; },
+    (b)=>temiz(b), (b)=>b ];
+  if(f==='flash25') return [
+    (b)=>dusunme(b,{thinkingBudget:0}), (b)=>semasiz(b,{thinkingBudget:0}), (b)=>temiz(b), (b)=>b ];
+  if(f==='pro') return [
+    (b)=>dusunme(b,{thinkingBudget:128}), (b)=>semasiz(b,{thinkingBudget:128}), (b)=>temiz(b), (b)=>b ];
+  return [ (b)=>temiz(b), (b)=>b ];
+}
+const CFG_OK = {};   // model -> çalıştığı bilinen varyant
+
+// ---------- Zaman aşımlı istek (sonsuz bekleme yok) ----------
+const ZAMAN_ASIMI = 150000;   // 150 sn
+function fetchZamanAsimli(u, init){
+  const ac = new AbortController();
+  const t = setTimeout(()=>ac.abort(), ZAMAN_ASIMI);
+  return ORIG_FETCH(u, Object.assign({}, init, {signal: ac.signal})).finally(()=>clearTimeout(t));
+}
+
+// ---------- Google'ın gerçek hata mesajını oku ----------
+async function googleErr(r){
+  try{ const d=await r.clone().json(); return (d && d.error && d.error.message) || JSON.stringify(d).slice(0,200); }
+  catch(e){ try{ return (await r.clone().text()).slice(0,200); }catch(e2){ return 'HTTP '+r.status; } }
+}
+// ---------- Türkçe teşhis: sorun anahtarda mı, modelde mi, promptta mı? ----------
+function netHatasi(e){
+  const m=String((e&&e.message)||e||'');
+  if(/TUM_DOLU/i.test(m))
+    return 'SORUN: KOTA. Denenen tüm anahtar ve modellerin kotası dolu'+(m.split('·')[1]?' —'+m.split('·')[1]:'')+'. Anahtarların AYNI PROJEDEyse hepsi aynı kotayı paylaşır; ayrı Google Cloud projelerinde anahtar açarsan her biri kendi kotasını alır.';
+  if(/SAFETY|blockReason/i.test(m))
+    return 'SORUN: PROMPT. İçerik güvenlik filtresine takıldı. Metni yumuşatıp tekrar dene.';
+  if(/API key not valid|API_KEY_INVALID|INVALID_ARGUMENT.*key/i.test(m))
+    return 'SORUN: ANAHTAR. Anahtar geçersiz. aistudio.google.com/apikey adresinden yeni bir anahtar oluşturup yapıştır.';
+  if(/PERMISSION_DENIED|SERVICE_DISABLED|has not been used|is disabled/i.test(m))
+    return 'SORUN: ANAHTAR/PROJE. Generative Language API bu projede kapalı ya da anahtarın yetkisi yok. Google AI Studio\'da yeni anahtar oluştur.';
+  if(/referer|referrer|API_KEY_HTTP_REFERRER/i.test(m))
+    return 'SORUN: ANAHTAR KISITI. Anahtarına web sitesi (HTTP referrer) kısıtı konmuş; dosyayı bilgisayardan açtığın için engelliyor. Anahtar kısıtlamasını "Yok/None" yap.';
+  if(/not found|is not supported|Unknown name.*model|models\//i.test(m) && /404|not found|not supported/i.test(m))
+    return 'SORUN: MODEL. Bu model adı anahtarınla kullanılamıyor. "Test Et"e bas — çalışan modeli otomatik bulup seçerim.';
+  if(/Unknown name|Invalid JSON payload|INVALID_ARGUMENT/i.test(m))
+    return 'SORUN: İSTEK BİÇİMİ. Model bu parametreleri kabul etmiyor. Katman otomatik uyarlamayı deniyor; sürerse modeli gemini-2.5-flash yap.';
+  if(/50[0234]|UNAVAILABLE|high demand|overloaded|INTERNAL/i.test(m))
+    return 'SORUN: GOOGLE TARAFI (503). Model şu an aşırı yoğun. Senin anahtarınla, modelinle ya da yazdığın metinle İLGİSİ YOK — Google\'ın sunucusu geçici olarak dolu. Katman bekleyip tekrar denedi ve sırayla diğer modelleri denedi; hepsi doluysa 2-3 dakika sonra tekrar dene.';
+  if(/429|quota|RESOURCE_EXHAUSTED/i.test(m))
+    return 'SORUN: KOTA (429). Hız sınırını düşür ya da gemini-2.5-flash-lite dene. Günlük kota Pasifik saatiyle gece yarısı sıfırlanır.';
+  if(/aborted|AbortError|zaman aşımı/i.test(m))
+    return 'SORUN: SÜRE. Model 150 saniyede yanıt vermedi. Genelde çok uzun materyal istendiğinde olur: istediğin soru/etkinlik sayısını azalt ya da modeli gemini-2.5-flash yap.';
+  if(/Failed to fetch|NetworkError|ERR_/i.test(m))
+    return 'SORUN: BAĞLANTI. İnternete ulaşılamadı. Reklam engelleyici/VPN/güvenlik duvarı Google\'a erişimi kesiyor olabilir.';
+  if(/KESIK_JSON/i.test(m))
+    return 'SORUN: ÇIKTI KESİLDİ. Model JSON\'ı tamamlayamadı (istek çok büyük). İstediğin soru/blok sayısını azalt ya da modeli gemini-2.5-flash yap; katman bütçeyi büyütüp tekrar denedi ama yetmedi.';
+  if(/BOŞ_YANIT|MAX_TOKENS/i.test(m))
+    return 'SORUN: MODEL/ÇIKTI. Model boş ya da kesik yanıt döndü (düşünme modu çıktı bütçesini yiyor). Katman bunu otomatik kapatmayı denedi; sürerse gemini-2.5-flash-lite dene.';
+  return m || 'Bilinmeyen hata.';
+}
+
+// ---------- Ekrana bildirim ----------
+function toast(html, renk){
+  let t=document.getElementById('zirve-toast');
+  if(!t){
+    t=document.createElement('div'); t.id='zirve-toast';
+    t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:86px;z-index:2147483000;max-width:min(560px,92vw);padding:12px 16px;border-radius:14px;font:600 13px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;box-shadow:0 12px 34px rgba(0,0,0,.22);border:2px solid;display:none';
+    document.body.appendChild(t);
+  }
+  t.innerHTML=html; t.style.display='block';
+  if(renk==='red'){ t.style.background='#fee2e2'; t.style.borderColor='#fca5a5'; t.style.color='#991b1b'; }
+  else if(renk==='green'){ t.style.background='#dcfce7'; t.style.borderColor='#86efac'; t.style.color='#166534'; }
+  else { t.style.background='#fffbeb'; t.style.borderColor='#fcd34d'; t.style.color='#92400e'; }
+  clearTimeout(toast._t); toast._t=setTimeout(()=>{ t.style.display='none'; }, renk==='red'?14000:9000);
+}
+
+// ---------- Anahtar doğrulama + otomatik model bulma ----------
+async function listModels(key){
+  const r=await ORIG_FETCH(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`);
+  if(!r.ok) throw new Error(await googleErr(r));
+  const d=await r.json();
+  return (d.models||[]).filter(m=>(m.supportedGenerationMethods||[]).indexOf('generateContent')!==-1)
+                       .map(m=>String(m.name||'').replace('models/',''));
+}
+function enIyiModel(list){
+  const tercih=["gemini-2.5-flash","gemini-2.5-flash-lite","gemini-flash-latest","gemini-flash-lite-latest","gemini-2.5-pro"];
+  for(const t of tercih) if(list.indexOf(t)!==-1) return t;
+  return list.find(m=>/flash/.test(m)) || list[0] || null;
+}
+
+// ============================================================
+//  HAZIR ŞABLON KÜTÜPHANESİ (82 şablon) — düzenlenebilir
+// ============================================================
+const VARSAYILAN_SABLONLAR = [{"grup": "🧸 Anaokulu", "items": [{"e": "Çizgi Çalışması", "t": "cizgi_calismasi", "m": "Okul öncesi 5 yaş için el-göz koordinasyonu çizgi çalışması hazırla. Her satırda kalemle üzerinden geçilecek farklı bir desen olsun: düz çizgi, dalgalı çizgi, zikzak, yay, halka. 6 satır olsun."}, {"e": "Görsel Dikte", "t": "gorsel_dikte", "m": "Okul öncesi için emojili görsel dikte çalışması hazırla. Her emojinin altına kelimeyi yazması için boşluk bırak. 6 kelime olsun."}, {"e": "Emoji Farkı Bul", "t": "gorsel_fark_emoji", "m": "Okul öncesi için emoji matrisi hazırla. Çocuk belirli bir emojiyi (örneğin gülen yüz) diğerleri arasından bulup işaretlesin. 6 satır olsun."}, {"e": "Sırala ve Yapıştır", "t": "sirala_yapistir", "m": "Okul öncesi için bir hikayenin karışık verilmiş olaylarını doğru sıraya koyma çalışması hazırla."}, {"e": "Rakam Tanıma", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "Okul öncesi için 1'den 10'a kadar rakamları tanıma ve sayma çalışması hazırla. Her rakamın yanında o sayıda nesne emojisi olsun."}, {"e": "Sosyal Hikaye", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "Okul öncesi çocuklar için paylaşmayı anlatan, kısa ve olumlu cümlelerden oluşan bir hikaye yaz. Sonuna 3 basit soru ekle."}, {"e": "Ev Görevi Tombalası", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "Okul öncesi çocuk ve velisi için birlikte yapılacak eğlenceli ev görevlerini içeren 9 kareli bir tombala hazırla."}]}, {"grup": "🎒 İlkokul (1-4. Sınıf)", "items": [{"e": "Genel Değerlendirme Testi", "t": "test", "m": "4. sınıf için tüm derslerden dengeli dağılmış 10 soruluk çoktan seçmeli genel değerlendirme testi hazırla. Her sorunun cevap anahtarını ve kısa açıklamasını ekle."}, {"e": "Çoktan Seçmeli Test", "t": "test", "m": "3. sınıf matematik için 10 soruluk çoktan seçmeli test hazırla. Cevap anahtarı ekle."}, {"e": "Boşluk Doldurma", "t": "bosluk", "m": "2. sınıf Türkçe için 10 cümlelik boşluk doldurma çalışması hazırla. Cevap anahtarı ekle."}, {"e": "Doğru / Yanlış", "t": "dogru_yanlis", "m": "4. sınıf sosyal bilgiler için 10 maddelik doğru-yanlış çalışması hazırla. Cevap anahtarı ekle."}, {"e": "Sütun Eşleştirme", "t": "eslestirme", "m": "2. sınıf için hayvanlar ve yaşam alanlarını eşleştirme çalışması hazırla. Sol sütunda hayvanlar, sağ sütunda yaşam alanları karışık olsun. Cevap anahtarı ekle."}, {"e": "Renkli Konu Anlatımı", "t": "konu_anlatimi", "m": "3. sınıf matematik için toplama işlemini örneklerle anlatan renkli bir konu özeti hazırla."}, {"e": "Konu + Mini Quiz", "t": "karma", "m": "3. sınıf için çarpma işlemini anlatan renkli konu özeti hazırla, ardından 5 soruluk mini quiz ekle. Cevap anahtarı olsun."}, {"e": "5N1K Okuma", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "3. sınıf için kısa bir okuma parçası ve ardından 5N1K (kim, ne, nerede, ne zaman, neden, nasıl) sorularını renkli kutularda hazırla."}, {"e": "Fiş & Fatura", "t": "gercek_hayat_fatura", "m": "4. sınıf matematik için market alışverişi temalı bir fiş-fatura problemi hazırla. Ürünler, adetler ve fiyatlar olsun, toplam tutarı hesaplasın."}, {"e": "Hata Dedektifi", "t": "hata_dedektifi", "m": "4. sınıf matematik için içinde bilinçli hatalar bulunan çözülmüş işlemler hazırla. Öğrenci hataları bulup düzeltsin. Cevap anahtarı ekle."}, {"e": "Şifre Kırıcı", "t": "sifre_kirici", "m": "4. sınıf matematik için şifre kırıcı etkinliği hazırla. İşlemlerin sonuçları harflere karşılık gelsin, gizli kelimeyi bulsun."}, {"e": "Bilgi Kartları", "t": "flashcard", "m": "4. sınıf İngilizce için kesilebilir bilgi kartları hazırla. Bir yüzünde İngilizce kelime, diğer yüzünde Türkçesi olsun. 8 kart olsun."}]}, {"grup": "📚 Ortaokul (5-8. Sınıf)", "items": [{"e": "Genel Değerlendirme Testi", "t": "test", "m": "6. sınıf için tüm derslerden dengeli dağılmış 15 soruluk çoktan seçmeli genel değerlendirme testi hazırla. Cevap anahtarı ve açıklamaları ekle."}, {"e": "Yeni Nesil Test", "t": "yeni_nesil_test", "m": "7. sınıf fen bilimleri için günlük hayatla ilişkili, paragraf ve grafik içeren 10 soruluk yeni nesil test hazırla. Cevap anahtarı ekle."}, {"e": "LGS Deneme Sınavı", "t": "deneme_sinavi", "m": "8. sınıf LGS tarzı, Türkçe ve matematikten oluşan kapsamlı bir deneme sınavı hazırla. Cevap anahtarı ekle."}, {"e": "Konu Anlatımı + Test", "t": "karma", "m": "6. sınıf matematik için kesirler konusunu anlatan renkli konu özeti hazırla, ardından 8 soruluk test ekle. Cevap anahtarı olsun."}, {"e": "Zihin Haritası", "t": "zihin_haritasi", "m": "5. sınıf fen için 'canlılar' konusunu merkeze alan bir zihin haritası hazırla. Yan dallar ve alt kavramlar olsun."}, {"e": "Venn Şeması", "t": "venn_semasi", "m": "6. sınıf için memeliler ve kuşları karşılaştıran bir Venn şeması hazırla. Ortak ve farklı özellikleri yaz."}, {"e": "Tablo & Veri Analizi", "t": "gorsel_veri", "m": "7. sınıf matematik için bir grafik/veri tablosu hazırla, ardından tabloyla ilgili yorumlama soruları ekle."}, {"e": "İnfografik", "t": "infografik", "m": "6. sınıf fen için su döngüsü konusunu görsel infografik çalışması olarak hazırla. Ana kavramlar ve kısa açıklamalar olsun."}, {"e": "Karikatür / Diyalog", "t": "karikatur_diyalog", "m": "5. sınıf için iki karakter arasında geçen kısa, eğitici bir diyalog hazırla. Sonuna anlama soruları ekle."}, {"e": "Gazete Manşeti", "t": "haber_bulteni", "m": "7. sınıf için güncel bir konuda gazete manşeti ve kısa haber metni hazırla. Sonuna anlama ve yorum soruları ekle."}, {"e": "Sudoku / Mantık", "t": "sudoku_bulmaca", "m": "Ortaokul seviyesine uygun sayılarla bir sudoku / mantık gridi hazırla. İpucu ve çözüm ekle."}, {"e": "Dönüşüm Makinesi", "t": "on_sonra_makine", "m": "5. sınıf matematik için girdi-çıktı dönüşüm makinesi hazırla. Kural belli olsun, öğrenci eksik çıktıları bulsun."}]}, {"grup": "🔤 Disleksi & Hece Çalışmaları", "items": [{"e": "Heceli Okuma Metni", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "Disleksili 2. sınıf öğrencisi için heceleri belirgin, kısa cümleli bir okuma metni hazırla. Metindeki her kelimeyi hecelerine ayır ve ardından 3 anlama sorusu ekle."}, {"e": "Hece Bulmaca", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "İlk okuma öğrenen öğrenci için verilen heceleri birleştirerek kelime oluşturma çalışması hazırla. En az 10 hece ver."}, {"e": "Benzeyen Harfler (b-d-p)", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "Disleksili öğrencilerin karıştırdığı b-d-p harflerini ayırt etme çalışması hazırla. Her harf için örnek kelimeler ve işaretleme alıştırması olsun."}, {"e": "Sesli Harf Vurgulu Metin", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "İlk okuma öğrenen öğrenci için sesli harfleri (a,e,ı,i,o,ö,u,ü) vurgulanabilecek şekilde kısa bir metin hazırla. Metni hecelere ayır."}, {"e": "Kelime-Görsel Eşleştirme", "t": "eslestirme", "m": "Disleksili öğrenci için heceleri belirgin yazılmış kelimeleri anlamlarıyla eşleştirme çalışması hazırla."}, {"e": "Akıcı Okuma Kartları", "t": "flashcard", "m": "İlk okuma için ön yüzde heceli kelime, arka yüzde kelimeyle kurulmuş kısa cümle olan akıcı okuma kartları hazırla. 8 kart olsun."}]}, {"grup": "🧩 Özel Eğitim · BEP & Destek", "items": [{"e": "BEP Destek Çalışması", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "Hafif düzeyde öğrenme güçlüğü olan 3. sınıf öğrencisi için, toplama işleminde BEP hedefine yönelik basitten zora sıralanmış destek çalışması hazırla. Her adımda görsel ipucu ve kısa yönerge olsun."}, {"e": "Dikkat & Odaklanma", "t": "emoji", "m": "Dikkat eksikliği olan 2. sınıf öğrencisi için farklı olanı bulma, aynısını işaretleme ve sayma içeren dikkat çalışması hazırla."}, {"e": "Sosyal Öykü", "t": "okuma", "m": "Sıra beklemekte zorlanan bir okul öncesi çocuk için birinci ağızdan yazılmış, kısa cümleli, olumlu dille biten bir sosyal öykü hazırla."}, {"e": "Duygu Tanıma Kartları", "t": "flashcard", "m": "Duygu tanımayı destekleyen bilgi kartları hazırla: ön yüzde emoji ve duygu adı, arka yüzde o duygunun ne zaman hissedildiğine dair çocuk diliyle bir örnek olsun."}, {"e": "Günlük Rutin Çizelgesi", "t": "tablo", "m": "Otizmli bir ilkokul öğrencisi için sabah okula gelişten eve dönüşe kadar görsel destekli günlük rutin çizelgesi hazırla. Her adımda emoji ve kısa yönerge olsun."}, {"e": "İnce Motor Çalışması", "t": "cizgi_calismasi", "m": "Kalem tutmayı yeni öğrenen bir çocuk için kolaydan zora giden, en az 6 farklı desende ince motor çizgi çalışması hazırla."}, {"e": "Eşleştirme (Görsel)", "t": "eslestirme", "m": "Özel eğitim öğrencisi için nesne-gölge eşleştirme çalışması hazırla. Sol sütunda nesne adları, sağ sütunda karışık şekilde tanımları olsun."}, {"e": "Sıralama Becerisi", "t": "sirala", "m": "El yıkama basamaklarını karışık verip doğru sıraya koyduran, görsel destekli sıralama çalışması hazırla."}]}, {"grup": "🎨 Okul Öncesi · Kavram", "items": [{"e": "Renk & Şekil", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "5 yaş grubu için temel renkleri ve şekilleri tanıtan, boyama ve eşleştirme içeren kavram çalışması hazırla."}, {"e": "Sayı Çalışması 1-10", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "Okul öncesi için 1'den 10'a kadar sayıları tanıtan, sayma ve rakam yazma alıştırmalı çalışma hazırla."}, {"e": "Boyut & Konum", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "Okul öncesi için büyük-küçük, uzun-kısa, altında-üstünde kavramlarını öğreten görsel çalışma hazırla."}, {"e": "Görsel Dikte", "t": "dikte", "m": "İlk okuma öğrenen öğrenci için emoji ve kelime eşli görsel dikte çalışması hazırla."}, {"e": "Farkı Bul", "t": "emoji", "m": "Okul öncesi için emoji matrisinde farklı olanı bulma çalışması hazırla. Kolaydan zora doğru 6 satır olsun."}]}, {"grup": "📖 Türkçe & İlk Okuma", "items": [{"e": "Ba-Sa-Ra Hece", "t": "basara", "m": "İlk okuma öğrenen bir öğrenci için Ba-Sa-Ra hece yöntemiyle çalışma hazırla. A ve E sesli harfleriyle heceler oluştur."}, {"e": "Okuduğunu Anlama", "t": "okuma", "m": "3. sınıf için 150 kelimelik bir okuma parçası ve ardından 5 anlama sorusu hazırla. Cevap anahtarı ekle."}, {"e": "Hikâye Haritası", "t": "zihin", "m": "Bir hikâyenin kahraman, yer, zaman, olay ve sonuç ögelerini çıkaran hikâye haritası çalışması hazırla."}, {"e": "Yazım & Noktalama", "t": "bosluk", "m": "4. sınıf için yazım yanlışlarını buldurma ve noktalama işaretlerini tamamlatma çalışması hazırla. Cevap anahtarı ekle."}, {"e": "Kelime Dağarcığı", "t": "flashcard", "m": "3. sınıf için 10 yeni kelimeyi anlamı ve örnek cümlesiyle tanıtan bilgi kartları hazırla."}, {"e": "Ses Çalışması", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "R sesini doğru çıkaramayan bir öğrenci için başta, ortada ve sonda R sesi geçen kelimelerle artikülasyon çalışması hazırla."}]}, {"grup": "🔢 Matematik", "items": [{"e": "Problem Kurma", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "4. sınıf için verilen işlemden problem kurdurma çalışması hazırla. 6 işlem ver, her biri için problem yazdır."}, {"e": "Ritmik Sayma", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "2. sınıf için 2'şer, 5'er ve 10'ar ritmik sayma çalışması hazırla. Boşluk doldurmalı olsun."}, {"e": "Saat Okuma", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "3. sınıf için tam, buçuk ve çeyrek saatleri okuma ve yazma çalışması hazırla."}, {"e": "Para & Alışveriş", "t": "fatura", "m": "3. sınıf için market alışverişi üzerinden para hesabı yaptıran fiş/fatura çalışması hazırla."}, {"e": "İşlem Şeridi", "t": "makine", "m": "2. sınıf için kuralı verilen dönüşüm makinesiyle toplama-çıkarma alıştırması hazırla."}, {"e": "Hata Dedektifi", "t": "hatali", "m": "5. sınıf kesirler konusunda kasten hatalı çözülmüş bir işlem ver; öğrenci hatayı bulup doğrusunu yazsın."}, {"e": "Ölçme (Uzunluk)", "t": "tablo", "m": "4. sınıf için uzunluk ölçme birimleri dönüşüm tablosu ve alıştırmaları hazırla. Cevap anahtarı ekle."}]}, {"grup": "🔬 Fen & Sosyal", "items": [{"e": "Deney Raporu", "t": "recete", "m": "5. sınıf fen bilimleri için basit bir deneyin malzeme listesi, adımları ve gözlem-sonuç bölümü olan deney raporu şablonu hazırla."}, {"e": "Kavram Haritası", "t": "zihin", "m": "6. sınıf fen bilimleri 'maddenin hâlleri' konusu için merkez kavram ve yan kavramlardan oluşan zihin haritası çalışması hazırla."}, {"e": "Zaman Şeridi", "t": "sirala", "m": "4. sınıf sosyal bilgiler için Kurtuluş Savaşı olaylarını karışık verip zaman şeridine sıralatan çalışma hazırla."}, {"e": "Karşılaştırma (Venn)", "t": "venn", "m": "5. sınıf fen için 'bitki hücresi ve hayvan hücresi' karşılaştırmalı Venn şeması çalışması hazırla."}, {"e": "İnfografik Özet", "t": "gorsel_veri", "m": "6. sınıf için 'geri dönüşüm' konulu, sayısal verilerle desteklenmiş infografik tarzı özet materyali hazırla."}]}, {"grup": "🏫 Sınıf Yönetimi", "items": [{"e": "Sınıf Kuralları Afişi", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "İlkokul 1. sınıf için olumlu dille yazılmış, 6 maddelik görsel sınıf kuralları afişi hazırla."}, {"e": "Davranış Takip Çizelgesi", "t": "tablo", "m": "Bir öğrencinin haftalık hedef davranışlarını gün gün takip edebileceğim çizelge hazırla. Değerlendirme ölçütleri net olsun."}, {"e": "Ödül / Pekiştireç Tablosu", "t": "tombala", "m": "Sınıf içi olumlu davranışları pekiştirmek için çocukların seçebileceği ödül görevlerinden oluşan tombala kartı hazırla."}, {"e": "Nöbet & Görev Çizelgesi", "t": "tablo", "m": "Sınıf içi haftalık görev dağılımı çizelgesi hazırla: tahta, çiçek, sıra düzeni gibi görevler olsun."}]}, {"grup": "👨‍👩‍👧 Veli & Ev", "items": [{"e": "Ev Çalışma Programı", "t": "tablo", "m": "3. sınıf öğrencisi için hafta içi akşamlarına uygun, 30 dakikayı geçmeyen ev çalışma programı çizelgesi hazırla."}, {"e": "Okuma Takip Çizelgesi", "t": "tablo", "m": "Her gün 15 dakika okuma yapan bir öğrenci için veli imzalı aylık okuma takip çizelgesi hazırla."}, {"e": "Veli Bilgilendirme Notu", "t": "okuma", "m": "Velilere çocuklarının ekran süresini yönetmeleri için pratik önerileri olan kısa bir bilgilendirme notu hazırla."}, {"e": "Tatil Etkinlik Paketi", "t": "tombala", "m": "Ara tatilde ailece yapılabilecek, ekran gerektirmeyen eğitici etkinliklerden oluşan tombala kartı hazırla."}]}, {"grup": "🌍 İngilizce & Değerler", "items": [{"e": "İngilizce Kelime Kartı", "t": "flashcard", "m": "4. sınıf İngilizce 'animals' ünitesi için ön yüzde İngilizce kelime, arka yüzde Türkçe karşılığı ve örnek cümle olan kartlar hazırla."}, {"e": "İngilizce Boşluk Doldurma", "t": "bosluk", "m": "5. sınıf İngilizce present simple konusundan 10 cümlelik boşluk doldurma çalışması hazırla. Cevap anahtarı ekle."}, {"e": "Değerler Eğitimi", "t": "okuma", "m": "İlkokul için 'yardımlaşma' değerini işleyen kısa bir öykü ve ardından 3 tartışma sorusu hazırla."}]}, {"grup": "🎯 LGS Hazırlık (8. Sınıf)", "items": [{"e": "LGS Türkçe Denemesi", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "8. sınıf LGS formatında, paragraf ağırlıklı, sözel mantık ve dil bilgisi içeren 20 soruluk Türkçe denemesi hazırla. Yeni nesil, günlük hayatla ilişkili sorular olsun. Cevap anahtarı ve kısa çözümler ekle."}, {"e": "LGS Matematik Denemesi", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "8. sınıf LGS formatında, muhakeme ve yorum gerektiren 20 soruluk matematik denemesi hazırla. İşlem yükü değil akıl yürütme ölçsün. Cevap anahtarı ve çözümler ekle."}, {"e": "LGS Fen Denemesi", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "8. sınıf LGS formatında, deney ve grafik yorumlama içeren 20 soruluk fen bilimleri denemesi hazırla. Cevap anahtarı ve açıklamalar ekle."}, {"e": "LGS T.C. İnkılap", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "8. sınıf LGS formatında T.C. İnkılap Tarihi ve Atatürkçülük dersinden 10 soruluk deneme hazırla. Cevap anahtarı ekle."}, {"e": "LGS Din Kültürü", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "8. sınıf LGS formatında Din Kültürü ve Ahlak Bilgisi dersinden 10 soruluk deneme hazırla. Cevap anahtarı ekle."}, {"e": "LGS İngilizce", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "8. sınıf LGS formatında İngilizce dersinden 10 soruluk deneme hazırla. Cevap anahtarı ekle."}, {"e": "Yeni Nesil Paragraf", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "LGS tarzı, uzun ve çok bilgili paragraflardan oluşan 8 soruluk yeni nesil Türkçe çalışması hazırla. Çeldiricileri güçlü olsun. Cevap anahtarı ekle."}, {"e": "LGS Matematik Kurdu", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "LGS'nin en zorlayıcı konularından (üslü-köklü sayılar, olasılık, cebirsel ifadeler, denklem) seçilmiş 12 zor soruluk çalışma hazırla. Cevap anahtarı ve çözüm ekle."}, {"e": "Deneme Analiz Karnesi", "t": "tablo", "m": "Bir öğrencinin girdiği LGS denemesindeki ders ve konu bazlı doğru-yanlış-boş dağılımını girip zayıf konularını gösterecek bir analiz karnesi tablosu hazırla."}]}, {"grup": "📕 Ortaokul Türkçe (5-8)", "items": [{"e": "Sözcükte Anlam", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "6. sınıf için gerçek, mecaz, terim ve deyim anlamını ölçen 10 soruluk çalışma hazırla. Cevap anahtarı ekle."}, {"e": "Cümlede Anlam", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "7. sınıf için neden-sonuç, amaç-sonuç, koşul ve karşılaştırma ilişkilerini ölçen 10 soruluk çalışma hazırla. Cevap anahtarı ekle."}, {"e": "Fiilimsiler", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "8. sınıf için isim-fiil, sıfat-fiil ve zarf-fiilleri ayırt ettiren 10 soruluk çalışma hazırla. Cevap anahtarı ekle."}, {"e": "Cümlenin Ögeleri", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "7. sınıf için özne, yüklem, nesne ve tümleçleri buldurma çalışması hazırla. Cevap anahtarı ekle."}, {"e": "Yazım & Noktalama", "t": "bosluk", "m": "6. sınıf için yazım kuralları ve noktalama işaretleri çalışması hazırla. Cevap anahtarı ekle."}, {"e": "Anlatım Bozuklukları", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "8. sınıf için anlatım bozukluğu içeren cümleleri buldurma ve düzeltme çalışması hazırla. Cevap anahtarı ekle."}]}, {"grup": "🔢 Ortaokul Matematik (5-8)", "items": [{"e": "Kesirler", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "5. sınıf kesirlerde toplama-çıkarma konusundan basitten zora 10 soru hazırla. Cevap anahtarı ve çözüm ekle."}, {"e": "Oran-Orantı", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "6. sınıf oran-orantı konusundan günlük hayat problemleri içeren 10 soru hazırla. Cevap anahtarı ekle."}, {"e": "Cebirsel İfadeler", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "7. sınıf cebirsel ifadeler konusundan 10 soru hazırla. Cevap anahtarı ekle."}, {"e": "Üslü Sayılar", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "8. sınıf üslü sayılar konusundan LGS tarzı 10 soru hazırla. Cevap anahtarı ve çözüm ekle."}, {"e": "Denklemler", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "7. sınıf birinci dereceden denklemler konusundan 10 soru hazırla. Cevap anahtarı ekle."}, {"e": "Olasılık", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "8. sınıf basit olayların olasılığı konusundan 10 soru hazırla. Cevap anahtarı ekle."}, {"e": "Geometrik Cisimler", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "6. sınıf alan ve çevre hesaplama konusundan görsel destekli 10 soru hazırla. Cevap anahtarı ekle."}]}, {"grup": "🔬 Ortaokul Fen (5-8)", "items": [{"e": "Kuvvet ve Hareket", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "6. sınıf kuvvet ve hareket konusundan grafik yorumlama içeren 10 soru hazırla. Cevap anahtarı ekle."}, {"e": "Madde ve Değişim", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "7. sınıf maddenin hâlleri ve saf madde konusundan 10 soru hazırla. Cevap anahtarı ekle."}, {"e": "Hücre ve Sistemler", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "6. sınıf hücre ve destek-hareket sistemi konusundan 10 soru hazırla. Cevap anahtarı ekle."}, {"e": "DNA ve Kalıtım", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "8. sınıf DNA ve genetik kod konusundan LGS tarzı 10 soru hazırla. Cevap anahtarı ekle."}, {"e": "Elektrik", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "7. sınıf elektrik yükleri ve devreler konusundan 10 soru hazırla. Cevap anahtarı ekle."}, {"e": "Deney Raporu", "t": "recete", "m": "Ortaokul fen için bir deneyin amaç, malzeme, adımlar ve gözlem-sonuç bölümlerini içeren deney raporu şablonu hazırla."}]}, {"grup": "🌍 Ortaokul Sosyal & İnkılap", "items": [{"e": "Sosyal Bilgiler Testi", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "6. sınıf sosyal bilgiler için harita ve grafik yorumlama içeren 10 soru hazırla. Cevap anahtarı ekle."}, {"e": "Tarih Şeridi", "t": "sirala", "m": "8. sınıf T.C. İnkılap için Kurtuluş Savaşı olaylarını kronolojik sıraya koyduran çalışma hazırla."}, {"e": "İnkılap Kavramları", "t": "eslestirme", "m": "8. sınıf İnkılap Tarihi kavramlarını tanımlarıyla eşleştirme çalışması hazırla."}, {"e": "Coğrafya Çalışması", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "6. sınıf Türkiye'nin iklimi ve bitki örtüsü konusundan 10 soru hazırla. Cevap anahtarı ekle."}]}, {"grup": "🎒 İlkokul Ek Çalışmalar (1-4)", "items": [{"e": "Çarpım Tablosu", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "3. sınıf için çarpım tablosunu pekiştiren, eğlenceli ve renkli 15 alıştırmalı çalışma hazırla. Cevap anahtarı ekle."}, {"e": "Ritmik Sayma", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "2. sınıf için 2'şer, 5'er, 10'ar ileri-geri ritmik sayma çalışması hazırla."}, {"e": "Toplama-Çıkarma", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "1. sınıf için onluk bozarak çıkarma ve eldeli toplama içeren 15 işlem hazırla. Cevap anahtarı ekle."}, {"e": "Noktalama İşaretleri", "t": "bosluk", "m": "3. sınıf için noktalama işaretlerini tamamlatma çalışması hazırla. Cevap anahtarı ekle."}, {"e": "Okuduğunu Anlama", "t": "okuma", "m": "2. sınıf için 100 kelimelik kısa bir metin ve 5 anlama sorusu hazırla. Cevap anahtarı ekle."}, {"e": "Görsel Okuma", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "1. sınıf için bir görseli inceleyip cümle kurdurma çalışması hazırla."}, {"e": "Saat Okuma", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "3. sınıf için tam, buçuk, çeyrek saatleri okuma-yazma çalışması hazırla."}, {"e": "Ölçme (Uzunluk-Kütle)", "t": "tablo", "m": "4. sınıf için uzunluk ve kütle ölçü birimleri dönüşüm çalışması hazırla. Cevap anahtarı ekle."}]}, {"grup": "🧸 Anaokulu Ek Çalışmalar", "items": [{"e": "Kavram: Az-Çok", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "Okul öncesi için az-çok, boş-dolu, ağır-hafif kavramlarını öğreten görsel çalışma hazırla."}, {"e": "Örüntü Tamamlama", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "Okul öncesi için renk ve şekil örüntüsünü tamamlatan çalışma hazırla. 6 örüntü olsun."}, {"e": "Grup Sayma 1-20", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "Okul öncesi için nesneleri sayıp doğru rakamla eşleştirme çalışması hazırla."}, {"e": "El Becerisi (Kes-Yapıştır)", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "Okul öncesi için kesme-yapıştırma yönergeli bir el becerisi etkinliği hazırla."}, {"e": "Mevsimler & Doğa", "t": "Fark Etmez (Yapay Zeka Seçsin)", "m": "Okul öncesi için mevsimleri ve özelliklerini tanıtan görsel bir çalışma hazırla."}]}];
+
+const SABLON_SURUM = 3;   // kütüphane büyüdükçe artar
+function sablonYukle(){
+  try{
+    const sv=parseInt(localStorage.getItem('zirve_sablon_surum')||'0',10);
+    const r=localStorage.getItem('zirve_sablonlar');
+    if(r && sv>=SABLON_SURUM){ const d=JSON.parse(r); if(Array.isArray(d)&&d.length) return d; }
+  }catch(e){}
+  // İlk kez ya da sürüm eski → varsayılanı yükle ve damgala
+  try{ localStorage.setItem('zirve_sablon_surum', String(SABLON_SURUM)); }catch(e){}
+  return JSON.parse(JSON.stringify(VARSAYILAN_SABLONLAR));
+}
+function sablonKaydet(d){ SABLONLAR=d; try{ localStorage.setItem('zirve_sablonlar', JSON.stringify(d)); }catch(e){} }
+// Şablonlar artık dağınık çipler yerine tek düğme + ızgara panelde.
+// React'e BOŞ dizi veriyoruz ki eski çip yığını çizilmesin; seçiciyi biz koyuyoruz.
+// (Bu katman çökerse dizi undefined kalır ve uygulama kendi eski listesini çizer — güvenli.)
+let SABLONLAR = sablonYukle();
+window.ZIRVE_SABLONLAR = [];
+
+// ---------- Şablon düzenleyici (modal) ----------
+function sablonDuzenleyiciAc(){
+  let ov=document.getElementById('zirve-sablon-ov');
+  if(ov){ ov.style.display='flex'; sablonListeCiz(); return; }
+  ov=document.createElement('div'); ov.id='zirve-sablon-ov';
+  ov.style.cssText='position:fixed;inset:0;z-index:2147483600;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:14px';
+  ov.innerHTML=`<div style="background:#fff;border-radius:18px;width:min(760px,100%);max-height:90vh;display:flex;flex-direction:column;font:400 13px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#0f172a;overflow:hidden">
+    <div style="padding:14px 16px;border-bottom:2px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <div><b style="font-size:16px">🧩 Şablon Kütüphanesi</b><div id="zirve-sablon-say" style="font-size:11px;font-weight:700;opacity:.65"></div></div>
+      <div style="display:flex;gap:6px">
+        <button id="zirve-sablon-yeni" style="background:#dcfce7;color:#166534;border:none;border-radius:9px;padding:7px 11px;font-weight:800;cursor:pointer;font-size:12px">+ Yeni</button>
+        <button id="zirve-sablon-sifirla" style="background:#fef3c7;color:#92400e;border:none;border-radius:9px;padding:7px 11px;font-weight:800;cursor:pointer;font-size:12px">Varsayılana Dön</button>
+        <button id="zirve-sablon-kapat" style="background:#fee2e2;color:#991b1b;border:none;border-radius:9px;padding:7px 11px;font-weight:800;cursor:pointer;font-size:12px">Kapat</button>
+      </div>
+    </div>
+    <div style="padding:9px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:11px;font-weight:600">
+      Promptu değiştir → <b>Kaydet</b>. Değişiklik tarayıcında saklanır, sayfayı kapatsan da durur.
+      <input id="zirve-sablon-ara" placeholder="Şablon ara..." style="width:100%;margin-top:7px;padding:7px 9px;border:2px solid #e2e8f0;border-radius:9px;font-weight:600">
+    </div>
+    <div id="zirve-sablon-liste" style="overflow:auto;padding:12px 16px;flex:1"></div>
+  </div>`;
+  document.body.appendChild(ov);
+  document.getElementById('zirve-sablon-kapat').onclick=()=>{ ov.style.display='none'; };
+  document.getElementById('zirve-sablon-ara').oninput=sablonListeCiz;
+  document.getElementById('zirve-sablon-sifirla').onclick=()=>{
+    if(!confirm('Tüm şablonlar fabrika ayarına dönecek. Kendi eklediklerin silinecek. Emin misin?')) return;
+    try{ localStorage.removeItem('zirve_sablonlar'); }catch(e){}
+    SABLONLAR = sablonYukle(); sablonListeCiz();
+    toast('↩️ Şablonlar varsayılana döndü. Sayfa yenileniyor...','green'); setTimeout(()=>location.reload(),1400);
+  };
+  document.getElementById('zirve-sablon-yeni').onclick=()=>{
+    const d=SABLONLAR;
+    let g=d.find(x=>x.grup==='⭐ Benim Şablonlarım');
+    if(!g){ g={grup:'⭐ Benim Şablonlarım', items:[]}; d.unshift(g); }
+    g.items.unshift({e:'Yeni Şablon', t:'Fark Etmez (Yapay Zeka Seçsin)', m:'Buraya kendi isteğini yaz. Örn: 3. sınıf matematik toplama işleminden 10 soruluk çalışma hazırla, cevap anahtarı ekle.'});
+    sablonKaydet(d); sablonListeCiz();
+  };
+  sablonListeCiz();
+}
+function sablonListeCiz(){
+  const kutu=document.getElementById('zirve-sablon-liste'); if(!kutu) return;
+  const ara=((document.getElementById('zirve-sablon-ara')||{}).value||'').toLocaleLowerCase('tr');
+  const d=SABLONLAR;
+  let n=0; d.forEach(g=>n+=g.items.length);
+  const sy=document.getElementById('zirve-sablon-say'); if(sy) sy.textContent=n+' şablon · '+d.length+' grup';
+  let h='';
+  d.forEach((g,gi)=>{
+    const gorunen=g.items.map((it,ii)=>({it,ii})).filter(({it})=>!ara || (it.e+' '+it.m).toLocaleLowerCase('tr').indexOf(ara)!==-1);
+    if(!gorunen.length) return;
+    h+=`<div style="font-weight:800;font-size:12px;margin:10px 0 6px;color:#334155">${g.grup}</div>`;
+    gorunen.forEach(({it,ii})=>{
+      h+=`<div style="border:2px solid #e2e8f0;border-radius:11px;padding:9px;margin-bottom:8px;background:#fff">
+        <input value="${String(it.e).replace(/"/g,'&quot;')}" data-g="${gi}" data-i="${ii}" data-f="e" class="zs-in" style="width:100%;border:none;font-weight:800;font-size:13px;outline:none;margin-bottom:5px">
+        <textarea data-g="${gi}" data-i="${ii}" data-f="m" class="zs-in" rows="3" style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:6px;font:600 11px system-ui;resize:vertical">${String(it.m)}</textarea>
+        <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:5px">
+          <button data-g="${gi}" data-i="${ii}" class="zs-sil" style="background:#fee2e2;color:#991b1b;border:none;border-radius:7px;padding:4px 9px;font-weight:800;cursor:pointer;font-size:11px">Sil</button>
+        </div></div>`;
+    });
+  });
+  kutu.innerHTML = h || '<div style="padding:18px;text-align:center;font-weight:700;opacity:.6">Eşleşen şablon yok.</div>';
+  kutu.querySelectorAll('.zs-in').forEach(el=>{
+    el.onchange=()=>{ const g=+el.dataset.g,i=+el.dataset.i,f=el.dataset.f;
+      SABLONLAR[g].items[i][f]=el.value; sablonKaydet(SABLONLAR);
+      toast('💾 Şablon kaydedildi. Matbaa\'da görmek için sayfayı yenile.','green'); };
+  });
+  kutu.querySelectorAll('.zs-sil').forEach(el=>{
+    el.onclick=()=>{ const g=+el.dataset.g,i=+el.dataset.i;
+      SABLONLAR[g].items.splice(i,1);
+      if(!SABLONLAR[g].items.length) SABLONLAR.splice(g,1);
+      sablonKaydet(SABLONLAR); sablonListeCiz(); };
+  });
+}
+window.ZIRVE_SABLON_AC = sablonDuzenleyiciAc;
+
+// Matbaa'daki "Hazır Şablonlar" başlığının yerine TEK düğme koy
+function sablonDugmesiYerlestir(){
+  const ps=document.querySelectorAll('p');
+  for(let i=0;i<ps.length;i++){
+    if((ps[i].textContent||'').indexOf('Hazır Şablonlar')===-1) continue;
+    if(ps[i].dataset.zs) return;
+    ps[i].dataset.zs='1';
+    let n=0; SABLONLAR.forEach(function(g){ n+=g.items.length; });
+    ps[i].innerHTML='';
+    const b=document.createElement('button');
+    b.textContent='🧩 Hazır Şablon Seç ('+n+')';
+    b.style.cssText='width:100%;background:#fde047;color:#713f12;border:none;border-radius:12px;padding:11px;font-weight:900;font-size:13.5px;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.18)';
+    b.onclick=function(e){ e.preventDefault(); e.stopPropagation(); sablonSeciciAc(); };
+    ps[i].appendChild(b);
+    const alt=document.createElement('div');
+    alt.style.cssText='margin-top:5px;font-size:10.5px;font-weight:700;color:#5eead4;text-align:center';
+    alt.textContent='Ya da aşağıya doğrudan kendi isteğini yaz.';
+    ps[i].appendChild(alt);
+    return;
+  }
+}
+
+// ---------- React'in kontrol ettiği alana dışarıdan değer yazma ----------
+function reactYaz(el, val){
+  if(!el) return false;
+  const proto = (el.tagName==='SELECT') ? window.HTMLSelectElement.prototype
+              : (el.tagName==='TEXTAREA') ? window.HTMLTextAreaElement.prototype
+              : window.HTMLInputElement.prototype;
+  const d = Object.getOwnPropertyDescriptor(proto,'value');
+  if(d && d.set) d.set.call(el, val); else el.value = val;
+  el.dispatchEvent(new Event('input',{bubbles:true}));
+  el.dispatchEvent(new Event('change',{bubbles:true}));
+  return true;
+}
+function matbaaAlanlari(){
+  let ta=null, sel=null;
+  const tas=document.querySelectorAll('textarea');
+  for(let i=0;i<tas.length;i++){ const ph=(tas[i].placeholder||'');
+    if(ph.indexOf('İsteğini doğal')!==-1 || ph.indexOf('Ne üretmek istiyorsun')!==-1 || ph.indexOf('ne yapalım')!==-1 || ph.indexOf('ne üretmek')!==-1){ ta=tas[i]; break; } }
+  // yine bulunamadıysa: en uzun placeholder'lı textarea materyal kutusudur
+  if(!ta && tas.length){ let en=-1; for(let i=0;i<tas.length;i++){ const l=(tas[i].placeholder||'').length; if(l>en){en=l; ta=tas[i];} } }
+  const sels=document.querySelectorAll('select');
+  for(let i=0;i<sels.length;i++){
+    const o=sels[i].querySelectorAll('option');
+    for(let j=0;j<o.length;j++){ if((o[j].value||'').indexOf('Fark Etmez')!==-1){ sel=sels[i]; break; } }
+    if(sel) break;
+  }
+  return {ta:ta, sel:sel};
+}
+function sablonUygula(it){
+  const alan = matbaaAlanlari();
+  if(alan.sel && it.t){
+    let mevcut=false;
+    const ops=alan.sel.querySelectorAll('option');
+    for(let j=0;j<ops.length;j++) if(ops[j].value===it.t) mevcut=true;
+    if(mevcut) reactYaz(alan.sel, it.t);      // listede yoksa dokunma (uygulama bozulmasın)
+  }
+  if(alan.ta){ reactYaz(alan.ta, it.m); try{ alan.ta.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} }
+  const ov=document.getElementById('zirve-sec-ov'); if(ov) ov.style.display='none';
+  toast('✅ <b>'+it.e+'</b> yüklendi. Sınıfı/konuyu değiştirip <b>Dökümanı Üret</b>e bas.','green');
+}
+
+// ---------- ŞABLON SEÇİCİ: tek düğme → ızgara panel ----------
+let SEC_GRUP='hepsi';
+function sablonSeciciAc(){
+  let ov=document.getElementById('zirve-sec-ov');
+  if(ov){ ov.style.display='flex'; secListeCiz(); return; }
+  ov=document.createElement('div'); ov.id='zirve-sec-ov';
+  ov.style.cssText='position:fixed;inset:0;z-index:2147483500;background:rgba(15,23,42,.75);display:flex;align-items:center;justify-content:center;padding:12px';
+  ov.innerHTML='<div style="background:#fff;border-radius:18px;width:min(920px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;font:400 13px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#0f172a">'
+    +'<div style="padding:13px 15px;border-bottom:2px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
+    +'<div><b style="font-size:16px">🧩 Şablon Seç</b><div id="zirve-sec-say" style="font-size:11px;font-weight:700;opacity:.65"></div></div>'
+    +'<div style="display:flex;gap:6px"><button id="zirve-sec-duzenle" style="background:#fde047;color:#713f12;border:none;border-radius:9px;padding:7px 11px;font-weight:800;cursor:pointer;font-size:12px">✏️ Düzenle / Ekle</button>'
+    +'<button id="zirve-sec-kapat" style="background:#fee2e2;color:#991b1b;border:none;border-radius:9px;padding:7px 11px;font-weight:800;cursor:pointer;font-size:12px">Kapat</button></div></div>'
+    +'<div style="padding:9px 15px;border-bottom:1px solid #e2e8f0;background:#f8fafc">'
+    +'<input id="zirve-sec-ara" placeholder="Ara: bep, hece, kesir, tombala, veli..." style="width:100%;padding:9px 11px;border:2px solid #e2e8f0;border-radius:10px;font-weight:600">'
+    +'<div id="zirve-sec-grup" style="display:flex;gap:5px;flex-wrap:wrap;margin-top:8px"></div></div>'
+    +'<div id="zirve-sec-liste" style="overflow:auto;padding:12px 15px;flex:1"></div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click', function(e){ if(e.target===ov) ov.style.display='none'; });
+  document.getElementById('zirve-sec-kapat').onclick=function(){ ov.style.display='none'; };
+  document.getElementById('zirve-sec-duzenle').onclick=function(){ ov.style.display='none'; sablonDuzenleyiciAc(); };
+  document.getElementById('zirve-sec-ara').oninput=secListeCiz;
+  secListeCiz();
+}
+function secListeCiz(){
+  const kutu=document.getElementById('zirve-sec-liste'); if(!kutu) return;
+  const ara=((document.getElementById('zirve-sec-ara')||{}).value||'').toLocaleLowerCase('tr');
+  let n=0; SABLONLAR.forEach(function(g){ n+=g.items.length; });
+  const sy=document.getElementById('zirve-sec-say'); if(sy) sy.textContent=n+' hazır şablon · tıkla, konuyu değiştir, üret';
+  const gk=document.getElementById('zirve-sec-grup');
+  if(gk){
+    if(!gk.dataset.hazir){
+      gk.dataset.hazir='1';
+      gk.innerHTML = ['hepsi'].concat(SABLONLAR.map(function(g){return g.grup;})).map(function(g){
+        return '<button data-g="'+String(g).replace(/"/g,'&quot;')+'" class="zs-g" style="border:2px solid #e2e8f0;background:#fff;border-radius:999px;padding:4px 10px;font-weight:800;font-size:11px;cursor:pointer">'+(g==='hepsi'?'Hepsi':g)+'</button>';
+      }).join('');
+      gk.querySelectorAll('.zs-g').forEach(function(b){ b.onclick=function(){ SEC_GRUP=b.dataset.g; secListeCiz(); }; });
+    }
+    gk.querySelectorAll('.zs-g').forEach(function(b){
+      const s=(b.dataset.g===SEC_GRUP);
+      b.style.background=s?'#1d4ed8':'#fff'; b.style.color=s?'#fff':'#0f172a'; b.style.borderColor=s?'#1d4ed8':'#e2e8f0';
+    });
+  }
+  let h='';
+  SABLONLAR.forEach(function(g,gi){
+    if(SEC_GRUP!=='hepsi' && g.grup!==SEC_GRUP) return;
+    const gor=[];
+    g.items.forEach(function(it,ii){ if(!ara || (it.e+' '+it.m).toLocaleLowerCase('tr').indexOf(ara)!==-1) gor.push({it:it,ii:ii}); });
+    if(!gor.length) return;
+    h+='<div style="font-weight:800;font-size:12px;margin:8px 0 7px;color:#334155">'+g.grup+'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px;margin-bottom:6px">';
+    gor.forEach(function(o){
+      h+='<button class="zs-kart" data-g="'+gi+'" data-i="'+o.ii+'" style="text-align:left;border:2px solid #e2e8f0;border-radius:12px;padding:10px;background:#fff;cursor:pointer">'
+        +'<div style="font-weight:800;font-size:12.5px;margin-bottom:4px;color:#0f172a">'+o.it.e+'</div>'
+        +'<div style="font-size:10.5px;font-weight:600;opacity:.62;line-height:1.4">'+String(o.it.m).slice(0,88)+(String(o.it.m).length>88?'…':'')+'</div></button>';
+    });
+    h+='</div>';
+  });
+  kutu.innerHTML = h || '<div style="padding:24px;text-align:center;font-weight:700;opacity:.6">Eşleşen şablon yok. Kendi isteğini doğrudan yazabilirsin.</div>';
+  kutu.querySelectorAll('.zs-kart').forEach(function(b){
+    b.onmouseenter=function(){ b.style.borderColor='#1d4ed8'; b.style.background='#eff6ff'; };
+    b.onmouseleave=function(){ b.style.borderColor='#e2e8f0'; b.style.background='#fff'; };
+    b.onclick=function(){ sablonUygula(SABLONLAR[+b.dataset.g].items[+b.dataset.i]); };
+  });
+}
+window.ZIRVE_SABLON_SEC = sablonSeciciAc;
+
+// ============================================================
+//  HECE RENKLENDİRME (disleksi desteği)
+//  Üretilen materyaldeki Türkçe metinleri hecelere böler,
+//  heceleri sırayla renklendirir. Aç/kapa düğmesi Matbaa'ya eklenir.
+// ============================================================
+const HECE_RENKLERI = ['#dc2626','#2563eb','#16a34a','#d97706','#7c3aed','#0891b2'];
+let HECE_AKTIF = false;
+try{ HECE_AKTIF = localStorage.getItem('zirve_hece')==='1'; }catch(e){}
+
+// Türkçe heceleme: sesli harfleri çekirdek alan basit ama sağlam kurallı bölme
+const SESLI='aeıioöuüAEIİOÖUÜ';
+function seslimi(c){ return SESLI.indexOf(c)!==-1; }
+function heceBol(kelime){
+  if(!/[a-zA-ZçğıöşüÇĞİÖŞÜ]/.test(kelime)) return [kelime];
+  const c=kelime.split(''); const V=[];
+  c.forEach(function(ch,i){ if(seslimi(ch)) V.push(i); });
+  if(V.length<=1) return [kelime];
+  const kesim=[];
+  for(var k=0;k<V.length-1;k++){
+    const v1=V[k], v2=V[k+1];
+    const ara=v2-v1-1;          // aradaki ünsüz sayısı
+    var kes;
+    if(ara===0)      kes=v2;    // V | V
+    else             kes=v2-1;  // V C V → V|CV ;  V CC..V → VC..|CV (son ünsüz sonraki heceye)
+    kesim.push(kes);
+  }
+  const parca=[]; var bas=0;
+  kesim.forEach(function(k){ parca.push(kelime.slice(bas,k)); bas=k; });
+  parca.push(kelime.slice(bas));
+  return parca.filter(function(x){ return x.length; });
+}
+function heceBoya(kelime){
+  const h=heceBol(kelime); if(h.length<=1) return null;
+  let ri=0;
+  return h.map(p=>{
+    if(/[a-zA-ZçğıöşüÇĞİÖŞÜ]/.test(p)){ const renk=HECE_RENKLERI[ri%HECE_RENKLERI.length]; ri++;
+      return '<span style="color:'+renk+'">'+p+'</span>'; }
+    return p;
+  }).join('');
+}
+// Bir DOM düğümündeki metinleri, etiketleri bozmadan heceli renge çevir
+function dugumHecele(kok){
+  const yur=document.createTreeWalker(kok, NodeFilter.SHOW_TEXT, null);
+  const isler=[]; let n;
+  while(n=yur.nextNode()){
+    const p=n.parentNode;
+    if(!p) continue;
+    const tag=(p.tagName||'').toLowerCase();
+    if(tag==='script'||tag==='style'||p.closest('button')||p.closest('input')||p.closest('textarea')) continue;
+    if(p.dataset && p.dataset.hecelendi) continue;
+    if(!/[a-zA-ZçğıöşüÇĞİÖŞÜ]{2,}/.test(n.nodeValue)) continue;
+    isler.push(n);
+  }
+  isler.forEach(n=>{
+    const kelimeler=n.nodeValue.split(/(\s+)/);
+    const html=kelimeler.map(w=>{ if(/^\s+$/.test(w)||!w) return w; const b=heceBoya(w); return b||w; }).join('');
+    if(html!==n.nodeValue){
+      const span=document.createElement('span');
+      span.dataset.hecelendi='1'; span.innerHTML=html;
+      n.parentNode.replaceChild(span, n);
+    }
+  });
+}
+// Üretilen materyalin kapsayıcısını bul (yazdırılabilir çıktı alanı)
+function materyalKapsayici(){
+  return document.getElementById('printable-area')
+      || document.querySelector('[class*="print"]')
+      || document.querySelector('main')
+      || document.body;
+}
+function heceUygula(){
+  if(!HECE_AKTIF) return;
+  const k=materyalKapsayici(); if(k) try{ dugumHecele(k); }catch(e){}
+}
+function heceToggle(){
+  HECE_AKTIF=!HECE_AKTIF;
+  try{ localStorage.setItem('zirve_hece', HECE_AKTIF?'1':'0'); }catch(e){}
+  heceDugmeGuncelle();
+  if(HECE_AKTIF){ heceUygula(); toast('🌈 <b>Heceli renklendirme AÇIK.</b> Bundan sonra üretilen (ve şu an ekrandaki) metinlerin heceleri renklenecek. Yazdırınca da renkli çıkar.','green'); }
+  else { toast('⚪ Heceli renklendirme kapatıldı. Ekrandaki renkleri kaldırmak için materyali yeniden üret.'); }
+}
+function heceDugmeGuncelle(){
+  const b=document.getElementById('zirve-hece-btn'); if(!b) return;
+  b.style.background = HECE_AKTIF ? 'linear-gradient(90deg,#dc2626,#2563eb,#16a34a,#d97706)' : '#334155';
+  b.innerHTML = HECE_AKTIF ? '🌈 Heceli Renk: AÇIK' : '🌈 Heceli Renk: kapalı';
+}
+function heceDugmeYerlestir(){
+  if(document.getElementById('zirve-hece-btn')) return;
+  // Matbaa'daki format seçici <select>'in hemen üstüne koy
+  let etiket=null;
+  const ls=document.querySelectorAll('label');
+  for(let i=0;i<ls.length;i++){ if((ls[i].textContent||'').indexOf('Materyal Formatı')!==-1){ etiket=ls[i]; break; } }
+  if(!etiket || !etiket.parentNode) return;
+  const b=document.createElement('button');
+  b.id='zirve-hece-btn'; b.type='button';
+  b.style.cssText='width:100%;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;font-size:12.5px;cursor:pointer;margin-bottom:10px';
+  b.onclick=function(e){ e.preventDefault(); e.stopPropagation(); heceToggle(); };
+  etiket.parentNode.insertBefore(b, etiket);
+  heceDugmeGuncelle();
+}
+// Materyal üretildikten sonra otomatik hecele (React çıktı bastığında)
+try{
+  new MutationObserver(function(muts){
+    if(!HECE_AKTIF) return;
+    let ekleme=false;
+    muts.forEach(m=>{ if(m.addedNodes && m.addedNodes.length) ekleme=true; });
+    if(ekleme){ clearTimeout(window.__heceT); window.__heceT=setTimeout(heceUygula, 400); }
+  }).observe(document.body, {childList:true, subtree:true});
+}catch(e){}
+window.ZIRVE_HECE = { toggle:heceToggle, uygula:heceUygula, bol:heceBol };
+
+// ============================================================
+//  FETCH SARMALAYICI — uygulamanın 15 çağrısı da buradan geçer
+// ============================================================
+const ORIG_FETCH = window.fetch.bind(window);
+
+function urlBilgi(u){
+  const m = /\/v1beta\/models\/([^:?]+)(:generateContent)?/.exec(u);
+  return { model: m?m[1]:null, uretim: !!(m&&m[2]) };
+}
+function urlKur(u, model, key){
+  return u.replace(/\/v1beta\/models\/[^:?]+/, '/v1beta/models/'+model)
+          .replace(/([?&])key=[^&]*/, '$1key='+encodeURIComponent(key));
+}
+
+window.fetch = async function(input, init){
+  const u = (typeof input==='string') ? input : (input && input.url) || '';
+  // Bizim ilgilendiğimiz istek değilse dokunma
+  if(!/generativelanguage\.googleapis\.com/.test(u)) return ORIG_FETCH(input, init);
+  if(!RING.keys.length){
+    toast('🔑 <b>Önce API anahtarı ekle.</b> Sağ alttaki <b>🔑 API</b> düğmesine bas, anahtarlarını yapıştır ve <b>Test Et</b>e tıkla.','red');
+    return ORIG_FETCH(input, init);   // uygulamanın kendi akışı bozulmasın
+  }
+
+  const bilgi = urlBilgi(u);
+  let model = MODEL || bilgi.model || 'gemini-2.5-flash';
+  const denenenModeller = [model];
+
+  // Gövde varyantları yalnızca üretim isteklerinde (POST) anlamlı
+  let govdeVar = (init && init.body) ? govdeVaryantlari(model) : [ (b)=>b ];
+  let vi = (CFG_OK[model]!==undefined) ? CFG_OK[model] : 0;
+  let orjGovde = null;
+  if(init && init.body){ try{ orjGovde = JSON.parse(init.body); }catch(e){ orjGovde=null; } }
+
+  const modelDegistir = ()=>{
+    const yeni = modelSonraki(model, denenenModeller);
+    if(!yeni) return false;
+    const eski = model;
+    model = yeni; denenenModeller.push(yeni);
+    MODEL = yeni; localStorage.setItem(LS.model, yeni);
+    if(init && init.body) govdeVar = govdeVaryantlari(model);
+    vi = (CFG_OK[model]!==undefined) ? CFG_OK[model] : 0;
+    RING.aktif = null;
+    panelYenile();
+    toast(`⚡ <b>${eski}</b> kotası tüm anahtarlarda doldu → <b>${yeni}</b> modeline geçildi.<br><span style="font-weight:700;font-size:.72rem">Google'da kota her model için ayrı tutulur; taze kotayla devam ediyorsun.</span>`);
+    return true;
+  };
+
+  let sonHata = null;
+  const yogunSayac = {};      // model -> kaç kez 503 aldı
+  let bekleme = 900;          // 503 sonrası bekleme (katlanarak artar)
+  for(let deneme=0; deneme<40; deneme++){
+    const key = ringPick(model);
+    if(!key){
+      if(modelDegistir()) continue;
+      const b = ringBekleme(model);
+      const msg = 'TUM_DOLU'+(b?' · en erken '+b+' sonra':'');
+      toast('🚫 '+netHatasi(new Error(msg)),'red');
+      sonHata = new Error(msg);
+      break;
+    }
+    const yeniUrl = urlKur(u, model, key);
+    const yeniInit = Object.assign({}, init);
+    if(orjGovde){
+      let g = orjGovde;
+      try{ g = govdeVar[Math.min(vi,govdeVar.length-1)](orjGovde); }catch(e){ g = orjGovde; }
+      yeniInit.body = JSON.stringify(g);
+    }
+
+    await rateGate();
+    let r;
+    try{ r = await fetchZamanAsimli(yeniUrl, yeniInit); }
+    catch(e){ rateRelease(); toast('🌐 '+netHatasi(e),'red'); throw e; }
+    rateRelease();
+
+    // --- 429: anahtar değiştir, olmazsa model değiştir ---
+    if(r.status===429){
+      const em = await googleErr(r);
+      const eskiNo = ringNo(key);
+      const gunluk = ringCool(key, em, model);
+      const kalan = ringHazir(model);
+      RING.aktif = kalan[0] || null;
+      panelYenile();
+      if(RING.aktif){
+        toast(`🔑 <b>${eskiNo}. anahtarın ${gunluk?'GÜNLÜK':'dakikalık'} kotası doldu</b> → <b>${ringNo(RING.aktif)}. anahtara</b> geçildi.<br><span style="font-weight:700;font-size:.72rem">Hazır anahtar: ${kalan.length}/${RING.keys.length}${gunluk?' · Günlük kota Pasifik gece yarısı sıfırlanır.':''}</span>`);
+        continue;
+      }
+      if(modelDegistir()) continue;
+      const b=ringBekleme(model);
+      sonHata = new Error('TUM_DOLU'+(b?' · en erken '+b+' sonra':''));
+      toast('🚫 '+netHatasi(sonHata),'red');
+      break;
+    }
+
+    // --- 400: parametre uyumsuzluğu → sonraki gövde varyantı ---
+    if(r.status===400 && orjGovde && vi < govdeVar.length-1){ vi++; continue; }
+
+    // --- 503/500/502/504: Google'ın sunucusu yoğun. Anahtarla ilgisi YOK. ---
+    if(r.status===503 || r.status===500 || r.status===502 || r.status===504){
+      const em = await googleErr(r);
+      yogunSayac[model] = (yogunSayac[model]||0)+1;
+      if(yogunSayac[model] <= 3){
+        const sn = Math.round(bekleme/1000);
+        toast(`⏳ <b>Google tarafı yoğun (${r.status})</b> · <b>${model}</b> · ${yogunSayac[model]}/3. deneme, ${sn} sn sonra tekrar...<br><span style="font-weight:700;font-size:.72rem">Bu senin anahtarınla ilgili değil, Google'ın sunucusu geçici olarak dolu. Bekliyorum, sen bir şey yapma.</span>`);
+        await new Promise(res=>setTimeout(res, bekleme));
+        bekleme = Math.min(9000, Math.round(bekleme*1.8));
+        continue;
+      }
+      if(modelDegistir()){
+        bekleme = 900;
+        toast(`🔁 <b>${denenenModeller[denenenModeller.length-2]}</b> yoğunluğu geçmedi → <b>${model}</b> modeli deneniyor.`);
+        continue;
+      }
+      sonHata = new Error('HTTP '+r.status+' · '+em);
+      toast('⚠️ '+netHatasi(sonHata),'red');
+      return r;
+    }
+
+    if(!r.ok){
+      const em = await googleErr(r);
+      sonHata = new Error('HTTP '+r.status+' · '+em);
+      toast('⚠️ '+netHatasi(sonHata),'red');
+      return r;    // uygulamanın kendi hata akışı çalışsın
+    }
+
+    // --- Boş/kesik yanıt: düşünme modu çıktıyı yemiş olabilir ---
+    if(orjGovde && bilgi.uretim){
+      let d=null; try{ d = await r.clone().json(); }catch(e){}
+      const cand = d && d.candidates && d.candidates[0];
+      const metin = ((cand && cand.content && cand.content.parts)||[]).map(x=>x.text||'').join('').trim();
+      const bitis = cand && cand.finishReason;
+      // Çıktı kesildiyse bütçeyi büyüt ve tekrar dene (JSON yarıda kalmasın)
+      if(bitis==='MAX_TOKENS' && orjGovde.generationConfig){
+        const eskiTok = orjGovde.generationConfig.maxOutputTokens || 8192;
+        if(eskiTok < 30000){
+          orjGovde.generationConfig.maxOutputTokens = Math.min(32000, Math.round(eskiTok*1.7));
+          if(vi < govdeVar.length-1) vi++;
+          continue;
+        }
+      }
+      if(!metin){
+        const blok = d && d.promptFeedback && d.promptFeedback.blockReason;
+        if(!blok && vi < govdeVar.length-1){ vi++; continue; }   // varyant değiştirip tekrar dene
+        sonHata = new Error(blok ? ('SAFETY · '+blok) : ('BOŞ_YANIT'+(bitis?' · '+bitis:'')));
+        toast('⚠️ '+netHatasi(sonHata),'red');
+        return r;
+      }
+      // JSON istendiyse gerçekten ayrıştırılabiliyor mu? Değilse tekrar dene.
+      const jsonIster = orjGovde.generationConfig && orjGovde.generationConfig.responseMimeType==='application/json';
+      if(jsonIster){
+        let temizMetin = metin.replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+        let nesne=null; try{ nesne=JSON.parse(temizMetin); }catch(e){ nesne=null; }
+        if(nesne===null){
+          if(vi < govdeVar.length-1){ vi++; continue; }
+          sonHata = new Error('KESIK_JSON');
+          toast('⚠️ '+netHatasi(sonHata),'red');
+          return r;
+        }
+        // --- Sertifika, AÇIKÇA istenmedikçe eklenmez ---
+        try{
+          const istek = JSON.stringify(orjGovde.contents||'');
+          const sertifikaIstendi = /sertifika|başarı belgesi|basari belgesi|başarı sertifikası|takdir belgesi/i.test(istek);
+          if(!sertifikaIstendi && nesne && Array.isArray(nesne.icerik_bloklari)){
+            const once = nesne.icerik_bloklari.length;
+            nesne.icerik_bloklari = nesne.icerik_bloklari.filter(b => !b || b.blok_tipi!=='sertifika');
+            if(nesne.icerik_bloklari.length !== once && typeof Response!=='undefined'){
+              const kopya = JSON.parse(JSON.stringify(d));
+              kopya.candidates[0].content.parts = [{text: JSON.stringify(nesne)}];
+              CFG_OK[model]=vi;
+              return new Response(JSON.stringify(kopya), {status:200, headers:{'Content-Type':'application/json'}});
+            }
+          }
+        }catch(e){}
+      }
+    }
+    CFG_OK[model] = vi;   // çalışan varyantı hatırla
+    return r;
+  }
+  if(sonHata) throw sonHata;
+  return ORIG_FETCH(input, init);
+};
+
+// ============================================================
+//  AYAR PANELİ (🔑 API)
+// ============================================================
+function panelYenile(){
+  const d=document.getElementById('zirve-key-status'); 
+  const mi=document.getElementById('zirve-model');
+  if(mi && document.activeElement!==mi) mi.value = MODEL;
+  if(!d) return;
+  const n=Date.now();
+  if(!RING.keys.length){ d.innerHTML='<span style="color:#991b1b;font-weight:800">Anahtar yok</span>'; return; }
+  d.innerHTML = RING.keys.map((k,i)=>{
+    const c=RING.cool[coolKey(MODEL,k)]||0, dolu=c>n;
+    const kalan = dolu ? Math.ceil((c-n)/60000)+' dk' : 'hazır';
+    return `<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 8px;border-radius:8px;background:${dolu?'#fef2f2':'#f0fdf4'};margin-bottom:4px">
+      <span style="font-weight:800">${dolu?'🔴':'🟢'} ${i+1}. ${k.slice(0,6)}…${k.slice(-4)}${RING.aktif===k?' <span style="color:#2563eb">◀ aktif</span>':''}</span>
+      <span style="font-weight:700;opacity:.75">${kalan}</span></div>`;
+  }).join('') + `<div style="margin-top:6px;font-size:.7rem;font-weight:700;opacity:.7">Durum, <b>${MODEL}</b> modeline göre gösteriliyor.</div>`;
+}
+
+async function testEt(){
+  const out=document.getElementById('zirve-test-out');
+  const ta=document.getElementById('zirve-keys');
+  ringSet(ta.value.split(/[\n,;]+/));
+  RING.aktif=null; ringSave();
+  if(!RING.keys.length){ out.innerHTML='<b style="color:#991b1b">Anahtar girmedin.</b>'; return; }
+  out.innerHTML='⏳ Her anahtar tek tek deneniyor...';
+  const satir=[]; const gecerli=[]; let modeller=null;
+  for(let i=0;i<RING.keys.length;i++){
+    const k=RING.keys[i];
+    try{
+      const list=await listModels(k);
+      gecerli.push(k); if(!modeller) modeller=list;
+      satir.push(`<div style="color:#166534;font-weight:700">✅ ${i+1}. anahtar geçerli · ${list.length} model erişilebilir</div>`);
+    }catch(e){
+      satir.push(`<div style="color:#991b1b;font-weight:700">❌ ${i+1}. anahtar: ${netHatasi(e)}</div>`);
+    }
+  }
+  if(gecerli.length && modeller){
+    KULLANILABILIR = modeller.slice();
+    try{ localStorage.setItem('zirve_models', JSON.stringify(modeller)); }catch(e){}
+    const havuz = modelHavuzu();
+    satir.push(`<div style="color:#166534;font-weight:700">🔁 Yedek model zinciri kuruldu (${havuz.length} model): ${havuz.slice(0,4).join(' → ')}${havuz.length>4?' → …':''}</div>`);
+    const secili=document.getElementById('zirve-model').value.trim();
+    if(!secili || modeller.indexOf(secili)===-1){
+      const iyi=enIyiModel(modeller);
+      if(iyi){ MODEL=iyi; localStorage.setItem(LS.model,iyi); document.getElementById('zirve-model').value=iyi;
+        satir.push(`<div style="color:#1d4ed8;font-weight:800">⚡ Model otomatik seçildi: ${iyi}</div>`); }
+    } else { MODEL=secili; localStorage.setItem(LS.model,secili); }
+    const dl=document.getElementById('zirve-model-list');
+    if(dl) dl.innerHTML = modeller.map(m=>`<option value="${m}">`).join('');
+    if(gecerli.length>=2){
+      satir.push(`<div style="color:#92400e;font-weight:700;margin-top:4px">ℹ️ Not: Google'da kota <b>anahtar başına değil, PROJE başına</b>dır. Anahtarların aynı projedeyse aynı kotayı paylaşır; ayrı projelerde açarsan her biri kendi kotasını alır.</div>`);
+    }
+  }
+  out.innerHTML = satir.join('');
+  ringSave(); panelYenile();
+  if(gecerli.length){
+    toast(`✅ <b>${gecerli.length}/${RING.keys.length} anahtar çalışıyor · model: ${MODEL}</b><br><span style="font-weight:700;font-size:.72rem">Sayfa yenileniyor, ardından tüm AI özellikleri açık olacak.</span>`,'green');
+    setTimeout(()=>location.reload(), 2200);
+  }
+}
+
+function panelKur(){
+  if(document.getElementById('zirve-panel')) return;
+  const p=document.createElement('div');
+  p.id='zirve-panel';
+  p.style.cssText='margin-top:18px;border:2px solid #e2e8f0;border-radius:16px;padding:16px;background:#f8fafc;font:400 13px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#0f172a';
+  p.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <b style="font-size:15px">🔑 Gelişmiş API Ayarları</b>
+      <span style="background:#dbeafe;color:#1d4ed8;font-weight:800;font-size:10px;padding:2px 7px;border-radius:999px">ÇOKLU ANAHTAR</span>
+    </div>
+    <div style="font-size:11px;font-weight:600;opacity:.7;margin-bottom:11px">Birden fazla anahtar ekle; biri dolunca diğerine, gerekirse başka modele otomatik geçilir.</div>
+    <label style="font-weight:800;font-size:12px">Anahtarların — her satıra bir tane</label>
+    <textarea id="zirve-keys" rows="4" placeholder="AIza...&#10;AIza...&#10;AIza..." style="width:100%;margin:5px 0 8px;padding:9px;border:2px solid #e2e8f0;border-radius:10px;font:600 12px ui-monospace,monospace;resize:vertical;background:#fff"></textarea>
+    <div style="font-size:11px;font-weight:600;opacity:.7;margin-bottom:10px">Ücretsiz anahtar: <b>aistudio.google.com/apikey</b></div>
+    <label style="font-weight:800;font-size:12px">Model</label>
+    <input id="zirve-model" list="zirve-model-list" style="width:100%;margin:5px 0 4px;padding:9px;border:2px solid #e2e8f0;border-radius:10px;font-weight:700;background:#fff">
+    <datalist id="zirve-model-list"></datalist>
+    <div style="font-size:11px;font-weight:600;opacity:.7;margin-bottom:10px">Bilmiyorsan dokunma. Materyal üretimi için en güvenlisi <b>gemini-2.5-flash</b>.</div>
+    <label style="font-weight:800;font-size:12px">Dakikadaki istek sınırı: <span id="zirve-rpm-v"></span></label>
+    <input id="zirve-rpm" type="range" min="2" max="30" style="width:100%;margin:5px 0 12px">
+    <button id="zirve-test" style="width:100%;background:#1d4ed8;color:#fff;border:none;border-radius:11px;padding:12px;font-weight:800;cursor:pointer;font-size:13px">Anahtarları Tek Tek Test Et ve Kaydet</button>
+    <div id="zirve-test-out" style="margin-top:10px;font-size:12px;line-height:1.5"></div>
+    <div style="margin-top:12px;border-top:2px solid #e2e8f0;padding-top:9px">
+      <b style="font-size:12px">Anahtar durumu</b>
+      <div id="zirve-key-status" style="margin-top:6px;font-size:11px"></div>
+    </div>`;
+  // Panel DOM'da dursun; aşağıdaki yerleştirici onu Ayarlar ekranına taşıyacak
+  p.style.display='none';
+  document.body.appendChild(p);
+
+  document.getElementById('zirve-keys').value = RING.keys.join('\n');
+  document.getElementById('zirve-model').value = MODEL;
+  const rp=document.getElementById('zirve-rpm'); rp.value=RPM;
+  document.getElementById('zirve-rpm-v').textContent=RPM;
+  rp.oninput=()=>{ RPM=parseInt(rp.value,10); document.getElementById('zirve-rpm-v').textContent=RPM; localStorage.setItem(LS.rpm,RPM); };
+  document.getElementById('zirve-test').onclick=testEt;
+  document.getElementById('zirve-model').onchange=(e)=>{ MODEL=e.target.value.trim()||'gemini-2.5-flash'; localStorage.setItem(LS.model,MODEL); panelYenile(); };
+  panelYenile();
+  setInterval(panelYenile, 20000);
+  yerlestir();
+  // React sekme değiştirince Ayarlar ekranı yeniden çizilir → paneli tekrar yerine koy
+  try{ new MutationObserver(yerlestir).observe(document.body,{childList:true,subtree:true}); }catch(e){}
+}
+
+// Paneli, Ayarlar sekmesindeki "TAMAM (Kaydet ve Doğrula)" düğmesinin altına yerleştirir.
+function yerlestir(){
+  const p=document.getElementById('zirve-panel'); if(!p) return;
+  try{ sablonDugmesiYerlestir(); }catch(e){}
+  try{ heceDugmeYerlestir(); }catch(e){}
+  let hedef=null;
+  // 1) tercih: "Kaydet ve Doğrula" / "Bağla ve Kaydet" düğmesi
+  const btns=document.querySelectorAll('button');
+  for(let i=0;i<btns.length;i++){
+    const t=(btns[i].textContent||'');
+    if(t.indexOf('Kaydet ve Doğrula')!==-1 || t.indexOf('Bağla ve Kaydet')!==-1){ hedef=btns[i]; break; }
+  }
+  // 2) yedek: "Gemini API Anahtarı" etiketinin bloğu (buton bulunamazsa)
+  if(!hedef){
+    const ls=document.querySelectorAll('label');
+    for(let i=0;i<ls.length;i++){
+      if((ls[i].textContent||'').indexOf('Gemini API Anahtarı')!==-1){
+        let box=ls[i];
+        for(let up=0; up<4 && box.parentNode; up++) box=box.parentNode;   // API bölümünün kapsayıcısı
+        hedef=box; break;
+      }
+    }
+  }
+  if(!hedef){ p.style.display='none'; return; }          // Ayarlar ekranında değiliz
+  if(p.previousSibling!==hedef && hedef.parentNode){
+    hedef.parentNode.insertBefore(p, hedef.nextSibling);
+  }
+  p.style.display='block';
+}
+
+// ---------- Başlat ----------
+ringLoad();
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', panelKur);
+else panelKur();
+
+// Dışarıdan erişim (konsoldan bakmak istersen)
+window.ZIRVE = { RING, get model(){return MODEL;}, set model(m){ MODEL=m; localStorage.setItem(LS.model,m); panelYenile(); },
+                 netHatasi, listModels, ringHazir, ringLoad, ringSet, ringSave, modelSonraki, testEt, panelYenile,
+                 modelHavuzu, sablonYukle, sablonKaydet, sablonDuzenleyiciAc, sablonSeciciAc, sablonUygula, reactYaz,
+                 heceToggle, heceUygula, heceBol,
+                 get modeller(){return KULLANILABILIR;},
+                 set modeller(l){ KULLANILABILIR=l; try{localStorage.setItem('zirve_models',JSON.stringify(l));}catch(e){} } };
+})();
+</script>
+
+
 <script type="text/babel">
 const { useState, useEffect, useRef, useMemo } = React;
 
@@ -2811,7 +3689,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 {/* HAZIR ŞABLON BUTONLARI - KADEME BAZLI */}
 <div className="mb-3 bg-teal-800/20 p-3 rounded-xl border border-teal-500/20">
   <p className="text-[11px] font-bold text-teal-300 uppercase mb-2"><i className="fa-solid fa-bolt mr-1"></i> Hazır Şablonlar — tıkla, sınıfı/konuyu değiştir, üret</p>
-  {[
+  {(window.ZIRVE_SABLONLAR || [
     { grup: "🧸 Anaokulu", items: [
       { e: "Çizgi Çalışması", t: "cizgi_calismasi", m: "Okul öncesi 5 yaş için el-göz koordinasyonu çizgi çalışması hazırla. Her satırda kalemle üzerinden geçilecek farklı bir desen olsun: düz çizgi, dalgalı çizgi, zikzak, yay, halka. 6 satır olsun." },
       { e: "Görsel Dikte", t: "gorsel_dikte", m: "Okul öncesi için emojili görsel dikte çalışması hazırla. Her emojinin altına kelimeyi yazması için boşluk bırak. 6 kelime olsun." },
@@ -2849,7 +3727,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
       { e: "Sudoku / Mantık", t: "sudoku_bulmaca", m: "Ortaokul seviyesine uygun sayılarla bir sudoku / mantık gridi hazırla. İpucu ve çözüm ekle." },
       { e: "Dönüşüm Makinesi", t: "on_sonra_makine", m: "5. sınıf matematik için girdi-çıktı dönüşüm makinesi hazırla. Kural belli olsun, öğrenci eksik çıktıları bulsun." }
     ]}
-  ].map((kategori, ki) => (
+  ]).map((kategori, ki) => (
     <div key={ki} className="mb-2">
       <p className="text-[10px] font-bold text-teal-400/80 mb-1">{kategori.grup}</p>
       <div className="flex flex-wrap gap-1.5">
@@ -3563,7 +4441,7 @@ return (
 {blok.baslik && <h3 className="font-black text-2xl text-blue-900 mb-6 print-high-contrast">{blok.baslik}</h3>}
 <div className="flex flex-wrap justify-center gap-4">
 {blok.hece_gruplari && blok.hece_gruplari.map((hece, i) => (
-<div key={i} className="bg-white border-2 border-blue-400 text-blue-800 font-black text-3xl px-6 py-4 rounded-xl shadow-md print-high-contrast">{hece}</div>
+<div key={i} className="border-2 font-black text-3xl px-6 py-4 rounded-xl shadow-md print-high-contrast" style={{background:["#fef2f2","#eff6ff","#f0fdf4","#fffbeb","#faf5ff","#ecfeff"][i%6], borderColor:["#dc2626","#2563eb","#16a34a","#d97706","#7c3aed","#0891b2"][i%6], color:["#dc2626","#2563eb","#16a34a","#d97706","#7c3aed","#0891b2"][i%6]}}>{hece}</div>
 ))}
 </div>
 </div>
