@@ -1124,9 +1124,9 @@ textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
 return <textarea ref={textareaRef} value={value} onChange={onChange} placeholder={placeholder} className={`textarea-auto w-full bg-transparent border border-transparent hover:border-gray-200 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100 rounded p-1 transition-all ${className}`} />;
 };
 
-const BrandFooter = () => (
+const BrandFooter = ({ okulAdi }) => (
 <div className="brand-footer">
-<i className="fa-solid fa-graduation-cap mr-2"></i> {(localStorage.getItem('okul_adi') || 'Değişim Koleji').toLocaleUpperCase('tr')} EĞİTİM & GELİŞİM DOKÜMANI <br/>
+<i className="fa-solid fa-graduation-cap mr-2"></i> {(okulAdi || localStorage.getItem('okul_adi') || 'Değişim Koleji').toLocaleUpperCase('tr')} EĞİTİM & GELİŞİM DOKÜMANI <br/>
 <span style={{fontWeight: 'bold', marginTop: '5px', display: 'inline-block', color: '#000'}}>🌐 https://baris-ogretmen.github.io/site-1/</span>
 </div>
 );
@@ -2813,10 +2813,10 @@ showToast("Yoklama Mesajı Hazır! 📲");
 setIsGeneratingAttendance(false);
 };
 const GELISIM_SECENEKLERI = {
-  dikkat: ["Oturma süresi kısa (5 dk altı)", "Yönergeyi tek seferde anlıyor", "Çok yönergeli işi takip edemiyor", "Kolay dikkati dağılıyor", "Göz teması kuruyor", "Etkinliği yarıda bırakıyor", "Dikkatini uzun süre koruyor", "Dürtüsel davranıyor"],
-  motor: ["Kalemi doğru tutuyor", "Kalem tutuşu hatalı", "Makası kullanabiliyor", "Çizgi/boyama sınırında kalıyor", "Denge iyi (tek ayak)", "Zıplama-koşma gelişmiş", "Top atma-tutma zayıf", "Düğme/fermuar yapabiliyor", "El tercihi belirginleşti", "İnce motor desteğe ihtiyaç var"],
-  sosyal: ["Sıra bekleyebiliyor", "Paylaşmakta zorlanıyor", "Ayrılık kaygısı var", "Akranlarıyla oyun kuruyor", "Duygularını ifade edebiliyor", "Öfke kontrolü zayıf", "Kurallara uyuyor", "Yalnız oynamayı tercih ediyor", "İş birliği yapabiliyor", "Empati gösteriyor"],
-  dil: ["Yaşına uygun konuşuyor", "Kelime dağarcığı sınırlı", "Ses/artikülasyon hatası var", "Cümle kuruyor (3+ kelime)", "Sorulara yanıt veriyor", "Öykü anlatabiliyor", "Yönergeleri anlıyor", "Kekemelik gözleniyor"],
+  dikkat: ["Oturma süresi kısa (5 dk altı)", "Yönergeyi tek seferde anlıyor", "Çok yönergeli işi takip edemiyor", "Kolay dikkati dağılıyor", "Göz teması kuruyor", "Etkinliği yarıda bırakıyor", "Dikkatini uzun süre koruyor", "Dürtüsel davranıyor", "Sırasını bekleyebiliyor", "Detaylara dikkat ediyor", "Sesli ortamda odaklanamıyor", "Görevi tamamlama motivasyonu yüksek", "Hareket ihtiyacı yüksek (kıpır kıpır)", "Tek işe uzun odaklanıyor (hiperfokus)"],
+  motor: ["Kalemi doğru tutuyor", "Kalem tutuşu hatalı", "Makası kullanabiliyor", "Çizgi/boyama sınırında kalıyor", "Denge iyi (tek ayak)", "Zıplama-koşma gelişmiş", "Top atma-tutma zayıf", "Düğme/fermuar yapabiliyor", "El tercihi belirginleşti", "İnce motor desteğe ihtiyaç var", "Boncuk/ip geçirme yapabiliyor", "Ritim tutabiliyor (el-ayak)", "Merdiven inip çıkabiliyor", "Kağıt katlama-yırtma yapabiliyor"],
+  sosyal: ["Sıra bekleyebiliyor", "Paylaşmakta zorlanıyor", "Ayrılık kaygısı var", "Akranlarıyla oyun kuruyor", "Duygularını ifade edebiliyor", "Öfke kontrolü zayıf", "Kurallara uyuyor", "Yalnız oynamayı tercih ediyor", "İş birliği yapabiliyor", "Empati gösteriyor", "Liderlik eğilimi gösteriyor", "Yeni ortama zor uyum sağlıyor", "Yardımlaşmayı seviyor", "Özür dileyip barışabiliyor", "Grup oyunlarına katılıyor"],
+  dil: ["Yaşına uygun konuşuyor", "Kelime dağarcığı sınırlı", "Ses/artikülasyon hatası var", "Cümle kuruyor (3+ kelime)", "Sorulara yanıt veriyor", "Öykü anlatabiliyor", "Yönergeleri anlıyor", "Kekemelik gözleniyor", "Göz teması kurarak konuşuyor", "Duygularını sözelleştirebiliyor", "Sıra alarak konuşuyor (diyalog)", "Şarkı/tekerleme tekrarlıyor", "Yeni kelimeleri hızlı öğreniyor", "Konuşurken sözcük buluyor (akıcı)", "R/S/Ş seslerinde zorlanıyor", "İki dilli ortamda büyüyor"],
   bilissel: ["Renkleri biliyor", "Şekilleri tanıyor", "1-10 sayabiliyor", "Sayı-nesne eşlemesi yapıyor", "Benzer-farklı ayırt ediyor", "Örüntü tamamlıyor", "Neden-sonuç kuruyor", "Kavramları (büyük-küçük vb.) biliyor"],
   ozbakim: ["Tuvalet eğitimi tamam", "Yardımsız yemek yiyor", "Giyinme-soyunmada bağımsız", "El yıkama alışkanlığı var", "Eşyalarını topluyor", "Destek gerekiyor"],
   ilgi: ["Spora ilgili (koşma, top, dans)", "Müziğe ilgili (şarkı, ritim, enstrüman)", "Resim-sanata ilgili (boyama, çizim)", "Teknoloji-oyuna ilgili", "Doğa-hayvanlara ilgili", "Kitap-hikâyeye ilgili", "Yapı-inşa oyunlarına ilgili (lego, blok)", "Drama-taklit oynamayı seviyor", "Sayı-bulmacaya ilgili", "El işi-tasarıma ilgili"],
@@ -2853,7 +2853,7 @@ const generateReadiness = async () => {
                 9. MOTİVASYON PROFİLİ: İçsel mi dışsal mi ağırlıklı, neyle motive oluyor (merak, başarı, ödül, sosyal onay), motivasyonu artıracak 3 somut öneri.
                 10. KADEME YOL HARİTASI: Okul Öncesi, İlkokul, Ortaokul, Lise ve Üniversite kademeleri için bu profildeki öğrenciye önerilen öğretim yöntemi + öğrenme stratejisi + bir ipucu (her kademe için ayrı, kısa ve uygulanabilir). Bilimsel ve doğru olsun, uydurma yöntem yazma.
                 11. KAVRAM HARİTASI: Merkeze ÖĞRENCİNİN GERÇEK ADINI ('${studentName || 'Öğrenci'}') koyan KISA ve NET bir kavram haritasını RENKLİ INLINE SVG olarak çiz (kavram_haritasi_svg alanına). EN FAZLA 6 düğüm: 1 merkez (öğrenci adı) + 5 dal. viewBox="0 0 600 360" kullan (geniş ve okunaklı), her kutu için <rect> yüksekliği en az 44px, <text> font-size en az 15px ve fill beyaz/koyu (kutu rengine göre okunur olsun), düğüm etiketleri en fazla 3 kelime. Türkçe karakterleri (ç,ş,ı,ğ,ü,ö,İ) DOĞRU yaz. SVG 1800 karakteri geçmesin, sadece geçerli SVG kodu yaz.
-                12. YETENEK & İLGİ YÖNELİMİ: Çocuğun İLGİ ALANLARI ve GÜÇLÜ YÖNLER girdilerini temel alarak, potansiyelini öne çıkaran bir yönelim analizi yap (yetenek_ilgi_yonelimi). Şunları içersin: baskın_alan (ör. Sportif, Sanatsal, Müzikal, Bilim-Teknoloji, Sözel, Sosyal-Liderlik), aciklama (çocuğun güçlü yönlerini ve ilgisini olumlu dille anlatan 2 cümle), yonlendirme (bu potansiyeli geliştirmek için 3 somut öneri/etkinlik). Eksikleri değil GÜÇLÜ yanları ve potansiyeli vurgula; veliyi motive edecek pozitif bir dil kullan.
+                12. YETENEK & İLGİ YÖNELİMİ: Çocuğun İLGİ ALANLARI ve GÜÇLÜ YÖNLER girdilerini temel alarak, potansiyelini öne çıkaran bir yönelim analizi yap (yetenek_ilgi_yonelimi). Şunları içersin: baskın_alan (ör. Sportif, Sanatsal, Müzikal, Bilim-Teknoloji, Sözel, Sosyal-Liderlik), aciklama (çocuğun güçlü yönlerini ve ilgisini olumlu dille anlatan 2 cümle), yonlendirme (bu potansiyeli geliştirmek için 4-5 SOMUT ve UYGULANABİLİR öneri). Yönlendirme önerileri ÇOK SPESİFİK olsun: (a) baskın yeteneğe göre gidebileceği kurs/atölye türleri (ör. 'robotik-kodlama atölyesi', 'çocuk korosu', 'yüzme kulübü', 'satranç kursu', 'resim atölyesi'), (b) dikkat/odaklanma gibi geliştirilecek alanlar için evde ve okulda yapılabilecek somut etkinlikler (ör. 'dikkat süresini artırmak için 10 dakikalık kum saati oyunları, hafıza kartları'), (c) mümkünse Türkiye'de (özellikle İstanbul ve büyük şehirlerde) bu yeteneği geliştirebileceği kurum türleri (ör. 'İstanbul Bilim Merkezi, belediye spor okulları, sanat merkezleri, BİLSEM - Bilim ve Sanat Merkezleri'). Somut ve gerçekçi ol; uydurma spesifik kurum/marka adı verme ama kurum TÜRÜNÜ ve nereye başvurulacağını net söyle. Eksikleri değil GÜÇLÜ yanları ve potansiyeli vurgula; veliyi motive edecek pozitif bir dil kullan.\n                13. GELİŞTİRME ÖNERİLERİ: Radar skorlarında düşük çıkan (zayıf) alanlar için gelistirme_onerileri dizisi üret: her biri {alan, oneri} olsun. Örneğin dikkat düşükse 'Dikkat: Günde 2 kez 10 dakikalık odak oyunları (labirent, farkı bul, kum saati) yapılabilir'; motor düşükse 'Motor: Hamur, boncuk dizme, makas çalışmaları'; sosyal düşükse 'Sosyal: Grup oyunları, drama etkinlikleri'. Somut, evde/okulda uygulanabilir olsun.
                 MUTLAK KURAL: Hiçbir alanda kelime/hece TEKRARI ('Bi. Bi.' gibi) yapma, dolgu metin veya İngilizce teknik ifade koyma. Her alan öz, anlamlı, Türkçe ve kısa olsun.
                 Not: Tüm öneriler bilimsel literatüre (davranışçı/bilişsel/yapılandırmacı/hümanist kuramlar, Gardner çoklu zeka, Bloom taksonomisi) dayansın; asla uydurma/yanlış bilgi verme.` }] }],
                 generationConfig: { 
@@ -2871,6 +2871,7 @@ const generateReadiness = async () => {
                             kademe_yol_haritasi: { type: "ARRAY", items: { type: "OBJECT", properties: { kademe: {type:"STRING"}, yontem: {type:"STRING"}, strateji: {type:"STRING"}, ipucu: {type:"STRING"} } } },
                             kavram_haritasi_svg: { type: "STRING" },
                             yetenek_ilgi_yonelimi: { type: "OBJECT", properties: { baskin_alan: {type:"STRING"}, aciklama: {type:"STRING"}, yonlendirme: {type:"ARRAY", items:{type:"STRING"}} } },
+                            gelistirme_onerileri: { type: "ARRAY", items: { type: "OBJECT", properties: { alan: {type:"STRING"}, oneri: {type:"STRING"} } } },
                             yetenek_kartlari: { type: "OBJECT", properties: { bilissel: {type:"ARRAY", items:{type:"OBJECT", properties:{ad:{type:"STRING"}, skor:{type:"INTEGER"}}}}, sosyal: {type:"ARRAY", items:{type:"OBJECT", properties:{ad:{type:"STRING"}, skor:{type:"INTEGER"}}}}, motor: {type:"ARRAY", items:{type:"OBJECT", properties:{ad:{type:"STRING"}, skor:{type:"INTEGER"}}}} } },
                             rozet: { type: "STRING" },
                             radar_skorlari: { type: "OBJECT", properties: { dikkat: {type:"INTEGER"}, motor: {type:"INTEGER"}, sosyal: {type:"INTEGER"}, bilissel: {type:"INTEGER"}, dil: {type:"INTEGER"}, ozbakim: {type:"INTEGER"} } }, 
@@ -3216,7 +3217,7 @@ return (
 </div>
 <div className="print-card mt-6"><div className="border-l-4 border-green-500 bg-green-50 print-bg-transparent p-4 rounded-r-xl italic flex"><i className="fa-solid fa-quote-left text-green-300 mr-3 text-xl"></i><AutoResizeTextarea value={editableResult.ogrenci_notu} onChange={(e) => setEditableResult({...editableResult, ogrenci_notu: e.target.value})} className="text-gray-700 font-medium text-base flex-1 print-high-contrast"/></div></div>
 </div>
-<BrandFooter />
+<BrandFooter okulAdi={okulAdi} />
 </div>
 </div>
 )}
@@ -3550,7 +3551,7 @@ return (
 ))}
 </ul>
 </div>
-<BrandFooter />
+<BrandFooter okulAdi={okulAdi} />
 <div className="flex justify-end pt-2 no-print"><button onClick={() => setAiAnalysisResult(null)} className="text-xs text-white/60 hover:text-white underline font-medium">Analizi Kapat</button></div>
 </div>
 )}
@@ -3897,7 +3898,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 <ul className="list-disc pl-4 text-xs">{storyResult.tartisma_sorulari.map((q,i)=><li key={i} className="mb-1">{q}</li>)}</ul>
 </div>
 </div>
-<BrandFooter />
+<BrandFooter okulAdi={okulAdi} />
 </div>
 )}
 </div>
@@ -3928,7 +3929,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 </div>
 ))}
 </div>
-<BrandFooter />
+<BrandFooter okulAdi={okulAdi} />
 </div>
 )}
 </div>
@@ -3951,7 +3952,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl text-sm text-gray-800 whitespace-pre-wrap print-high-contrast">
 {behaviorResult}
 </div>
-<BrandFooter />
+<BrandFooter okulAdi={okulAdi} />
 </div>
 )}
 </div>
@@ -3977,7 +3978,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl text-sm text-gray-800 whitespace-pre-wrap relative print-high-contrast">
 {bepResult}
 </div>
-<BrandFooter />
+<BrandFooter okulAdi={okulAdi} />
 </div>
 )}
 </div>
@@ -4009,7 +4010,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 <button onClick={() => {navigator.clipboard.writeText(parentReply); showToast("Kopyalandı!");}} className="text-blue-500 bg-white p-1.5 rounded shadow"><i className="fa-regular fa-copy"></i></button>
 </div>
 </div>
-<BrandFooter />
+<BrandFooter okulAdi={okulAdi} />
 </div>
 )}
 </div>
@@ -4039,7 +4040,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 <div><span className="font-bold text-red-600 block"><i className="fa-solid fa-minus-circle mr-1"></i> Gelişim Alanları:</span><ul className="list-disc pl-4 text-xs mt-1">{graderResult.gelisim_alanlari.map((g,i)=><li key={i}>{g}</li>)}</ul></div>
 <div className="bg-white p-3 rounded-lg border border-indigo-100 italic mt-2 text-indigo-900"><span className="font-bold block not-italic text-indigo-700 text-xs mb-1">Öğretmen Notu:</span>"{graderResult.ogrenciye_not}"</div>
 </div>
-<BrandFooter />
+<BrandFooter okulAdi={okulAdi} />
 </div>
 )}
 </div>
@@ -4085,7 +4086,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 </tbody>
 </table>
 </div>
-<BrandFooter />
+<BrandFooter okulAdi={okulAdi} />
 </div>
 )}
 </div>
@@ -4127,7 +4128,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 </div>
 </div>
 </div>
-<BrandFooter />
+<BrandFooter okulAdi={okulAdi} />
 </div>
 )}
 </div>
@@ -4160,7 +4161,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 ))}
 </div>
 </div>
-<BrandFooter />
+<BrandFooter okulAdi={okulAdi} />
 </div>
 )}
 </div>
@@ -4462,6 +4463,20 @@ title="Veli ödevi yaptıysa buraya tıklayın."
                     </div>
                 )}
 
+                {readinessResult.gelistirme_onerileri && readinessResult.gelistirme_onerileri.length > 0 && (
+                    <div className="bg-gradient-to-br from-cyan-50 to-teal-50 p-6 rounded-[2rem] shadow-lg border-2 border-cyan-200 mt-6">
+                        <h4 className="font-black text-teal-800 text-sm mb-3 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-arrow-trend-up text-teal-500"></i> Gelişim Önerileri (Neler Yapılabilir?)</h4>
+                        <div className="space-y-2">
+                            {readinessResult.gelistirme_onerileri.map((g, i) => (
+                                <div key={i} className="bg-white/70 rounded-2xl p-3 border border-cyan-100">
+                                    <span className="inline-block bg-teal-500 text-white text-[10px] font-black px-2 py-1 rounded-full mb-1">{g.alan}</span>
+                                    <p className="text-xs text-teal-900 font-medium leading-relaxed">{g.oneri}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {readinessResult.kademe_yol_haritasi && readinessResult.kademe_yol_haritasi.length > 0 && (
                     <div className="bg-slate-900 text-white p-6 rounded-[2rem] shadow-xl mt-6">
                         <h4 className="font-black text-yellow-400 text-sm mb-4 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-graduation-cap"></i> Kademe Yol Haritası — Okul Öncesinden Üniversiteye</h4>
@@ -4505,7 +4520,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
                     <p className="text-[10px] text-slate-400 mt-3 italic">Not: Bu rapor yapay zeka destekli bir ön değerlendirme aracıdır; kesin tanı ve yönlendirme için alan uzmanının (rehber öğretmen, psikolog) değerlendirmesi esastır.</p>
                 </div>
 
-                <BrandFooter />
+                <BrandFooter okulAdi={okulAdi} />
             </div>
         </div>
     )}
@@ -4569,7 +4584,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 {clubResult.veliye_cagri}
 </div>
 </div>
-<BrandFooter />
+<BrandFooter okulAdi={okulAdi} />
 </div>
 )}
 </div>
@@ -4622,7 +4637,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 <p className="text-sm italic">"{meetingResult.kapanis_ve_isbirligi}"</p>
 </div>
 </div>
-<BrandFooter />
+<BrandFooter okulAdi={okulAdi} />
 </div>
 )}
 </div>
@@ -4823,7 +4838,20 @@ for (let i = 0; i < idx; i++) {
   }
 }
 // GÜVENCE: Sağ sütun tamamen boşsa bu eşleştirme bozuktur — nedenini göster
-const sagDolu = Array.isArray(blok.sag_sutun_karisik) && blok.sag_sutun_karisik.filter(x => x && String(x).trim()).length > 0;
+let sagDolu = Array.isArray(blok.sag_sutun_karisik) && blok.sag_sutun_karisik.filter(x => x && String(x).trim()).length > 0;
+// KURTARMA: sağ sütun boşsa cevap anahtarından türetmeyi dene (ör. "1-Bitkiler, 2-Mantarlar")
+if (!sagDolu && blok.cevap_anahtari && blok.sol_sutun && blok.sol_sutun.length > 0) {
+    try {
+        const parcalar = String(blok.cevap_anahtari).split(/[,;\n]+/).map(x => x.trim()).filter(Boolean);
+        const karsiliklar = parcalar.map(p => p.replace(/^\s*\d+\s*[-.\u003A\u0029]\s*/, '').replace(/^[A-Za-zİ]\s*[-.\u003A\u0029]\s*/, '').trim()).filter(Boolean);
+        if (karsiliklar.length >= blok.sol_sutun.length) {
+            // karışık sırada göstermek için kopyalayıp karıştır
+            const kopya = karsiliklar.slice(0, blok.sol_sutun.length);
+            blok.sag_sutun_karisik = kopya.slice().sort(() => Math.random() - 0.5);
+            sagDolu = true;
+        }
+    } catch (e) {}
+}
 if (!sagDolu) {
     return (
         <div key={idx} className="break-inside-avoid mb-8">
@@ -5309,7 +5337,7 @@ return (
 </div>
 )}
 
-<BrandFooter />
+<BrandFooter okulAdi={okulAdi} />
 </div>
 </div>
 )}
