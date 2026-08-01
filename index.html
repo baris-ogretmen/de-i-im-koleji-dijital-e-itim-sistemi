@@ -174,6 +174,8 @@ let RPM = parseInt(localStorage.getItem(LS.rpm)||'8',10);
 // Kotası kapanmış eski modelleri otomatik yükselt
 const OLU_MODELLER = ['gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-flash','gemini-1.5-pro','gemini-pro'];
 if (OLU_MODELLER.indexOf(MODEL) !== -1) { MODEL = 'gemini-2.5-flash'; localStorage.setItem(LS.model, MODEL); }
+// Lite modeli materyal üretiminde zayıf kalıyor (tekrar/boş şık) → otomatik sağlam modele çevir
+if (/lite/.test(MODEL)) { MODEL = 'gemini-2.5-flash'; try{ localStorage.setItem(LS.model, MODEL); }catch(e){} }
 
 function ringSet(list){ RING.keys = list.map(x=>String(x||'').trim()).filter(k=>k.length>8); }
 /* ═══════════════════════════════════════════════════════════════
@@ -387,9 +389,10 @@ async function listModels(key){
                        .map(m=>String(m.name||'').replace('models/',''));
 }
 function enIyiModel(list){
-  const tercih=["gemini-2.5-flash","gemini-2.5-flash-lite","gemini-flash-latest","gemini-flash-lite-latest","gemini-2.5-pro"];
+  // Materyal üretimi için en SAĞLAM ve güçlü modeller önce (lite ve latest'ler riskli, sona)
+  const tercih=["gemini-2.5-flash","gemini-2.5-pro","gemini-flash-latest","gemini-2.5-flash-lite","gemini-flash-lite-latest"];
   for(const t of tercih) if(list.indexOf(t)!==-1) return t;
-  return list.find(m=>/flash/.test(m)) || list[0] || null;
+  return list.find(m=>/flash/.test(m)&&!/lite/.test(m)) || list.find(m=>/flash/.test(m)) || list[0] || null;
 }
 
 // ============================================================
@@ -984,7 +987,8 @@ function panelKur(){
     </div>
     <div style="font-size:11px;font-weight:600;opacity:.7;margin-bottom:11px">Birden fazla anahtar ekle; biri dolunca diğerine, gerekirse başka modele otomatik geçilir.</div>
     <label style="font-weight:800;font-size:12px">Anahtarların — her satıra bir tane</label>
-    <textarea id="zirve-keys" rows="4" placeholder="AIza...&#10;AIza...&#10;AIza..." style="width:100%;margin:5px 0 8px;padding:9px;border:2px solid #e2e8f0;border-radius:10px;font:600 12px ui-monospace,monospace;resize:vertical;background:#fff"></textarea>
+    <textarea id="zirve-keys" rows="4" placeholder="AIza...&#10;AIza...&#10;AIza..." style="width:100%;margin:5px 0 6px;padding:9px;border:2px solid #e2e8f0;border-radius:10px;font:600 12px ui-monospace,monospace;resize:vertical;background:#fff"></textarea>
+    <button id="zirve-keys-kopyala" style="width:100%;margin-bottom:8px;background:#059669;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;cursor:pointer;font-size:12px">📋 Tüm Anahtarları Kopyala (başka çalışmaya yapıştır)</button>
     <div style="background:linear-gradient(135deg,#f0f9ff,#eef2ff);border:2px solid #bae6fd;border-radius:12px;padding:12px;margin-bottom:11px">
       <div style="font-size:12px;font-weight:800;color:#0369a1;margin-bottom:6px">🔑 API Anahtarı Nasıl Alınır? (Ücretsiz)</div>
       <div style="font-size:11px;color:#334155;line-height:1.7;font-weight:600">
@@ -1016,6 +1020,16 @@ function panelKur(){
   document.getElementById('zirve-rpm-v').textContent=RPM;
   rp.oninput=()=>{ RPM=parseInt(rp.value,10); document.getElementById('zirve-rpm-v').textContent=RPM; localStorage.setItem(LS.rpm,RPM); };
   document.getElementById('zirve-test').onclick=testEt;
+  var kopyaBtn=document.getElementById('zirve-keys-kopyala');
+  if(kopyaBtn) kopyaBtn.onclick=function(){
+    var metin=(document.getElementById('zirve-keys').value||'').trim();
+    if(!metin){ toast('Önce anahtar gir.','red'); return; }
+    try{
+      if(navigator.clipboard){ navigator.clipboard.writeText(metin).then(function(){ toast('📋 Anahtarlar kopyalandı! Başka çalışmada bu kutuya yapıştır.','green'); }, function(){ kopyaFallback(metin); }); }
+      else kopyaFallback(metin);
+    }catch(e){ kopyaFallback(metin); }
+    function kopyaFallback(t){ var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); toast('📋 Anahtarlar kopyalandı!','green'); }
+  };
   document.getElementById('zirve-model').onchange=(e)=>{ MODEL=e.target.value.trim()||'gemini-2.5-flash'; localStorage.setItem(LS.model,MODEL); panelYenile(); };
   panelYenile();
   setInterval(panelYenile, 20000);
@@ -1143,7 +1157,7 @@ return <textarea ref={textareaRef} value={value} onChange={onChange} placeholder
 const BrandFooter = ({ okulAdi }) => (
 <div className="brand-footer">
 <i className="fa-solid fa-graduation-cap mr-2"></i> {(okulAdi || localStorage.getItem('okul_adi') || 'Değişim Koleji').toLocaleUpperCase('tr')} EĞİTİM & GELİŞİM DOKÜMANI <br/>
-<span style={{fontWeight: 'bold', marginTop: '5px', display: 'inline-block', color: '#000'}}>🌐 https://baris-ogretmen.github.io/site-1/</span>
+<span style={{fontWeight: '900', marginTop: '6px', display: 'inline-block', background: 'linear-gradient(90deg,#0284c7,#7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', letterSpacing: '0.5px'}}>🌐 https://baris-ogretmen.github.io/site-1/</span>
 </div>
 );
 
@@ -2429,7 +2443,7 @@ const generateMaterial = async () => {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-               systemInstruction: { parts: [{ text: "Sen dünyanın en iyi eğitim materyali editörü, zirvede bir ÖZEL EĞİTİM uzmanı ve İLK OKUMA-YAZMA öğretmenisin. Tüm okuma-yazma yöntemlerine (Ses Temelli Cümle/güncel MEB, ses, harf, hece, Ba-Sa-Ra, çözümleme, sözcük, öykü, bireşim, karma, fiş) ve özel eğitim yöntemlerine (ABA, fırsat öğretimi, PECS, beceri analizi, BEP) hakimsin; istenen yöntemin bilimsel aşamalarına SADIK kal, karıştırma, uydurma. Kullanıcının yazdığı sınıf/soru sayısı/zorluk KESİN önceliklidir ve şablon varsayılanını ezer. KULLANICI KISA YAZSA DA ZENGİN, RENKLİ (önemli yerler tek-tırnaklı vurgu, gerekli yerlerde INLINE SVG görsel) BİR ÇALIŞMA ÜRET. GÖRSEL ÜRETEMEZSİN: Resim/fotoğraf üretemezsin, o yüzden var olmayan bir görsele atıf yapan (yandaki resme bak, görsele göre eşleştir) soru KURMA; gerekiyorsa nesne adını/emojisini yaz. BİR ŞEY ÜRETEMEZSEN NEDENİNİ YAZ: Boş/eksik çıktı bırakma, üretemediğin şeyin nedenini bilgi_kutusu ile açıkla. SORU NUMARASI: soru_metni içine ASLA 1. 2. 3. gibi numara koyma, sistem otomatik numaralıyor. ÇOKTAN SEÇMELİ: hangisi/hangisidir/kaçtır diye soruyorsan secenekler dizisini MUTLAKA 4-5 şıkla doldur; şık üretemeyeceksen açık uçlu (bulunuz/hesaplayınız) sor. HAYATİ KURALLAR: 1) Çıktın KESİNLİKLE geçerli bir JSON formatında olmalıdır! JSON kuralları gereği tüm anahtarlar ve değerler KESİNLİKLE ÇİFT TIRNAK (\") ile sarılmalıdır. 2) Metinlerin kendi içinde bir şeyi vurgulaman gerekirse tek tırnak (') kullan. 3) Metinlerin içine asla 'Enter' ile satır atlama, yeni satır için sadece '\\n' kullan." }] },
+               systemInstruction: { parts: [{ text: "Sen dünyanın en iyi eğitim materyali editörü, zirvede bir ÖZEL EĞİTİM uzmanı ve İLK OKUMA-YAZMA öğretmenisin. Tüm okuma-yazma yöntemlerine (Ses Temelli Cümle/güncel MEB, ses, harf, hece, Ba-Sa-Ra, çözümleme, sözcük, öykü, bireşim, karma, fiş) ve özel eğitim yöntemlerine (ABA, fırsat öğretimi, PECS, beceri analizi, BEP) hakimsin; istenen yöntemin bilimsel aşamalarına SADIK kal, karıştırma, uydurma. Kullanıcının yazdığı sınıf/soru sayısı/zorluk KESİN önceliklidir ve şablon varsayılanını ezer. KULLANICI KISA YAZSA DA ZENGİN, RENKLİ (önemli yerler tek-tırnaklı vurgu, gerekli yerlerde INLINE SVG görsel) BİR ÇALIŞMA ÜRET. HTML ETİKETİ KURALI: Renklendirme/kalınlaştırma için <strong>, <em>, <span style> etiketlerini SADECE zengin_metin ve bilgi_kutusu bloklarında kullan. standart_soru, okuma_parcasi, eslestirme gibi bloklarda soru_metni içine HTML etiketi (<strong>, <span style=color> gibi) YAZMA — oralarda düz metin kullan, yoksa etiketler yazı olarak görünür. GÖRSEL ÜRETEMEZSİN: Resim/fotoğraf üretemezsin, o yüzden var olmayan bir görsele atıf yapan (yandaki resme bak, görsele göre eşleştir) soru KURMA; gerekiyorsa nesne adını/emojisini yaz. BİR ŞEY ÜRETEMEZSEN NEDENİNİ YAZ: Boş/eksik çıktı bırakma, üretemediğin şeyin nedenini bilgi_kutusu ile açıkla. SORU NUMARASI: soru_metni içine ASLA 1. 2. 3. gibi numara koyma, sistem otomatik numaralıyor. ÇOKTAN SEÇMELİ: hangisi/hangisidir/kaçtır diye soruyorsan secenekler dizisini MUTLAKA 4-5 şıkla doldur; şık üretemeyeceksen açık uçlu (bulunuz/hesaplayınız) sor. HAYATİ KURALLAR: 1) Çıktın KESİNLİKLE geçerli bir JSON formatında olmalıdır! JSON kuralları gereği tüm anahtarlar ve değerler KESİNLİKLE ÇİFT TIRNAK (\") ile sarılmalıdır. 2) Metinlerin kendi içinde bir şeyi vurgulaman gerekirse tek tırnak (') kullan. 3) Metinlerin içine asla 'Enter' ile satır atlama, yeni satır için sadece '\\n' kullan." }] },
                 contents: apiContents,
                 generationConfig: {
                     responseMimeType: "application/json",
@@ -2849,6 +2863,16 @@ const GELISIM_SECENEKLERI = {
   ilgi: ["Spora ilgili (koşma, top, dans)", "Müziğe ilgili (şarkı, ritim, enstrüman)", "Resim-sanata ilgili (boyama, çizim)", "Teknoloji-oyuna ilgili", "Doğa-hayvanlara ilgili", "Kitap-hikâyeye ilgili", "Yapı-inşa oyunlarına ilgili (lego, blok)", "Drama-taklit oynamayı seviyor", "Sayı-bulmacaya ilgili", "El işi-tasarıma ilgili"],
   gucluYon: ["Meraklı ve araştırmacı", "Yaratıcı-hayal gücü güçlü", "Lider ruhlu", "Sabırlı ve titiz", "Hızlı öğreniyor", "Sosyal ve girişken", "Duyarlı-empatik", "Azimli-vazgeçmiyor", "Pratik zekâlı", "İyi gözlemci"]
 };
+// Soru/metin içindeki basit HTML etiketlerini (<strong>, <em>, <mark>, <span style>) güvenli render eder
+// Böylece "<strong style='color:red'>" gibi etiketler düz yazı olarak görünmez, gerçek biçim olur
+const htmlIceriyorMu = (t) => /<(strong|em|b|i|mark|span|u|br)\b|&lt;(strong|em|b|i|mark|span)/i.test(String(t || ''));
+const HtmlMetin = ({ metin, className }) => {
+  const s = String(metin || '');
+  if (!htmlIceriyorMu(s)) return <span className={className}>{s}</span>;
+  // Sadece güvenli etiketleri bırak (script vs. temizle)
+  let temiz = s.replace(/<\s*script[^>]*>[\s\S]*?<\s*\/\s*script>/gi, '').replace(/on\w+\s*=\s*"[^"]*"/gi, '').replace(/on\w+\s*=\s*'[^']*'/gi, '');
+  return <span className={className} dangerouslySetInnerHTML={{ __html: temiz }}></span>;
+};
 const SecenekCipleri = ({ alan, deger, setDeger }) => {
   const secenekler = GELISIM_SECENEKLERI[alan] || [];
   const ekle = (s) => { const mevcut = (deger || '').trim(); if (mevcut.includes(s)) return; setDeger(mevcut ? mevcut + ', ' + s : s); };
@@ -2870,10 +2894,21 @@ const sablonlariTestEt = async (limit, devam) => {
     } catch (e) {}
     if (!tumSablonlar.length) { showToast("Şablon bulunamadı."); return; }
 
-    // Doğru modeli bul: ZİRVE katmanının doğruladığı model (404 önlenir)
+    // MODEL OTOMATİK SEÇİMİ: ZİRVE katmanının doğruladığı çalışan modeli kullan (404 önlenir)
     let aktifModel = modelName || 'gemini-2.5-flash';
-    try { if (window.ZIRVE && window.ZIRVE.model) aktifModel = window.ZIRVE.model; } catch(e){}
-    if (aktifModel === 'gemini-flash-latest' || aktifModel.includes('latest')) aktifModel = 'gemini-2.5-flash';
+    try {
+        if (window.ZIRVE) {
+            // Katmanın bildiği en iyi çalışan modeli al
+            if (typeof window.ZIRVE.enIyiModel === 'function' && window.ZIRVE.modeller && window.ZIRVE.modeller.length) {
+                const iyi = window.ZIRVE.enIyiModel(window.ZIRVE.modeller);
+                if (iyi) aktifModel = iyi;
+            } else if (window.ZIRVE.model) {
+                aktifModel = window.ZIRVE.model;
+            }
+        }
+    } catch(e){}
+    // 'latest' adları 404 verebilir → sağlam sürüme çevir
+    if (!aktifModel || aktifModel.includes('latest') || aktifModel.includes('lite')) aktifModel = 'gemini-2.5-flash';
 
     let test = limit ? tumSablonlar.slice(0, limit) : tumSablonlar;
     // KALDIĞI YERDEN DEVAM: önceki sonuçları yükle
@@ -4942,7 +4977,7 @@ return (
 <div key={idx} className="break-inside-avoid mb-10">
 <div className="mb-3">
 <span className="font-black text-lg text-gray-900 mr-2 inline-block align-top print-high-contrast">{soruNo}.</span>
-<p className="font-semibold text-gray-800 text-lg leading-snug print-high-contrast whitespace-pre-wrap inline-block w-[92%] align-top m-0">{String(blok.soru_metni || '').replace(/^\s*\d+\s*[.\u0029]\s*/, '')}</p>
+<p className="font-semibold text-gray-800 text-lg leading-snug print-high-contrast whitespace-pre-wrap inline-block w-[92%] align-top m-0"><HtmlMetin metin={String(blok.soru_metni || '').replace(/^\s*\d+\s*[.\u0029]\s*/, '')} /></p>
 </div>
 {blok.secenekler && blok.secenekler.length > 0 ? (
 <div className="pl-6 md:pl-8 space-y-3 mt-3">
