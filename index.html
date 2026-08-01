@@ -176,9 +176,25 @@ const OLU_MODELLER = ['gemini-2.0-flash','gemini-2.0-flash-lite','gemini-1.5-fla
 if (OLU_MODELLER.indexOf(MODEL) !== -1) { MODEL = 'gemini-2.5-flash'; localStorage.setItem(LS.model, MODEL); }
 
 function ringSet(list){ RING.keys = list.map(x=>String(x||'').trim()).filter(k=>k.length>8); }
+/* ═══════════════════════════════════════════════════════════════
+   🔑 GÖMÜLÜ ANAHTARLAR — BİR KEZ BURAYA YAZ, HER DOSYADA OTOMATİK GELSİN
+   Barış: 10 anahtarını aşağıdaki listeye tırnak içinde, virgülle ekle.
+   Örnek:  const GOMULU_ANAHTARLAR = ["AIzaSy_ANAHTAR1", "AIzaSy_ANAHTAR2"];
+   Boş bırakırsan uygulama Ayarlar'dan girdiğin anahtarları kullanır.
+   Bir kez doldurup bu katmanı kopyalarsan artık her çalışmada anahtar hazır olur.
+═══════════════════════════════════════════════════════════════ */
+const GOMULU_ANAHTARLAR = [
+  // "AIzaSy_BURAYA_1",
+  // "AIzaSy_BURAYA_2",
+];
 function ringLoad(){
   try{ const r=localStorage.getItem(LS.keys); if(r) ringSet(JSON.parse(r)); }catch(e){}
   if(!RING.keys.length){ const eski=localStorage.getItem(LS.legacy); if(eski) ringSet([eski]); }
+  // Gömülü anahtarlar varsa ve henüz hiç anahtar yoksa onları yükle (bir kez yaz, hep gelsin)
+  if(!RING.keys.length && GOMULU_ANAHTARLAR && GOMULU_ANAHTARLAR.length){
+    const temiz = GOMULU_ANAHTARLAR.map(k=>String(k||'').trim()).filter(k=>k.length>10);
+    if(temiz.length){ ringSet(temiz); try{ ringSave(); }catch(e){} }
+  }
   try{ const c=localStorage.getItem(LS.cool); if(c) RING.cool=JSON.parse(c); }catch(e){}
 }
 function ringSave(){
@@ -2845,7 +2861,7 @@ const SecenekCipleri = ({ alan, deger, setDeger }) => {
   );
 };
 // ===== 🧪 ŞABLON TEST MODU — Otomatik Kalite Kontrol =====
-const sablonlariTestEt = async (limit) => {
+const sablonlariTestEt = async (limit, devam) => {
     if (!apiKey) { showToast("Önce API anahtarı girin."); return; }
     const tumSablonlar = [];
     try {
@@ -2854,24 +2870,44 @@ const sablonlariTestEt = async (limit) => {
     } catch (e) {}
     if (!tumSablonlar.length) { showToast("Şablon bulunamadı."); return; }
 
-    const test = limit ? tumSablonlar.slice(0, limit) : tumSablonlar;
-    setTestModuCalisiyor(true);
-    setTestSonuclari(null);
-    const sonuclar = [];
+    // Doğru modeli bul: ZİRVE katmanının doğruladığı model (404 önlenir)
+    let aktifModel = modelName || 'gemini-2.5-flash';
+    try { if (window.ZIRVE && window.ZIRVE.model) aktifModel = window.ZIRVE.model; } catch(e){}
+    if (aktifModel === 'gemini-flash-latest' || aktifModel.includes('latest')) aktifModel = 'gemini-2.5-flash';
 
-    for (let i = 0; i < test.length; i++) {
+    let test = limit ? tumSablonlar.slice(0, limit) : tumSablonlar;
+    // KALDIĞI YERDEN DEVAM: önceki sonuçları yükle
+    let sonuclar = [];
+    let baslangic = 0;
+    if (devam) {
+        try {
+            const kayit = JSON.parse(localStorage.getItem('zirve_test_durum') || 'null');
+            if (kayit && Array.isArray(kayit.sonuclar)) { sonuclar = kayit.sonuclar; baslangic = kayit.sonuclar.length; }
+        } catch(e){}
+    } else {
+        localStorage.removeItem('zirve_test_durum');
+    }
+    setTestModuCalisiyor(true);
+    if (baslangic === 0) setTestSonuclari([]);
+
+    for (let i = baslangic; i < test.length; i++) {
         const s = test[i];
         setTestIlerleme(`${i + 1} / ${test.length} — ${s.ad}`);
         let durum = 'ok', notlar = [];
         try {
-            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName || 'gemini-2.5-flash'}:generateContent?key=${apiKey}`, {
+            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aktifModel}:generateContent?key=${apiKey}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: s.prompt + "\n\nSadece geçerli JSON döndür: {\"dokuman_basligi\":\"...\",\"icerik_bloklari\":[...]}. Her blokta blok_tipi olsun." }] }],
                     generationConfig: { responseMimeType: "application/json", temperature: 0.4, maxOutputTokens: 8000, thinkingConfig: { thinkingBudget: 0 } }
                 })
             });
-            if (!resp.ok) { durum = 'hata'; notlar.push('API ' + resp.status); }
+            if (!resp.ok) {
+                durum = 'hata';
+                if (resp.status === 429) notlar.push('Kota doldu (429)');
+                else if (resp.status === 404) notlar.push('Model bulunamadı (404)');
+                else notlar.push('API ' + resp.status);
+            }
             else {
                 const data = await resp.json();
                 const metin = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -2880,7 +2916,6 @@ const sablonlariTestEt = async (limit) => {
                 if (parsed) {
                     const bloklar = parsed.icerik_bloklari || [];
                     if (!bloklar.length) { durum = 'hata'; notlar.push('İçerik boş'); }
-                    // çoktan seçmeli şık kontrolü
                     bloklar.forEach(b => {
                         const st = String(b.soru_metni || '').toLowerCase();
                         if (/hangisi|hangisidir|kaçtır|aşağıdakilerden/.test(st) && (!b.secenekler || b.secenekler.filter(x => x && String(x).trim()).length < 2)) {
@@ -2890,7 +2925,6 @@ const sablonlariTestEt = async (limit) => {
                             if (durum === 'ok') durum = 'uyari'; notlar.push('Eşleştirme sağ sütun boş');
                         }
                     });
-                    // tekrar kontrolü
                     const sorular = bloklar.map(b => b.soru_metni).filter(Boolean);
                     if (sorular.length !== new Set(sorular).size) { if (durum === 'ok') durum = 'uyari'; notlar.push('Tekrar eden soru'); }
                 }
@@ -2898,14 +2932,35 @@ const sablonlariTestEt = async (limit) => {
         } catch (e) { durum = 'hata'; notlar.push('Bağlantı hatası'); }
         sonuclar.push({ ...s, durum, notlar: [...new Set(notlar)] });
         setTestSonuclari([...sonuclar]);
-        await new Promise(r => setTimeout(r, 400)); // nazik ol
+        // ARKA PLAN + KALDIĞI YER: her adımda kaydet
+        try { localStorage.setItem('zirve_test_durum', JSON.stringify({ sonuclar, toplam: test.length, zaman: Date.now() })); } catch(e){}
+        await new Promise(r => setTimeout(r, 350));
     }
     setTestIlerleme('');
     setTestModuCalisiyor(false);
+    localStorage.removeItem('zirve_test_durum');
     const ok = sonuclar.filter(x => x.durum === 'ok').length;
     const uyari = sonuclar.filter(x => x.durum === 'uyari').length;
     const hata = sonuclar.filter(x => x.durum === 'hata').length;
     showToast(`Test bitti: ✅${ok} ⚠️${uyari} ❌${hata}`);
+};
+
+// Test sonucunu tek metin olarak panoya kopyala
+const testRaporuKopyala = () => {
+    if (!testSonuclari || !testSonuclari.length) { showToast("Önce test çalıştırın."); return; }
+    const ok = testSonuclari.filter(x => x.durum === 'ok').length;
+    const uyari = testSonuclari.filter(x => x.durum === 'uyari');
+    const hata = testSonuclari.filter(x => x.durum === 'hata');
+    let rapor = `ŞABLON TEST RAPORU\n===================\nToplam test: ${testSonuclari.length}\n✅ Sorunsuz: ${ok}\n⚠️ Uyarı: ${uyari.length}\n❌ Hata: ${hata.length}\n\n`;
+    if (hata.length) { rapor += `--- ❌ HATALAR ---\n`; hata.forEach(r => { rapor += `• ${r.ad} [${r.grup}] — ${r.notlar.join(', ')}\n`; }); rapor += `\n`; }
+    if (uyari.length) { rapor += `--- ⚠️ UYARILAR ---\n`; uyari.forEach(r => { rapor += `• ${r.ad} [${r.grup}] — ${r.notlar.join(', ')}\n`; }); }
+    if (!hata.length && !uyari.length) rapor += `Tüm şablonlar sorunsuz! 🎉`;
+    try {
+        navigator.clipboard.writeText(rapor).then(() => showToast("📋 Rapor kopyalandı! Claude'a yapıştırabilirsin."), () => {
+            // fallback
+            const ta = document.createElement('textarea'); ta.value = rapor; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); showToast("📋 Rapor kopyalandı!");
+        });
+    } catch(e) { showToast("Kopyalanamadı, ekran görüntüsü alın."); }
 };
 
 const generateReadiness = async () => {
@@ -5580,9 +5635,13 @@ notes.map(n => (
             <p className="text-xs font-black text-slate-700 mb-1 flex items-center gap-1">🧪 Şablon Test Modu (Kalite Kontrol)</p>
             <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">Şablonları otomatik Gemini'ye gönderip kontrol eder: JSON geçerli mi, şıklar dolu mu, eşleştirme tam mı, tekrar var mı. Çok anahtarın olduğu için kota sorunu olmaz.</p>
             <div className="flex gap-2 flex-wrap">
-                <button disabled={testModuCalisiyor} onClick={() => sablonlariTestEt(30)} className="text-xs bg-slate-700 text-white px-3 py-2 rounded-lg font-bold hover:bg-slate-800 disabled:opacity-50">İlk 30'u Test Et</button>
-                <button disabled={testModuCalisiyor} onClick={() => sablonlariTestEt(null)} className="text-xs bg-slate-600 text-white px-3 py-2 rounded-lg font-bold hover:bg-slate-700 disabled:opacity-50">Tümünü Test Et</button>
-                {testSonuclari && <button onClick={() => setTestSonuclari(null)} className="text-xs bg-gray-200 text-gray-700 px-3 py-2 rounded-lg font-bold">Temizle</button>}
+                <button disabled={testModuCalisiyor} onClick={() => sablonlariTestEt(30, false)} className="text-xs bg-slate-700 text-white px-3 py-2 rounded-lg font-bold hover:bg-slate-800 disabled:opacity-50">İlk 30'u Test Et</button>
+                <button disabled={testModuCalisiyor} onClick={() => sablonlariTestEt(null, false)} className="text-xs bg-slate-600 text-white px-3 py-2 rounded-lg font-bold hover:bg-slate-700 disabled:opacity-50">Tümünü Test Et</button>
+                {(() => { let yarim = false; try { yarim = !!JSON.parse(localStorage.getItem('zirve_test_durum') || 'null'); } catch(e){} return yarim && !testModuCalisiyor; })() && (
+                    <button onClick={() => sablonlariTestEt(null, true)} className="text-xs bg-amber-500 text-white px-3 py-2 rounded-lg font-bold hover:bg-amber-600">▶ Kaldığından Devam Et</button>
+                )}
+                {testSonuclari && testSonuclari.length > 0 && <button onClick={testRaporuKopyala} className="text-xs bg-green-600 text-white px-3 py-2 rounded-lg font-bold hover:bg-green-700">📋 Raporu Kopyala</button>}
+                {testSonuclari && <button onClick={() => { setTestSonuclari(null); localStorage.removeItem('zirve_test_durum'); }} className="text-xs bg-gray-200 text-gray-700 px-3 py-2 rounded-lg font-bold">Temizle</button>}
             </div>
             {testModuCalisiyor && <p className="text-[11px] text-sky-600 font-bold mt-2 animate-pulse">⏳ Test ediliyor: {testIlerleme}</p>}
             {testSonuclari && testSonuclari.length > 0 && (() => {
