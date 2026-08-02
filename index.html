@@ -1849,6 +1849,7 @@ const [materialTopic, setMaterialTopic] = useState('');
 const [materialType, setMaterialType] = useState('Fark Etmez (Yapay Zeka Seçsin)');
 const [materialResult, setMaterialResult] = useState(null);
 const [isGeneratingMaterial, setIsGeneratingMaterial] = useState(false);
+const [uretimDurumu, setUretimDurumu] = useState('');
 const [lastPromptContext, setLastPromptContext] = useState(''); 
 const [matStudentName, setMatStudentName] = useState('');
 const [matInterests, setMatInterests] = useState('');
@@ -2391,6 +2392,13 @@ const markAsSent = (id) => setBulkMessages(prev => prev.map(m => m.id === id ? {
 const generateMaterial = async () => {
     if (!apiKey || (!materialTopic.trim() && !uploadedFileData)) { showToast("Lütfen konu girin veya dosya yükleyin."); return; }
     setIsGeneratingMaterial(true); setMaterialResult(null);
+    setUretimDurumu('🎨 Materyal hazırlanıyor, yapay zeka içerik üretiyor...');
+    // Canlı durum: model/anahtar bilgisi
+    try {
+        if (window.ZIRVE && window.ZIRVE.model) {
+            setUretimDurumu(`🤖 ${window.ZIRVE.model} ile hazırlanıyor... İçerik oluşturuluyor.`);
+        }
+    } catch(e){}
 
     let islenenKonu = materialTopic;
     let memoryKey = matStudentName ? `mat_memory_${matStudentName.trim().toLowerCase()}` : 'mat_memory_genel';
@@ -2500,6 +2508,16 @@ const generateMaterial = async () => {
                 if (!ayristirilmisData.icerik_bloklari || !Array.isArray(ayristirilmisData.icerik_bloklari)) {
                     ayristirilmisData.icerik_bloklari = Array.isArray(ayristirilmisData.bloklar) ? ayristirilmisData.bloklar : [];
                 }
+                // İÇERİK BOŞ MU? (başlık var ama blok yok) → uyar
+                if (ayristirilmisData.icerik_bloklari.length === 0) {
+                    setUretimDurumu('');
+                    setIsGeneratingMaterial(false);
+                    showToast("⚠️ İçerik boş geldi. Lütfen 'Üret'e tekrar basın veya konuyu biraz daha açık yazın.");
+                    setMaterialResult({ dokuman_basligi: ayristirilmisData.dokuman_basligi || "Tekrar Deneyin", icerik_bloklari: [{ blok_tipi: "bilgi_kutusu", baslik: "İçerik üretilemedi", icerik_metni: "Yapay zeka bu sefer içerik döndürmedi. Lütfen 'Üret' butonuna tekrar basın. Genelde ikinci denemede sorun çözülür. İpucu: Konuyu biraz daha açık yazın (örn: '3. sınıf disleksi için 5 soruluk okuma çalışması')." }] });
+                    setShowAnswerKey(false);
+                    return;
+                }
+                setUretimDurumu('✅ Neredeyse hazır, son düzenlemeler yapılıyor...');
                 setMaterialResult(ayristirilmisData);
                 setShowAnswerKey(true);
                 setTimeout(() => { try { document.getElementById('matbaa-sonuc-alani')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e){} }, 150);
@@ -2552,6 +2570,7 @@ const generateMaterial = async () => {
         }
     } catch (err) { handleApiError(err); }
     setIsGeneratingMaterial(false);
+    setUretimDurumu('');
 };
 // --- MİNİ AI ARAÇLARI (GÜNCELLENMİŞ ZEKALAR) ---
 const generateStory = async () => {
@@ -4037,6 +4056,11 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 {isGeneratingMaterial ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-layer-group mr-2"></i>}
 {isGeneratingMaterial ? 'Dinamik Bloklar Çiziliyor...' : 'Dökümanı Üret ✨'}
 </button>
+{isGeneratingMaterial && uretimDurumu && (
+    <div className="mt-3 bg-teal-50 border border-teal-200 rounded-xl px-4 py-3 text-sm text-teal-800 font-semibold flex items-center gap-2 animate-pulse">
+        <i className="fa-solid fa-wand-magic-sparkles"></i> {uretimDurumu}
+    </div>
+)}
 </div>
 </div>
 </div>
