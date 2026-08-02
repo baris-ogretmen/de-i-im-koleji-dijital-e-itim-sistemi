@@ -2498,7 +2498,7 @@ const generateMaterial = async () => {
         const asamaTimer = setInterval(function(){ if (asamaIdx < asamalar.length - 1) { asamaIdx++; setUretimDurumu(asamalar[asamaIdx]); } }, 2500);
         setUretimDurumu(asamalar[0]);
 
-        // ── YANIT ÇEKME YARDIMCISI: TÜM parçaları birleştirir, finishReason/block bilgisini de döndürür ──
+        // ── YANIT ÇEKME: tüm parçaları birleştirir, finishReason/block bilgisini de döndürür ──
         const cekYanit = async (bodyStr) => {
             const rsp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: bodyStr
@@ -2511,47 +2511,91 @@ const generateMaterial = async () => {
             return { rsp, d, metin, bitis, blok };
         };
 
-        // 1) ŞEMALI DENEME
-        let sonuc = await cekYanit(istekBody);
+        // ── AYRIŞTIRMA: bozuk/yarım JSON'u da onarır ──
+        const ayristirMetin = (metin) => {
+            let t = String(metin || '').replace(/```json/gi, '').replace(/```/gi, '').trim();
+            const s = t.indexOf('{'); if (s !== -1) t = t.substring(s);
+            try { return { data: JSON.parse(t), onarildi: false }; } catch (e) {}
+            let o = t.replace(/[\n\r\t]/g, ' ').replace(/,\s*([\]}])/g, '$1');
+            if (!o.trim().endsWith('}')) {
+                if (((o.match(/(?<!\\)"/g) || []).length % 2) !== 0) o += '"';
+                let acikKose = (o.match(/\[/g) || []).length - (o.match(/\]/g) || []).length;
+                let acikSuslu = (o.match(/{/g) || []).length - (o.match(/}/g) || []).length;
+                for (let i = 0; i < acikKose; i++) o += ']';
+                for (let i = 0; i < acikSuslu; i++) o += '}';
+            }
+            try { return { data: JSON.parse(o), onarildi: true }; } catch (e2) { return { data: null, onarildi: false }; }
+        };
+        const bloklariDuzelt = (d) => {
+            if (!d) return d;
+            if (!d.icerik_bloklari || !Array.isArray(d.icerik_bloklari)) d.icerik_bloklari = Array.isArray(d.bloklar) ? d.bloklar : [];
+            return d;
+        };
+        const bloklarDolu = (d) => !!(d && Array.isArray(d.icerik_bloklari) && d.icerik_bloklari.length > 0);
 
-        // 2) Metin boş geldiyse (ve güvenlik engeli yoksa): ŞEMASIZ + daha büyük bütçe ile TEKRAR dene.
-        //    Dev responseSchema, boş/kesik çıktının en sık sebebidir; şemayı atınca prompt zaten biçimi anlatıyor.
-        if (!sonuc.metin && !sonuc.blok) {
-            setUretimDurumu('🔄 İlk denemede içerik gelmedi, güvenli modda tekrar deniyorum...');
-            let noSchema = null;
-            try {
-                noSchema = JSON.parse(istekBody);
-                if (noSchema.generationConfig) {
-                    delete noSchema.generationConfig.responseSchema;
-                    noSchema.generationConfig.maxOutputTokens = 24000;
-                }
-            } catch (e) { noSchema = null; }
-            if (noSchema) { sonuc = await cekYanit(JSON.stringify(noSchema)); }
+        // Şemasız gövde: dev responseSchema, boş 'icerik_bloklari' listesinin EN SIK sebebidir. Şemayı atınca
+        // prompt zaten istenen JSON biçimini ayrıntısıyla anlatıyor. Bütçeyi de büyütüyoruz.
+        let bodyNoSchema = istekBody;
+        try {
+            const o = JSON.parse(istekBody);
+            if (o.generationConfig) { delete o.generationConfig.responseSchema; o.generationConfig.maxOutputTokens = 24000; }
+            bodyNoSchema = JSON.stringify(o);
+        } catch (e) { bodyNoSchema = istekBody; }
+
+        // DENEME SIRASI: önce ŞEMASIZ (en yüksek başarı), boş/başarısızsa ŞEMALI yedek.
+        const denemeler = [ bodyNoSchema, istekBody ];
+        let sonData = null, sonYanit = null, onarildiMi = false;
+        for (let i = 0; i < denemeler.length; i++) {
+            if (i > 0) setUretimDurumu('🔄 İçerik boş geldi, farklı modda tekrar deniyorum...');
+            const y = await cekYanit(denemeler[i]);
+            sonYanit = y;
+            if (y.metin) {
+                const a = ayristirMetin(y.metin);
+                const d = bloklariDuzelt(a.data);
+                if (bloklarDolu(d)) { sonData = d; onarildiMi = a.onarildi; break; }
+                if (d && !sonData) { sonData = d; onarildiMi = a.onarildi; }
+            }
+            if (y.blok) break;
         }
 
         clearInterval(asamaTimer);
 
-        // Gerçek HTTP hatası (ZİRVE tüm denemelerini bitirip yine de hatalı döndürdüyse) → catch'e düşsün
-        if (sonuc.rsp && !sonuc.rsp.ok && !sonuc.metin) {
-            throw new Error(sonuc.rsp.status === 429 ? '429' : ('API Error ' + sonuc.rsp.status));
+        // Gerçek HTTP hatası + kullanılabilir içerik yok → catch'e düşür (ZİRVE zaten Türkçe sebep göstermiştir)
+        if (sonYanit && sonYanit.rsp && !sonYanit.rsp.ok && !bloklarDolu(sonData)) {
+            throw new Error(sonYanit.rsp.status === 429 ? '429' : ('API Error ' + sonYanit.rsp.status));
         }
 
-        // ── METİN HÂLÂ BOŞSA: SESSİZ KALMA! Net sebep + ekranda kutu göster (eskiden burada hiçbir şey olmuyordu) ──
-        if (!sonuc.metin) {
+        if (bloklarDolu(sonData)) {
+            // ✅ BAŞARILI
+            setUretimDurumu('✅ Neredeyse hazır, son düzenlemeler yapılıyor...');
+            setMaterialResult(sonData);
+            setShowAnswerKey(true);
+            showToast(onarildiMi ? "⚠️ Uzun materyal onarılarak hazırlandı. ✨" : "Materyal başarıyla hazırlandı! ✨");
+            setUploadedFilePreview(null);
+            setUploadedFileData(null);
+            setTimeout(() => { try { document.getElementById('matbaa-sonuc-alani')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }, 150);
+            setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
+        } else {
+            // ⚠️ BAŞARISIZ → ASLA boş ekran bırakma: net sebep + ekranda kutu
             setUretimDurumu(''); setIsGeneratingMaterial(false);
+            const bitis = sonYanit && sonYanit.bitis;
+            const blok = sonYanit && sonYanit.blok;
             let neden, ipucu;
-            if (sonuc.blok) {
-                neden = 'Güvenlik filtresi içeriği engelledi (' + sonuc.blok + ').';
+            if (blok) {
+                neden = 'Güvenlik filtresi içeriği engelledi (' + blok + ').';
                 ipucu = 'Konu ifadesini biraz yumuşatıp tekrar deneyin.';
-            } else if (sonuc.bitis === 'MAX_TOKENS') {
+            } else if (bitis === 'MAX_TOKENS') {
                 neden = 'İçerik çok uzun olduğu için model yanıtı yarıda kesildi.';
-                ipucu = 'İstediğiniz soru/etkinlik sayısını azaltın ya da konuyu 2 parçaya bölüp "devam" yazın.';
-            } else if (sonuc.bitis === 'RECITATION') {
+                ipucu = 'Soru/etkinlik sayısını azaltın (örn: 5 soru) ya da konuyu 2 parçaya bölüp "devam" yazın.';
+            } else if (bitis === 'RECITATION') {
                 neden = 'Model, telifli bir metne fazla benzediği için üretimi durdurdu.';
                 ipucu = 'Konuyu kendi cümlelerinizle, daha genel yazıp tekrar deneyin.';
+            } else if (sonData) {
+                neden = 'Yapay zeka bu sefer hiç içerik bloğu üretmedi (boş liste döndü).';
+                ipucu = '"Üret" butonuna tekrar basın; çoğunlukla ikinci denemede düzelir. Konuyu biraz açın (örn: "4. sınıf matematik, 10 çoktan seçmeli soru, cevap anahtarlı").';
             } else {
-                neden = 'Yapay zeka bu sefer boş yanıt döndürdü' + (sonuc.bitis ? ' (' + sonuc.bitis + ')' : '') + '.';
-                ipucu = 'Çoğunlukla ikinci denemede düzelir; "Üret" butonuna tekrar basın. Konuyu biraz daha açık yazmak da yardımcı olur (örn: "3. sınıf kesirler, 5 çoktan seçmeli soru").';
+                neden = 'Yapay zeka geçerli bir içerik döndüremedi' + (bitis ? ' (' + bitis + ')' : '') + '.';
+                ipucu = '"Üret" butonuna tekrar basın ya da soru sayısını azaltın.';
             }
             showToast('⚠️ ' + neden);
             setMaterialResult({
@@ -2561,80 +2605,6 @@ const generateMaterial = async () => {
             setShowAnswerKey(false);
             setTimeout(() => { try { document.getElementById('matbaa-sonuc-alani')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }, 150);
             return;
-        }
-
-        // ── Buradan sonrası: ELİMİZDE METİN VAR → ayrıştır ──
-        {
-            let aiMetni = sonuc.metin;
-            aiMetni = aiMetni.replace(/```json/gi, '').replace(/```/gi, '').trim();
-            let startIdx = aiMetni.indexOf('{');
-            if (startIdx !== -1) aiMetni = aiMetni.substring(startIdx);
-
-            try {
-                const ayristirilmisData = JSON.parse(aiMetni);
-                // GÜVENCE: icerik_bloklari yoksa veya dizi değilse boş dizi ata (çökmeyi önler)
-                if (!ayristirilmisData.icerik_bloklari || !Array.isArray(ayristirilmisData.icerik_bloklari)) {
-                    ayristirilmisData.icerik_bloklari = Array.isArray(ayristirilmisData.bloklar) ? ayristirilmisData.bloklar : [];
-                }
-                // İÇERİK BOŞ MU? (başlık var ama blok yok) → uyar
-                if (ayristirilmisData.icerik_bloklari.length === 0) {
-                    setUretimDurumu('');
-                    setIsGeneratingMaterial(false);
-                    showToast("⚠️ İçerik boş geldi. Lütfen 'Üret'e tekrar basın veya konuyu biraz daha açık yazın.");
-                    setMaterialResult({ dokuman_basligi: ayristirilmisData.dokuman_basligi || "Tekrar Deneyin", icerik_bloklari: [{ blok_tipi: "bilgi_kutusu", baslik: "İçerik üretilemedi", icerik_metni: "Yapay zeka bu sefer içerik döndürmedi. Lütfen 'Üret' butonuna tekrar basın. Genelde ikinci denemede sorun çözülür. İpucu: Konuyu biraz daha açık yazın (örn: '3. sınıf disleksi için 5 soruluk okuma çalışması')." }] });
-                    setShowAnswerKey(false);
-                    return;
-                }
-                setUretimDurumu('✅ Neredeyse hazır, son düzenlemeler yapılıyor...');
-                setMaterialResult(ayristirilmisData);
-                setShowAnswerKey(true);
-                setTimeout(() => { try { document.getElementById('matbaa-sonuc-alani')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e){} }, 150);
-                showToast("Materyal başarıyla hazırlandı! ✨");
-                setUploadedFilePreview(null);
-                setUploadedFileData(null);
-                setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
-            } catch (ilkHata) {
-                try {
-                    console.log("JSON Yarıda Kesildi, Terminatör Tamir Ediyor...");
-                    let onarilmis = aiMetni.replace(/[\n\r\t]/g, " "); 
-                    onarilmis = onarilmis.replace(/,\s*([\]}])/g, '$1'); 
-                    if (!onarilmis.trim().endsWith('}')) {
-                        let isQuoteOpen = (onarilmis.match(/(?<!\\)"/g) || []).length % 2 !== 0;
-                        if (isQuoteOpen) onarilmis += '"';
-                        let acikKose = (onarilmis.match(/\[/g) || []).length - (onarilmis.match(/\]/g) || []).length;
-                        let acikSusluu = (onarilmis.match(/{/g) || []).length - (onarilmis.match(/}/g) || []).length;
-                        for (let i = 0; i < acikKose; i++) onarilmis += ']';
-                        for (let i = 0; i < acikSusluu; i++) onarilmis += '}';
-                    }
-                    const ayristirilmisData2 = JSON.parse(onarilmis);
-                    if (!ayristirilmisData2.icerik_bloklari || !Array.isArray(ayristirilmisData2.icerik_bloklari)) {
-                        ayristirilmisData2.icerik_bloklari = Array.isArray(ayristirilmisData2.bloklar) ? ayristirilmisData2.bloklar : [];
-                    }
-                    setMaterialResult(ayristirilmisData2);
-                    setShowAnswerKey(true);
-                    showToast("⚠️ Çok uzun materyal: Bölüm 1 kurtarıldı. Devamını isteyebilirsiniz!");
-                    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
-                } catch (ikinciHata) {
-                    console.error("Kurtarma Modu Aktif!", ikinciHata);
-                    setMaterialResult({
-                        dokuman_basligi: "⚠️ Üretim Hatası: Lütfen İsteğinizi Netleştirin!",
-                        alt_baslik: "Yapay zeka tam istediğiniz formatı kuramadı.",
-                        icerik_bloklari: [{ 
-                            blok_tipi: "zengin_metin", 
-                            html_icerik: `<div style="padding: 20px; background: #fff3cd; border-left: 5px solid #ffc107; font-family: sans-serif; font-size: 15px;">
-                                <b>Yapay Zeka bu isteği tek seferde işleyemedi veya yanlış formatta çıktı verdi. Lütfen verimli bir sonuç için şu şablonu deneyin:</b><br><br>
-                                <b>Kademe:</b> (Yukarıdan Seçin)<br>
-                                <b>Format:</b> Yeni Nesil Test veya Karma (Önerilen)<br>
-                                <b>Prompt (Kutuya Yazın):</b> "Kesirler konusu ile ilgili, günlük hayat problemleri barındıran 5 adet çoktan seçmeli yeni nesil soru hazırla. Sorular hikayeleştirilmiş olsun."<br><br>
-                                <i>İpucu: Eğer bir dosya yüklediyseniz, sadece "Bu dosyayı teste çevir" yazıp üret butonuna basabilirsiniz.</i>
-                            </div>` 
-                        }]
-                    });
-                    setShowAnswerKey(false);
-                    showToast("⚠️ Format bozuldu, lütfen örnek şablonu inceleyin!");
-                    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
-                }
-            }
         }
     } catch (err) { handleApiError(err); }
     setIsGeneratingMaterial(false);
