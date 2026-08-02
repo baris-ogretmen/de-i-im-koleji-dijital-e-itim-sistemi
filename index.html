@@ -2496,6 +2496,10 @@ const generateMaterial = async () => {
 
             try {
                 const ayristirilmisData = JSON.parse(aiMetni);
+                // GÜVENCE: icerik_bloklari yoksa veya dizi değilse boş dizi ata (çökmeyi önler)
+                if (!ayristirilmisData.icerik_bloklari || !Array.isArray(ayristirilmisData.icerik_bloklari)) {
+                    ayristirilmisData.icerik_bloklari = Array.isArray(ayristirilmisData.bloklar) ? ayristirilmisData.bloklar : [];
+                }
                 setMaterialResult(ayristirilmisData);
                 setShowAnswerKey(true);
                 setTimeout(() => { try { document.getElementById('matbaa-sonuc-alani')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e){} }, 150);
@@ -2517,6 +2521,9 @@ const generateMaterial = async () => {
                         for (let i = 0; i < acikSusluu; i++) onarilmis += '}';
                     }
                     const ayristirilmisData2 = JSON.parse(onarilmis);
+                    if (!ayristirilmisData2.icerik_bloklari || !Array.isArray(ayristirilmisData2.icerik_bloklari)) {
+                        ayristirilmisData2.icerik_bloklari = Array.isArray(ayristirilmisData2.bloklar) ? ayristirilmisData2.bloklar : [];
+                    }
                     setMaterialResult(ayristirilmisData2);
                     setShowAnswerKey(true);
                     showToast("⚠️ Çok uzun materyal: Bölüm 1 kurtarıldı. Devamını isteyebilirsiniz!");
@@ -4847,7 +4854,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 
 {/* DINAMIK BLOK RENDER MOTORU */}
 <div className="space-y-10">
-{materialResult.icerik_bloklari.map((blok, idx) => {
+{(materialResult.icerik_bloklari || []).map((blok, idx) => {
 switch(blok.blok_tipi) {
 
 // 1. DEĞERLENDİRME FORMU (Yeni Şov Modülü)
@@ -5506,7 +5513,7 @@ return (
 </div>
 
 {/* ÇÖZÜMLÜ CEVAP ANAHTARI BÖLÜMÜ (AYRI SAYFA) - ÖĞRETMEN NÜSHASI */}
-{showAnswerKey && materialResult.icerik_bloklari.some(b => b.cevap_anahtari) && (
+{showAnswerKey && (materialResult.icerik_bloklari || []).some(b => b.cevap_anahtari) && (
 <div className="page-break-before mt-16 pt-8 border-t-4 border-dashed border-gray-400">
 <div className="cevap-anahtari-baslik bg-yellow-200 text-indigo-900 border-2 border-indigo-800 p-4 rounded-xl mb-6 text-center print-high-contrast shadow-md">
 <h3 className="text-2xl font-black uppercase tracking-widest"><i className="fa-solid fa-key mr-2 text-indigo-700"></i> CEVAP ANAHTARI & DETAYLI ÇÖZÜMLER</h3>
@@ -5514,7 +5521,7 @@ return (
 </div>
 
 <div className="space-y-10">
-{materialResult.icerik_bloklari.map((blok, idx) => {
+{(materialResult.icerik_bloklari || []).map((blok, idx) => {
 if(!blok.cevap_anahtari) return null;
 
 let soruLabel = `Blok ${idx + 1}`;
