@@ -4941,7 +4941,7 @@ case 'okuma_parcasi':
 return (
 <div key={idx} className="mb-6 p-6 bg-yellow-50/50 border border-yellow-200 rounded-xl print:bg-yellow-50 break-inside-avoid">
 {blok.baslik && <h3 className="font-bold text-yellow-800 mb-3 flex items-center print-high-contrast"><i className="fa-solid fa-book-open text-xl mr-2"></i>{blok.baslik}</h3>}
-<p className="text-gray-800 leading-relaxed font-medium text-justify print-high-contrast whitespace-pre-wrap text-lg">{blok.icerik_metni}</p>
+<p className="text-gray-800 leading-relaxed font-medium text-justify print-high-contrast whitespace-pre-wrap text-lg"><HtmlMetin metin={blok.icerik_metni} /></p>
 </div>
 );
 
@@ -4960,7 +4960,7 @@ if(blok.renk?.includes('kırmızı') || blok.renk?.includes('red')) cMap = COLOR
 return (
 <div key={idx} className={`${cMap} p-5 rounded-2xl border-2 break-inside-avoid shadow-sm print:shadow-none mb-4`}>
 {blok.baslik && <h4 className="font-black text-lg mb-2 flex items-center print-high-contrast"><i className="fa-solid fa-lightbulb mr-2 opacity-50"></i>{blok.baslik}</h4>}
-<p className="font-medium leading-snug print-high-contrast whitespace-pre-wrap">{blok.icerik_metni}</p>
+<p className="font-medium leading-snug print-high-contrast whitespace-pre-wrap"><HtmlMetin metin={blok.icerik_metni} /></p>
 </div>
 );
 
@@ -4991,7 +4991,7 @@ return (
 {blok.secenekler.map((sec, sIdx) => (
 <div key={sIdx} className="text-gray-700 font-medium print-high-contrast w-full mb-1">
 <span className="w-8 h-8 rounded-full border-2 border-gray-400 inline-flex items-center justify-center mr-3 font-bold text-sm bg-gray-50 print:bg-transparent align-middle">{['A', 'B', 'C', 'D', 'E'][sIdx]}</span>
-<span className="inline-block align-middle w-[85%] whitespace-pre-wrap">{sec}</span>
+<span className="inline-block align-middle w-[85%] whitespace-pre-wrap"><HtmlMetin metin={sec} /></span>
 </div>
 ))}
 </div>
@@ -5492,9 +5492,9 @@ return (
 <div key={idx} className="break-inside-avoid mb-8 bg-white border-2 border-indigo-100 rounded-xl p-6 shadow-sm print:shadow-none print:border-gray-300">
 {blok.baslik && <h3 className="font-bold text-2xl text-indigo-900 mb-4 border-b border-indigo-100 pb-2 print-high-contrast whitespace-pre-wrap">{blok.baslik}</h3>}
 {blok.html_icerik && <div className="prose max-w-none text-gray-800 leading-relaxed text-lg print-high-contrast" dangerouslySetInnerHTML={{ __html: blok.html_icerik }}></div>}
-{blok.icerik_metni && <p className="text-gray-800 leading-relaxed text-lg print-high-contrast whitespace-pre-wrap mb-3">{blok.icerik_metni}</p>}
+{blok.icerik_metni && <p className="text-gray-800 leading-relaxed text-lg print-high-contrast whitespace-pre-wrap mb-3"><HtmlMetin metin={blok.icerik_metni} /></p>}
 {blok.soru_metni && <p className="font-semibold text-gray-900 text-lg print-high-contrast whitespace-pre-wrap mb-2">{blok.soru_metni}</p>}
-{blok.secenekler && blok.secenekler.length > 0 && (<div className="pl-4 space-y-2 mb-2">{blok.secenekler.map((sec, sI) => (<div key={sI} className="text-gray-700 font-medium print-high-contrast"><span className="w-7 h-7 rounded-full border-2 border-gray-400 inline-flex items-center justify-center mr-2 font-bold text-xs bg-gray-50 print:bg-transparent align-middle">{['A','B','C','D','E','F'][sI]}</span><span className="inline-block align-middle whitespace-pre-wrap">{sec}</span></div>))}</div>)}
+{blok.secenekler && blok.secenekler.length > 0 && (<div className="pl-4 space-y-2 mb-2">{blok.secenekler.map((sec, sI) => (<div key={sI} className="text-gray-700 font-medium print-high-contrast"><span className="w-7 h-7 rounded-full border-2 border-gray-400 inline-flex items-center justify-center mr-2 font-bold text-xs bg-gray-50 print:bg-transparent align-middle">{['A','B','C','D','E','F'][sI]}</span><span className="inline-block align-middle whitespace-pre-wrap"><HtmlMetin metin={sec} /></span></div>))}</div>)}
 {blok.cizim_adimlari && blok.cizim_adimlari.length > 0 && (<div className="space-y-6 mt-4">{blok.cizim_adimlari.map((cz, i) => (<div key={i} className="text-gray-400 font-black tracking-[0.4em] text-3xl whitespace-nowrap overflow-hidden print-high-contrast border-b border-dashed border-gray-200 pb-2">{cz}</div>))}</div>)}
 {blok.adimlar && blok.adimlar.length > 0 && (<ol className="list-decimal pl-6 space-y-1 mt-2 text-gray-800">{blok.adimlar.map((a,i)=><li key={i} className="print-high-contrast whitespace-pre-wrap">{a}</li>)}</ol>)}
 {blok.malzemeler && blok.malzemeler.length > 0 && (<ul className="list-disc pl-6 space-y-1 mt-2 text-gray-800">{blok.malzemeler.map((m,i)=><li key={i} className="print-high-contrast whitespace-pre-wrap">{m}</li>)}</ul>)}
