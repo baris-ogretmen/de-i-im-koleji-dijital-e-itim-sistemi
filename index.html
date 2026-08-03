@@ -1855,6 +1855,12 @@ const [matStudentName, setMatStudentName] = useState('');
 const [matInterests, setMatInterests] = useState('');
 const [matDifficulty, setMatDifficulty] = useState('Fark Etmez (Yapay Zeka Belirlesin)');
 const [matQuestionCount, setMatQuestionCount] = useState('Fark Etmez (Yapay Zeka Belirlesin)');
+const [matGrade, setMatGrade] = useState('');
+const [matFocus, setMatFocus] = useState('');
+const [ogrenciProfilleri, setOgrenciProfilleri] = useState(() => { try { return JSON.parse(localStorage.getItem('mat_ogrenci_profilleri') || '[]'); } catch(e){ return []; } });
+const [seciliProfil, setSeciliProfil] = useState('');
+const [sablonAcik, setSablonAcik] = useState(false);
+const [ozelAcik, setOzelAcik] = useState(false);
 const [showAnswerKey, setShowAnswerKey] = useState(true);
 const [uploadedFilePreview, setUploadedFilePreview] = useState(null);
 const [uploadedFileData, setUploadedFileData] = useState(null);
@@ -2389,6 +2395,39 @@ const markAsSent = (id) => setBulkMessages(prev => prev.map(m => m.id === id ? {
 
 // --- DEVASA MATBAA (BLOK TABANLI RENDER SİSTEMİ) ---
 // BARIŞ HOCA MEGA DOSYA/PDF UYARLAMA VE DÖNÜŞTÜRME MOTORU
+// ── ÖĞRENCİ PROFİLLERİ (kaydet/yükle/sil) + HIZLI ÇİP ──
+const profilKaydet = () => {
+    if (!matStudentName.trim()) { showToast('Önce öğrenci adını yazın.'); return; }
+    const p = { ad: matStudentName.trim(), sinif: matGrade.trim(), ilgi: matInterests.trim(), odak: matFocus.trim() };
+    setOgrenciProfilleri(prev => {
+        const yeni = [...prev.filter(x => (x.ad || '').toLowerCase() !== p.ad.toLowerCase()), p].sort((a, b) => a.ad.localeCompare(b.ad, 'tr'));
+        try { localStorage.setItem('mat_ogrenci_profilleri', JSON.stringify(yeni)); } catch(e){}
+        return yeni;
+    });
+    setSeciliProfil(p.ad);
+    showToast('💾 "' + p.ad + '" öğrenci profili kaydedildi.');
+};
+const profilYukle = (ad) => {
+    setSeciliProfil(ad);
+    if (!ad) return;
+    const p = ogrenciProfilleri.find(x => x.ad === ad);
+    if (!p) return;
+    setMatStudentName(p.ad || ''); setMatGrade(p.sinif || ''); setMatInterests(p.ilgi || ''); setMatFocus(p.odak || '');
+    showToast('👤 "' + p.ad + '" bilgileri yüklendi.');
+};
+const profilSil = (ad) => {
+    if (!ad) return;
+    setOgrenciProfilleri(prev => {
+        const yeni = prev.filter(x => x.ad !== ad);
+        try { localStorage.setItem('mat_ogrenci_profilleri', JSON.stringify(yeni)); } catch(e){}
+        return yeni;
+    });
+    if (seciliProfil === ad) setSeciliProfil('');
+    showToast('🗑️ "' + ad + '" silindi.');
+};
+// Prompt kutusuna kısa bir talimat çipini ekler (mevcut metnin sonuna)
+const promptaEkleChip = (metin) => setMaterialTopic(t => (t && t.trim() ? t.trim() + ' ' : '') + metin);
+
 // ── MATBAA ÇIKTISINI DÜZ METNE ÇEVİR (Kopyala + Prompta Geri Ekle için) ──
 const matbaaMetneCevir = (res) => {
     if (!res) return '';
@@ -2488,7 +2527,14 @@ const generateMaterial = async () => {
     const countFromMenu = /^\d+$/.test(String(matQuestionCount)) ? Number(matQuestionCount) : null;
     const questionCount = countFromText ? Number(countFromText[1]) : (countFromMenu || 10);
     const targetGroup = activityCategory === 'Fark Etmez (Yapay Zeka Seçsin)' ? 'İstekte geçen sınıf/yaş düzeyi' : activityCategory;
-    const studentContext = matStudentName.trim() ? ('Öğrenci: ' + matStudentName.trim() + '. İlgi alanları: ' + (matInterests.trim() || 'belirtilmedi') + '.') : '';
+    const studentContext = (matStudentName.trim() || matGrade.trim() || matInterests.trim() || matFocus.trim())
+        ? ('KİŞİSELLEŞTİRME (bu öğrenciye birebir uyarla): '
+            + (matStudentName.trim() ? ('Öğrenci adı: ' + matStudentName.trim() + '. ') : '')
+            + (matGrade.trim() ? ('Sınıf/yaş düzeyi: ' + matGrade.trim() + ' (dil ve zorluğu buna göre ayarla). ') : '')
+            + (matInterests.trim() ? ('İlgi alanları: ' + matInterests.trim() + ' — örnekleri, temayı ve isimleri MUTLAKA bu ilgiye göre seç. ') : '')
+            + (matFocus.trim() ? ('Özellikle şu konuya/duruma odaklan ve pekiştir: ' + matFocus.trim() + '. ') : '')
+            + 'Materyali kişisel, sıcak ve öğrenciye hitap eder biçimde hazırla.')
+        : '';
     const zorlukContext = (matDifficulty && !String(matDifficulty).includes('Fark Etmez')) ? (' Zorluk seviyesi: ' + matDifficulty + '.') : '';
     const testContract = 'Bu bir TEST isteğidir. SADECE tam ' + questionCount + ' adet standart_soru bloğu üret; bilgi_kutusu veya Materyal Notu ekleme. Her soru zorunlu olarak şu JSON biçiminde olmalı: {"blok_tipi":"standart_soru","soru_metni":"...","secenekler":["birinci seçenek","ikinci seçenek","üçüncü seçenek","dördüncü seçenek"],"cevap_anahtari":"Doğru cevap: A. Kısa açıklama."}. secenekler dizisinde TAM DÖRT metin olmalı. Genel değerlendirme istendiyse dersleri dengeli dağıt.' + zorlukContext;
     const formatContext = (materialType && !materialType.startsWith('Fark')) ? ('İstenen materyal formatı: ' + materialType + '.') : '';
@@ -4071,11 +4117,34 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 )}
 
 <div className="bg-teal-800/50 border border-teal-500 rounded-xl p-3">
-<label className="block text-xs font-bold text-teal-200 uppercase mb-2"><i className="fa-solid fa-face-smile-wink mr-1"></i> Öğrenciye Özel Yap (Opsiyonel)</label>
-<div className="grid grid-cols-2 gap-2">
-<input type="text" value={matStudentName} onChange={e=>setMatStudentName(e.target.value)} placeholder="Adı (Örn: Aleks)" className="w-full px-3 py-2 bg-white/10 border border-teal-400/50 rounded outline-none text-white placeholder-teal-200/50 text-xs" />
-<input type="text" value={matInterests} onChange={e=>setMatInterests(e.target.value)} placeholder="İlgi Alanı (Örn: Dinozor)" className="w-full px-3 py-2 bg-white/10 border border-teal-400/50 rounded outline-none text-white placeholder-teal-200/50 text-xs" />
+<div className="flex items-center justify-between cursor-pointer select-none" onClick={() => setOzelAcik(o => !o)}>
+<span className="block text-xs font-bold text-teal-200 uppercase"><i className="fa-solid fa-user-graduate mr-1"></i> Öğrenciye Özel Yap {matStudentName ? <span className="text-yellow-300 normal-case"> · {matStudentName}</span> : <span className="text-teal-400/70 lowercase font-semibold"> (opsiyonel)</span>}</span>
+<i className={`fa-solid ${ozelAcik ? 'fa-chevron-up' : 'fa-chevron-down'} text-teal-300 text-sm`}></i>
 </div>
+{ozelAcik && (
+<div className="mt-3 space-y-2 animate-fade-in">
+{ogrenciProfilleri.length > 0 && (
+<div className="flex gap-2 items-center">
+<select value={seciliProfil} onChange={e => profilYukle(e.target.value)} className="flex-1 px-2 py-2 bg-white/10 border border-teal-400/50 rounded outline-none text-white text-xs">
+<option value="" className="text-gray-900">📂 Kayıtlı öğrenci seç...</option>
+{ogrenciProfilleri.map((p, i) => <option key={i} value={p.ad} className="text-gray-900">{p.ad}{p.sinif ? ' · ' + p.sinif : ''}</option>)}
+</select>
+{seciliProfil && <button onClick={() => profilSil(seciliProfil)} title="Seçili öğrenciyi sil" className="px-2.5 py-2 bg-red-500/80 hover:bg-red-500 rounded text-white text-xs"><i className="fa-solid fa-trash"></i></button>}
+</div>
+)}
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+<input type="text" value={matStudentName} onChange={e=>setMatStudentName(e.target.value)} placeholder="Adı (Örn: Aleks)" className="w-full px-3 py-2 bg-white/10 border border-teal-400/50 rounded outline-none text-white placeholder-teal-200/50 text-xs" />
+<input type="text" value={matGrade} onChange={e=>setMatGrade(e.target.value)} placeholder="Sınıf / Yaş (Örn: 3. sınıf)" className="w-full px-3 py-2 bg-white/10 border border-teal-400/50 rounded outline-none text-white placeholder-teal-200/50 text-xs" />
+</div>
+<input type="text" value={matInterests} onChange={e=>setMatInterests(e.target.value)} placeholder="İlgi alanı (Örn: dinozor, uzay, futbol)" className="w-full px-3 py-2 bg-white/10 border border-teal-400/50 rounded outline-none text-white placeholder-teal-200/50 text-xs" />
+<input type="text" value={matFocus} onChange={e=>setMatFocus(e.target.value)} placeholder="Zorlandığı / pekiştirilecek konu veya özel durum (Örn: çarpma, disleksi, dikkat)" className="w-full px-3 py-2 bg-white/10 border border-teal-400/50 rounded outline-none text-white placeholder-teal-200/50 text-xs" />
+<div className="flex gap-2">
+<button onClick={profilKaydet} className="flex-1 px-3 py-2 bg-emerald-500/90 hover:bg-emerald-500 rounded text-white text-xs font-bold transition"><i className="fa-solid fa-floppy-disk mr-1"></i> Öğrenciyi Kaydet</button>
+<button onClick={() => { setMatStudentName(''); setMatGrade(''); setMatInterests(''); setMatFocus(''); setSeciliProfil(''); }} className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded text-teal-100 text-xs transition"><i className="fa-solid fa-eraser mr-1"></i> Boşalt</button>
+</div>
+<p className="text-[10px] text-teal-300/80 leading-snug"><i className="fa-solid fa-circle-info mr-1"></i> Doldurduğun bilgiler her üretimde otomatik uygulanır. Bir kez kaydet, sonra listeden tek tıkla çağır.</p>
+</div>
+)}
 </div>
 </div>
 
@@ -4120,9 +4189,28 @@ title="Veli ödevi yaptıysa buraya tıklayın."
         )}
     </div>
 )}
-{/* HAZIR ŞABLON BUTONLARI - KADEME BAZLI */}
-<div className="mb-3 bg-teal-800/20 p-3 rounded-xl border border-teal-500/20">
-  <p className="text-[11px] font-bold text-teal-300 uppercase mb-2"><i className="fa-solid fa-bolt mr-1"></i> Hazır Şablonlar — tıkla, sınıfı/konuyu değiştir, üret</p>
+{/* HIZLI EKLE ÇİPLERİ — tek tıkla prompt'a talimat ekler */}
+<div className="mb-2 flex flex-wrap gap-1.5 items-center">
+<span className="text-[10px] font-bold text-teal-300 uppercase mr-1"><i className="fa-solid fa-wand-magic-sparkles mr-1"></i>Hızlı ekle:</span>
+{[
+{e:'✔ Cevap anahtarlı', m:'Cevap anahtarı ve kısa çözümlerini ekle.'},
+{e:'🎨 Görsel/SVG', m:'Uygun yerlere renkli inline SVG görsel/şema ekle.'},
+{e:'😀 Bol emoji', m:'Bol emoji ve renkli başlıklarla eğlenceli hale getir.'},
+{e:'🟢 Kolay', m:'Zorluk seviyesi kolay olsun.'},
+{e:'🔴 Zor', m:'Zorluk seviyesi zor olsun.'},
+{e:'🔟 10 soru', m:'Toplam 10 soru olsun.'},
+{e:'2️⃣0️⃣ 20 soru', m:'Toplam 20 soru olsun.'},
+{e:'👤 Öğrenciye uyarla', m:'Yukarıdaki öğrenci bilgilerine göre birebir kişiselleştir.'},
+{e:'📄 Yazdırmaya hazır', m:'A4 yazdırmaya uygun, sade ve düzenli olsun.'},
+].map((c,i)=>(<button key={i} onClick={()=>promptaEkleChip(c.m)} className="text-[11px] bg-white/10 hover:bg-yellow-400 hover:text-teal-900 text-teal-50 px-2 py-1 rounded-md font-semibold transition border border-teal-400/20 hover:border-yellow-400">{c.e}</button>))}
+</div>
+{/* ŞABLON AÇ/KAPA — kapalıyken yer kaplamaz */}
+<button onClick={()=>setSablonAcik(s=>!s)} className="mb-2 w-full flex items-center justify-between bg-teal-800/30 hover:bg-teal-800/50 border border-teal-500/30 rounded-xl px-3 py-2.5 transition">
+<span className="text-[11px] font-bold text-teal-200 uppercase"><i className="fa-solid fa-bolt mr-1.5 text-yellow-400"></i>Hazır Şablonlar — tıkla, seç, konuyu değiştir</span>
+<i className={`fa-solid ${sablonAcik ? 'fa-chevron-up' : 'fa-chevron-down'} text-teal-300 text-xs`}></i>
+</button>
+{sablonAcik && (
+<div className="mb-3 bg-teal-800/20 p-3 rounded-xl border border-teal-500/20 max-h-72 overflow-y-auto animate-fade-in">
   {(window.ZIRVE_SABLONLAR || [
     { grup: "🧸 Anaokulu", items: [
       { e: "Çizgi Çalışması", t: "cizgi_calismasi", m: "Okul öncesi 5 yaş için el-göz koordinasyonu çizgi çalışması hazırla. Her satırda kalemle üzerinden geçilecek farklı bir desen olsun: düz çizgi, dalgalı çizgi, zikzak, yay, halka. 6 satır olsun." },
@@ -4174,6 +4262,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
     </div>
   ))}
 </div>
+)}
 <textarea value={materialTopic} onChange={(e) => setMaterialTopic(e.target.value)} rows="6" placeholder="Ne üretmek istiyorsun veya yüklediğin dosyaya ne yapalım? Örn: Bu testteki soruları uzay temasına göre baştan yaz... veya 5. sınıf matematik 10 zor soru üret..." className="w-full px-4 py-3 bg-white/10 border border-teal-400/50 rounded-xl outline-none text-white placeholder-teal-200/50 resize-y focus:bg-white focus:text-teal-900 transition mb-2"></textarea>
 {/* CANLI PROMPT DENETLEYİCİ: üretilemeyecek istekleri kırmızı gösterir, alternatif sunar */}
 {(() => { const _sorunlar = promptSorunlari(materialTopic); if (!_sorunlar.length) return null; return (
