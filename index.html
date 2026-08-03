@@ -2389,226 +2389,312 @@ const markAsSent = (id) => setBulkMessages(prev => prev.map(m => m.id === id ? {
 
 // --- DEVASA MATBAA (BLOK TABANLI RENDER SİSTEMİ) ---
 // BARIŞ HOCA MEGA DOSYA/PDF UYARLAMA VE DÖNÜŞTÜRME MOTORU
+// ── MATBAA ÇIKTISINI DÜZ METNE ÇEVİR (Kopyala + Prompta Geri Ekle için) ──
+const matbaaMetneCevir = (res) => {
+    if (!res) return '';
+    const S = (x) => (x == null ? '' : String(x)).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const L = [];
+    if (res.dokuman_basligi) L.push('# ' + S(res.dokuman_basligi));
+    if (res.alt_baslik) L.push(S(res.alt_baslik));
+    (res.icerik_bloklari || []).forEach((b, i) => {
+        if (!b) return;
+        L.push('');
+        if (b.baslik) L.push('## ' + S(b.baslik));
+        if (b.icerik_metni) L.push(S(b.icerik_metni));
+        if (b.html_icerik) L.push(S(b.html_icerik));
+        if (b.merkez_kavram) L.push('Merkez: ' + S(b.merkez_kavram));
+        if (b.soru_metni) L.push((i + 1) + ') ' + S(b.soru_metni));
+        if (Array.isArray(b.secenekler) && b.secenekler.length) b.secenekler.forEach((s, j) => L.push('   ' + (['A','B','C','D','E','F'][j] || '-') + ') ' + S(s)));
+        if (Array.isArray(b.sol_sutun) && b.sol_sutun.length) L.push('Sol: ' + b.sol_sutun.map(S).join(', '));
+        if (Array.isArray(b.sag_sutun_karisik) && b.sag_sutun_karisik.length) L.push('Sağ (karışık): ' + b.sag_sutun_karisik.map(S).join(', '));
+        [['cizim_adimlari','Çizim'],['adimlar','Adımlar'],['malzemeler','Malzemeler'],['hece_gruplari','Heceler'],['emojiler','Emoji'],['yan_kavramlar','Kavramlar'],['tombala_gorevleri','Görevler'],['karisik_adimlar','Karışık adımlar'],['girdiler','Girdiler'],['ciktilar','Çıktılar'],['kriterler','Kriterler']].forEach(([k, lbl]) => { if (Array.isArray(b[k]) && b[k].length) L.push(lbl + ': ' + b[k].map(S).join(' | ')); });
+        if (Array.isArray(b.kartlar) && b.kartlar.length) b.kartlar.forEach(k => L.push('Kart: ' + S(k.on_yuz) + ' → ' + S(k.arka_yuz)));
+        if (Array.isArray(b.dikte_kelimeleri) && b.dikte_kelimeleri.length) L.push('Dikte: ' + b.dikte_kelimeleri.map(d => S(d.emoji) + ' ' + S(d.kelime)).join(', '));
+        if (Array.isArray(b.satirlar) && b.satirlar.length) b.satirlar.forEach(r => L.push('  ' + (r.hucreler || []).map(S).join(' | ')));
+        if (b.manset) L.push('Manşet: ' + S(b.manset));
+        if (b.haber_metni) L.push(S(b.haber_metni));
+        if (b.hatali_cozum) L.push(S(b.hatali_cozum));
+        if (b.sertifika_metni) L.push(S(b.sertifika_metni));
+        if (b.cevap_anahtari) L.push('✔ Cevap: ' + S(b.cevap_anahtari));
+    });
+    return L.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+};
+
+// Üretilen materyali panoya kopyala (ZİRVE paketi: AI cevaplarına Kopyala düğmesi)
+const matbaaKopyala = async () => {
+    const t = matbaaMetneCevir(materialResult);
+    if (!t) { showToast('Kopyalanacak içerik yok.'); return; }
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(t); }
+        else { const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }
+        showToast('📋 Materyal metni panoya kopyalandı!');
+    } catch (e) { showToast('Kopyalama başarısız; tarayıcı izin vermedi.'); }
+};
+
+// Üretilen materyali "hataları düzelt" talimatıyla prompt kutusuna geri gönder
+const matbaaPromptaEkle = () => {
+    const t = matbaaMetneCevir(materialResult);
+    if (!t) { showToast('Aktarılacak içerik yok.'); return; }
+    const yonerge = 'AŞAĞIDA senin ÜRETTİĞİN materyal var. Şu hataları TESPİT ET ve DÜZELTEREK aynı konuda YENİDEN üret: boş/eksik şıklar, boş bırakılmış eşleştirme sağ sütunu, tekrar eden veya bozuk sorular, var olmayan görsele atıf, soru tipi ile içerik uyumsuzluğu, yanlış cevap anahtarı. Sağlam kısımları koru, yalnızca hatalıları düzelt.\n\n----- ÜRETİLEN MATERYAL -----\n';
+    setMaterialTopic(yonerge + t);
+    if (setActiveTab) setActiveTab('tools');
+    setMaterialResult(null);
+    showToast('✏️ Materyal, düzeltme talimatıyla prompt kutusuna aktarıldı. Şimdi "Üret"e bas.');
+    setTimeout(() => { try { document.querySelector('textarea[placeholder^="Ne üretmek"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {} }, 200);
+};
+
+// ── CANLI PROMPT DENETLEYİCİ: yapay zekanın üretemeyeceği istekleri yakalar, alternatif sunar ──
+const promptSorunlari = (metin) => {
+    const t = String(metin || '');
+    if (!t.trim()) return [];
+    const kurallar = [
+        { re: /(yandaki|aşağıdaki|yukarıdaki|verilen|soldaki|sağdaki)\s*(resim|resme|resmi|görsel|görsele|görseldeki|fotoğraf|fotograf|şekle bak|şekildeki resim)/i, kotu: 'var olmayan bir resme/görsele atıf', oneri: 'nesnenin adını ya da emojisini yaz (örn: 🍎 elma) veya "SVG şekil çiz" de' },
+        { re: /(resim|resmi|fotoğraf|fotograf|illüstrasyon|illustrasyon)\s*(çiz|çizin|ekle|oluştur|üret|bul|koy|yerleştir)/i, kotu: 'gerçek resim/fotoğraf üretimi (yapay zeka çizemez)', oneri: 'basit "inline SVG şekil" veya "çizgi çalışması" iste' },
+        { re: /(boyama sayfası|boyama resmi|karmaşık çizim|detaylı çizim|gerçekçi çizim|realistik)/i, kotu: 'karmaşık/gerçekçi çizim', oneri: 'basit SVG şekil, çizgi çalışması ya da emoji etkinliği iste' },
+        { re: /(sesli|dinlet|şarkı söyle|müzik çal|video|animasyon|hareketli resim|hareketli görsel|\bgif\b)/i, kotu: 'ses/video/animasyon (çıktı yalnızca metin + basit görsel)', oneri: 'şarkı sözü / metin / yönerge olarak iste' },
+        { re: /(el yazısı font|yazı tipi değiştir|font değiştir|kaligrafi font|özel font)/i, kotu: 'özel yazı tipi/font kontrolü', oneri: '"bitişik eğik yazı çizgi çalışması" olarak iste' },
+        { re: /(qr kod|karekod|barkod)/i, kotu: 'QR / barkod üretimi', oneri: 'QR yerine düz bağlantı ya da metin yaz' },
+        { re: /\b([3-9]\d|\d{3,})\s*(soru|madde|sayfa)\b/i, kotu: 'tek seferde çok büyük miktar (yanıt yarıda kesilebilir)', oneri: 'en fazla ~20-25 madde iste; gerisi için sonra "devam" yaz' },
+    ];
+    const bulunan = [];
+    kurallar.forEach(k => { const m = t.match(k.re); if (m && !bulunan.some(x => x.kotu === k.kotu)) bulunan.push({ eslesme: m[0], kotu: k.kotu, oneri: k.oneri }); });
+    return bulunan;
+};
+
 const generateMaterial = async () => {
-    // Anahtar kontrolü: React state boş olsa bile ZİRVE halkasında (gömülü/panel) anahtar varsa üretime izin ver
+    // ── ZİRVE-uyumlu anahtar kontrolü ──
     const zirveAnahtarVar = !!(window.ZIRVE && window.ZIRVE.RING && window.ZIRVE.RING.keys && window.ZIRVE.RING.keys.length);
     if (!apiKey && !zirveAnahtarVar) { setActiveTab && setActiveTab('settings'); showToast("🔑 Önce API anahtarı ekleyin (sağ alttaki 🔑 API düğmesi ya da Ayarlar)."); return; }
     if (!materialTopic.trim() && !uploadedFileData) { showToast("✍️ Lütfen bir konu yazın veya dosya yükleyin."); return; }
-    setIsGeneratingMaterial(true); setMaterialResult(null);
-    setUretimDurumu('🎨 Materyal hazırlanıyor...');
-    // Canlı durum: model/anahtar bilgisi
-    try {
-        if (window.ZIRVE && window.ZIRVE.model) {
-            setUretimDurumu(`🤖 ${window.ZIRVE.model} ile hazırlanıyor... İçerik oluşturuluyor.`);
-        }
-    } catch(e){}
 
-    let islenenKonu = materialTopic;
-    let memoryKey = matStudentName ? `mat_memory_${matStudentName.trim().toLowerCase()}` : 'mat_memory_genel';
-    let kayitliHafiza = localStorage.getItem(memoryKey) || lastPromptContext;
+    // Matbaa: serbest isteği güvenilir yazdırılabilir materyale dönüştürür.
+    let instruction = materialTopic.trim() || 'Yüklenen dosyayı yaş düzeyine uygun çalışma kâğıdına dönüştür.';
 
-    if (materialTopic.toLowerCase().includes('devam') || materialTopic.toLowerCase().includes('bölüm') || materialTopic.toLowerCase().includes('bolum')) {
-        islenenKonu = `DEVAM İSTEĞİ: Öğrenci (${matStudentName || 'Genel'}) için geçmişte işlenen ve hafızaya alınan konu şuydu: "${kayitliHafiza}". Lütfen konuyu baştan alma! Geçmiş bölümleri tekrar etmeden, yepyeni alt başlıklar ve sorularla KALDIĞIN YERDEN DEVAM ET! Kullanıcının ekstra isteği: "${materialTopic}" \n\nÖLÜMCÜL KURAL: Devam bölümünü yazarken de KESİNLİKLE JSON formatında ('dokuman_basligi' ve 'icerik_bloklari' dizisi) yanıt ver! Düz metin YAZMA! Çift tırnak (") ASLA kullanma!`;
+    // ── HAFIZA / DEVAM özelliği (kolej) korunuyor ──
+    const memoryKey = matStudentName ? ('mat_memory_' + matStudentName.trim().toLowerCase()) : 'mat_memory_genel';
+    const kayitliHafiza = localStorage.getItem(memoryKey) || lastPromptContext;
+    const _low = instruction.toLowerCase();
+    if (_low.includes('devam') || _low.includes('bölüm') || _low.includes('bolum')) {
+        instruction = 'DEVAM İSTEĞİ: Öğrenci (' + (matStudentName || 'Genel') + ') için geçmişte işlenen konu şuydu: "' + kayitliHafiza + '". Konuyu baştan alma; geçmiş bölümleri tekrar etmeden yeni alt başlık ve sorularla KALDIĞIN YERDEN DEVAM ET. Ek istek: "' + materialTopic + '"';
     } else {
         setLastPromptContext(materialTopic);
-        localStorage.setItem(memoryKey, materialTopic); 
+        try { localStorage.setItem(memoryKey, materialTopic); } catch(e){}
     }
 
-    let kuralMetni = "";
-    const isTestType = ['Fark Etmez (Yapay Zeka Seçsin)', 'yeni_nesil_test', 'test', 'eslestirme', 'bosluk', 'dogru_yanlis', 'karma'].includes(materialType);
-    let soruKurali = "";
-    if (isTestType) {
-        let zDurum = matDifficulty.includes('Fark Etmez') ? "Zorluk seviyesini öğrenciye uygun şekilde belirle." : `Zorluk Derecesi: ${matDifficulty}.`;
-        let sDurum = matQuestionCount.toString().includes('Fark Etmez') ? "En az 10-15 maddelik uzun bir çalışma üret." : `Toplam tam ${matQuestionCount} adet soru üret.`;
-        soruKurali = `${zDurum} ${sDurum}`;
-    }
-    const gorselKural = " Resim çizemeyeceğin için lütfen BOLCA YÜKSEK ÇÖZÜNÜRLÜKLÜ EMOJİ kullan.";
+    const _serbestIstek = /(çizgi|cizgi|el-göz|el goz|okul öncesi|okul oncesi|kalem tut|motor beceri|boyama|hikaye|masal|şarkı|sarki|sertifika|afiş|afis|pano|çalışma kağıdı|calisma kagidi|etkinlik)/i.test(instruction);
+    const isTestRequest = !_serbestIstek && (/\b(test|sınav|sinav|değerlendirme|degerlendirme|quiz|deneme|çoktan|coktan)\b/i.test(instruction)
+        || ['test', 'yeni_nesil_test', 'deneme_sinavi'].includes(materialType));
+    const countFromText = instruction.match(/\b([1-9]|1\d|2[0-5])\s*(?:adet|soru|madde|soruluk)\b/i);
+    const countFromMenu = /^\d+$/.test(String(matQuestionCount)) ? Number(matQuestionCount) : null;
+    const questionCount = countFromText ? Number(countFromText[1]) : (countFromMenu || 10);
+    const targetGroup = activityCategory === 'Fark Etmez (Yapay Zeka Seçsin)' ? 'İstekte geçen sınıf/yaş düzeyi' : activityCategory;
+    const studentContext = matStudentName.trim() ? ('Öğrenci: ' + matStudentName.trim() + '. İlgi alanları: ' + (matInterests.trim() || 'belirtilmedi') + '.') : '';
+    const zorlukContext = (matDifficulty && !String(matDifficulty).includes('Fark Etmez')) ? (' Zorluk seviyesi: ' + matDifficulty + '.') : '';
+    const testContract = 'Bu bir TEST isteğidir. SADECE tam ' + questionCount + ' adet standart_soru bloğu üret; bilgi_kutusu veya Materyal Notu ekleme. Her soru zorunlu olarak şu JSON biçiminde olmalı: {"blok_tipi":"standart_soru","soru_metni":"...","secenekler":["birinci seçenek","ikinci seçenek","üçüncü seçenek","dördüncü seçenek"],"cevap_anahtari":"Doğru cevap: A. Kısa açıklama."}. secenekler dizisinde TAM DÖRT metin olmalı. Genel değerlendirme istendiyse dersleri dengeli dağıt.' + zorlukContext;
+    const formatContext = (materialType && !materialType.startsWith('Fark')) ? ('İstenen materyal formatı: ' + materialType + '.') : '';
+    const blokRehberi = 'Kullanabileceğin blok tipleri ve zorunlu alanları:\n- "bilgi_kutusu": {baslik, icerik_metni}\n- "okuma_parcasi": {baslik, icerik_metni}\n- "standart_soru": {soru_metni, secenekler (boşluk/açık uçluda boş bırak), cevap_anahtari}\n- "eslestirme_tablosu": {soru_metni, sol_sutun, sag_sutun_karisik, cevap_anahtari}\n- "cizgi_calismasi": {baslik, cizim_adimlari}. cizim_adimlari her elemanı, satır boyunca en az 30 kez TEKRARLAYAN tek bir çizgi deseni olmalı. Örnek elemanlar: "∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿", "________________________________", "oOoOoOoOoOoOoOoOoOoOoOoOoOoOoO", "/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\/\\", "⌒⌒⌒⌒⌒⌒⌒⌒⌒⌒⌒⌒⌒⌒⌒⌒⌒⌒⌒⌒", "cccccccccccccccccccccccccccccc". En az 6 farklı desen satırı üret.\n- "yonergeli_cizim": {baslik, cizim_adimlari}\n- "gorsel_dikte": {baslik, dikte_kelimeleri:[{emoji, kelime}]}\n- "basara_hece_tablosu": {baslik, hece_gruplari}\n- "tombala_grid": {baslik, tombala_gorevleri}\n- "emoji_matrisi": {soru_metni, emojiler}\n- "sertifika": {sertifika_ogrenci, sertifika_metni}\n- "venn_semasi": {kavram1, kavram2, kavram1_ozellikler, kavram2_ozellikler, ortak_ozellikler}\n- "zihin_haritasi": {baslik, merkez_kavram, yan_kavramlar}\n- "flashcard_grid": {baslik, kartlar:[{on_yuz, arka_yuz}]}\n- "recete_adimlari": {baslik, malzemeler, adimlar}\n- "gorsel_veri": {baslik, sutunlar, satirlar:[{hucreler}]}\n- "donusum_makinesi": {baslik, kural, girdiler, ciktilar}\n- "sirala_yapistir": {baslik, karisik_adimlar}\n- "hatali_islem": {hatali_cozum}\n- "gazete_manseti": {manset, haber_metni}\n- "zengin_metin": {baslik, html_icerik}\nBlok tipini TAM olarak yukarıdaki gibi yaz. ÇOK ÖNEMLİ: Kullanıcı isteğinde açıkça \"sertifika\", \"başarı belgesi\" ya da \"takdir belgesi\" GEÇMİYORSA sertifika bloğunu ASLA ekleme; materyali sertifikayla bitirme. Açıkça istenirse en sona ekle. En az 3-6 blok üret. Okul öncesi/özel eğitim istenirse bolca cizgi_calismasi, yonergeli_cizim, gorsel_dikte, emoji_matrisi kullan. Her blokta uygunsa cevap_anahtari ekle.\n\nGÖRSEL ÇİZİM (çok önemli): İstek bir GÖRSEL gerektiriyorsa (satranç tahtası ve taş dizilimi, Scratch/blok kodlama şeması, geometrik şekil, harita, diyagram, akış şeması, saat, kesir modeli, sayı doğrusu vb.) bunu "zengin_metin" bloğunda html_icerik içine DOĞRUDAN INLINE SVG çizerek üret. SVG renkli, net ve yazdırmaya uygun olsun; <svg viewBox=...> kullan, uygun <rect>, <circle>, <line>, <text>, <polygon> ile çiz. Örnek: satranç tahtası için 8x8 kareli bir <svg> çiz, kareleri açık/koyu renklerle doldur ve taşları Unicode sembolleriyle (beyaz K Q R B N P, siyah k q r b n p Unicode satranç sembolleri) <text> olarak yerleştir; Scratch için blokları renkli yuvarlatılmış <rect> ve içine <text> ile göster. Sadece emoji sıralamak YETERLİ DEĞİLDİR; gerçek bir SVG şekil çiz. html_icerik geçerli, kendi kendine yeten HTML+SVG olsun.\n\nSORU KURALI (çok önemli): Bir bölümde soru/etkinlik istediysen (dogru-yanlis, bosluk doldur, eslestir) o sorularin METNINI MUTLAKA yaz; ASLA sorulari atlayip dogrudan cevap anahtarina gecme. Dogru-yanlis icin her maddeyi acik cumle olarak yaz ve yanina D/Y isaretlenecek yer birak. Bos, yarim veya uc nokta iceren madde birakma.';
+    const blokEsitle = {'coktan_secmeli':'standart_soru','test_sorusu':'standart_soru','soru':'standart_soru','klasik_soru':'standart_soru','acik_uclu':'standart_soru','bosluk':'standart_soru','bosluk_doldurma':'standart_soru','dogru_yanlis':'standart_soru','yeni_nesil':'standart_soru','eslestirme':'eslestirme_tablosu','bilgi':'bilgi_kutusu','konu_anlatimi':'bilgi_kutusu','konu_ozeti':'bilgi_kutusu','ozet':'bilgi_kutusu','aciklama':'bilgi_kutusu','okuma':'okuma_parcasi','metin':'okuma_parcasi','cizgi':'cizgi_calismasi','cizgi_calismalari':'cizgi_calismasi','yonergeli':'yonergeli_cizim','cizim':'yonergeli_cizim','dikte':'gorsel_dikte','hece':'basara_hece_tablosu','basara':'basara_hece_tablosu','tombala':'tombala_grid','bingo':'tombala_grid','emoji':'emoji_matrisi','gorsel_fark':'emoji_matrisi','basari_belgesi':'sertifika','venn':'venn_semasi','zihin':'zihin_haritasi','flashcard':'flashcard_grid','bilgi_karti':'flashcard_grid','kartlar':'flashcard_grid','recete':'recete_adimlari','adim_adim':'recete_adimlari','tarif':'recete_adimlari','tablo':'gorsel_veri','veri_tablosu':'gorsel_veri','makine':'donusum_makinesi','on_sonra_makine':'donusum_makinesi','sirala':'sirala_yapistir','hatali':'hatali_islem','hata_dedektifi':'hatali_islem','sifre':'sifre_kirici','fatura':'fatura_tablosu','fis':'fatura_tablosu','gazete':'gazete_manseti','haber':'gazete_manseti','manset':'gazete_manseti','diyalog':'karikatur_diyalog','karikatur':'karikatur_diyalog','sudoku':'sudoku_bulmaca','bulmaca':'sudoku_bulmaca','degerlendirme':'degerlendirme_tablosu','degerlendirme_formu':'degerlendirme_tablosu','html':'zengin_metin','serbest':'zengin_metin'};
+    const normalizeBloklar = (r) => { if (r && Array.isArray(r.icerik_bloklari)) { r.icerik_bloklari.forEach((b) => { if (b && typeof b.blok_tipi === 'string') { const k = b.blok_tipi.toLowerCase().trim(); if (blokEsitle[k]) b.blok_tipi = blokEsitle[k]; } }); } return r; };
+    const prompt = `KULLANICININ İSTEĞİ: ${instruction}\nHEDEF KİTLE: ${targetGroup}\n${formatContext}\n${studentContext}\nÖNEMLİ KİŞİSELLEŞTİRME KURALI: Kullanıcının yazdığı sınıf düzeyi, soru sayısı, zorluk ve konu KESİN önceliklidir; şablonun varsayılan sayılarını/sınıfını EZER. Şablonda "4. sınıf, 3 soru" yazsa bile kullanıcı "5. sınıf, 10 soru" dediyse onu uygula. Kullanıcı dosya yükleyip "aynısını üret" dediyse yüklenen dokümanı olabildiğince aynı yapıda yeniden üret; "uyarla" dediyse ona göre uyarla.\nBİÇİM ZENGİNLİĞİ: İçeriği gözü şenlendirecek şekilde hazırla; önemli kelimeleri renkli ve kalın vurgula (zengin_metin bloklarında <strong>, <em>, <mark>, <span style=color> kullan). Okul öncesi/küçük yaş için bol emoji, büyük renkli başlıklar kullan. Uygun her yerde (şekil, satranç, saat, harita, kavram haritası) zengin_metin bloğunda INLINE SVG ile renkli görsel çiz.\n${isTestRequest ? testContract : blokRehberi + '\n\nİsteği eksiksiz ama ÖZ ve NET bir çalışma kâğıdına dönüştür; gereksiz uzun paragraflar, tekrarlar ve dolgu metin YAZMA — doğrudan işe yarar içerik üret (hız için önemli).'}\n\nSadece JSON döndür. Biçim: {"dokuman_basligi":"...","alt_baslik":"...","icerik_bloklari":[...]}. Markdown, açıklama ve kod çiti yazma.`;
 
-    // YAPAY ZEKANIN TEMBELLİĞİNİ KIRAN ANA EMİR:
-   // YAPAY ZEKANIN TEMBELLİĞİNİ KIRAN ANA EMİR:
-   // YAPAY ZEKANIN TEMBELLİĞİNİ KIRAN ANA EMİR:
-    const fasikulKurali = "MEGA KURAL: Kullanıcı kutuya sadece kısacık bir konu yazsa bile (Örn: Toplama işlemi yap), sen inisiyatif alıp BİR ÖĞRETMEN GİBİ DÜŞÜN! Otomatik olarak 'bilgi_kutusu' ile konuyu anlat, ardından 'standart_soru', 'eslestirme_tablosu', 'bosluk_doldurma', 'hatali_islem' gibi ETKİLEŞİMLİ BLOKLARI KESİNLİKLE KULLANARAK en az 10 maddelik devasa bir fasikül üret. Kullanıcı blok adı belirtmese bile, o konuyu öğretmek için en uygun 4-5 farklı blok tipini ZORUNLU olarak seç ve içini sorularla doldur! ⚠️⚠️ NUMARA KURALI (ÇOK ÖNEMLİ): soru_metni alanına ASLA soru numarası yazma! '1.', '2.', '3.' gibi numaraları BAŞA KOYMA — sistem numarayı otomatik ekliyor. Sen sadece sorunun kendisini yaz. Örneğin yanlış: '2. Bir kenar uzunluğu...', doğru: 'Bir kenar uzunluğu...'. ⚠️⚠️ TEKRAR YASAK: Aynı soruyu, aynı cümleyi veya aynı kalıbı BİRDEN FAZLA KEZ ÜRETME. Her soru İÇERİK olarak farklı olsun (farklı sayılar, farklı kavramlar). Kopyala-yapıştır gibi tekrar eden sorular ÜRETME. ⚠️⚠️ ÇOKTAN SEÇMELİ KURALI: Bir soruyu 'aşağıdakilerden hangisi', 'hangisidir', 'kaçtır' gibi çoktan seçmeli soracaksan 'secenekler' dizisini MUTLAKA 4-5 şıkla DOLDUR (Örn: secenekler: ['12 cm²','16 cm²','20 cm²','24 cm²']). Şıksız çoktan seçmeli soru SORMA! Eğer şık üretemeyeceksen soruyu açık uçlu (klasik) sor ama o zaman 'aşağıdakilerden hangisi' deme, 'hesaplayınız/bulunuz/açıklayınız' de. Yani soru tipi ile içerik TUTARLI olsun: 'hangisi' dediysen şıklar dolu olmalı. 🔴🔴 EŞLEŞTİRME BLOĞU — TERCİHEN HİÇ KULLANMA: 'eslestirme_tablosu' en çok hata çıkan bloktur. MÜMKÜNSE bunun yerine 'standart_soru' (çoktan seçmeli, şıklı) veya 'bosluk_doldurma' kullan — bunlar her zaman daha güvenli. Eşleştirmeyi SADECE gerçekten çok uygunsa VE ÜÇ ALANI da eksiksiz doldurabiliyorsan kullan: (1) sol_sutun = eşleştirilecek öğeler, (2) sag_sutun_karisik = bu öğelerin karşılıkları KARIŞIK sırada (ASLA boş bırakma!), (3) cevap_anahtari = '1-X, 2-Y, 3-Z' formatında doğru eşleşmeler. ÜÇÜ DE DOLU DEĞİLSE bu bloğu ASLA KULLANMA, onun yerine standart_soru (çoktan seçmeli, şıklı) kullan. TAM ÖRNEK (geri dönüşüm konusu): {blok_tipi:'eslestirme_tablosu', soru_metni:'Aşağıdaki atıkları doğru geri dönüşüm kutusuyla eşleştiriniz.', sol_sutun:['Gazete','Su Şişesi','Konserve Kutusu','Cam Kavanoz'], sag_sutun_karisik:['Metal','Kağıt','Cam','Plastik'], cevap_anahtari:'1-Kağıt, 2-Plastik, 3-Metal, 4-Cam'}. Gördüğün gibi sağ sütun DOLU. Sen de böyle yap; sağ sütunu dolduramıyorsan eşleştirme değil çoktan seçmeli soru yaz. 🚫 GÖRSEL/RESİM KURALI (HAYATİ): Sen RESİM, FOTOĞRAF veya çizim ÜRETEMEZSİN — sadece metin ve basit SVG şekil üretebilirsin. Bu yüzden ASLA 'yandaki resme bak', 'aşağıdaki görsele göre', 'resimdeki nesneyi yaz', 'sol taraftaki kelimeleri görsellerle eşleştir', 'aşağıdaki resimli kelime' gibi VAR OLMAYAN bir görsele atıf yapan soru KURMA. Görsel dikte/resimli eşleştirme isteniyorsa resim yerine nesnenin ADINI veya EMOJİSİNİ (🍎🥛💡) yaz ki soru kendi kendine yeterli olsun. Öğrencinin göremeyeceği görsele gönderme yapan soru BOZUKTUR, üretme. ✅ NEDEN AÇIKLAMA KURALI (ZİRVE İLKESİ): Bir bloğu/çalışmayı tam üretemiyorsan SESSİZCE BOŞ BIRAKMA; 'bilgi_kutusu' ile KISA açıklama yaz: neyi neden üretemediğini ve öğretmenin ne yapabileceğini belirt (Örn: 'Bu çalışma gerçek görseller gerektirir; kutulara siz görsel ekleyebilirsiniz. Kelimeler: süt, ışık, kalem'). Asla boş/eksik/anlamsız çıktı bırakma — ya tam üret ya nedenini açıkla.";
+    const parseJson = (raw) => {
+        const text = String(raw || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+        const start = text.indexOf('{');
+        if (start < 0) throw new Error('JSON yanıtı bulunamadı.');
+        let depth = 0, quoted = false, escaped = false;
+        for (let i = start; i < text.length; i += 1) {
+            const char = text[i];
+            if (quoted) {
+                if (escaped) escaped = false;
+                else if (char === '\\') escaped = true;
+                else if (char === '"') quoted = false;
+            } else if (char === '"') quoted = true;
+            else if (char === '{') depth += 1;
+            else if (char === '}' && --depth === 0) return JSON.parse(text.slice(start, i + 1));
+        }
+        throw new Error('Yanıt tamamlanmadan kesildi.');
+    };
 
-    if (materialType === 'Fark Etmez (Yapay Zeka Seçsin)') {
-        kuralMetni = `DİKKAT: Kullanıcının metin içinde talep ettiği TÜM BLOK TİPLERİNİ özgürce kullan! ${fasikulKurali} ${soruKurali} ${gorselKural}`;
-    } else {
-        kuralMetni = `KULLANICI İSTEĞİ: Formatı şuna göre ağırlaştır: ${materialType}. Ancak KESİNLİKLE kullanıcının kutuya yazdığı promptu DİNLE. O ne diyorsa o! ${fasikulKurali}`;
-    }
+    const _blokDolu = (b) => {
+        if (!b) return false;
+        const metinler = [b.baslik, b.icerik_metni, b.html_icerik, b.soru_metni, b.manset, b.hatali_cozum, b.merkez_kavram, b.sertifika_metni, b.kural, b.gizli_sifre];
+        const diziler = [b.secenekler, b.cizim_adimlari, b.adimlar, b.malzemeler, b.satirlar, b.hece_gruplari, b.kartlar, b.emojiler, b.dikte_kelimeleri, b.yan_kavramlar, b.tombala_gorevleri, b.sol_sutun, b.karisik_adimlar, b.degerlendirme_kriterleri, b.girdiler, b.kavram1_ozellikler];
+        if (metinler.some((x) => x && String(x).trim())) return true;
+        if (diziler.some((a) => Array.isArray(a) && a.length > 0)) return true;
+        return false;
+    };
+    const validateMaterial = (result) => {
+        normalizeBloklar(result);
+        if (!result || !Array.isArray(result.icerik_bloklari) || !result.icerik_bloklari.length) throw new Error('İçerik gelmedi.');
+        // Sadece dolu bloklari tut
+        result.icerik_bloklari = result.icerik_bloklari.filter(_blokDolu);
+        if (!result.icerik_bloklari.length) throw new Error('Bloklarin ici bos geldi.');
+        if (isTestRequest) {
+            const questions = result.icerik_bloklari.filter((block) => block?.blok_tipi === 'standart_soru');
+            const tamSorular = questions.filter((block) => typeof block.soru_metni === 'string' && block.soru_metni.trim() && Array.isArray(block.secenekler) && block.secenekler.length >= 2 && block.secenekler.every((o) => o && String(o).trim()));
+            if (tamSorular.length < 3) throw new Error('Yeterli sayida tam soru olusmadi.');
+            result.icerik_bloklari = tamSorular;
+        }
+        return result;
+    };
 
-    let kisisellestirme = matStudentName ? `\nÖNEMLİ: Öğrencimin adı ${matStudentName}. İlgi alanları: ${matInterests}. Materyali KESİNLİKLE ona özel hale getir.` : "";
-    let cozumKurali = "\nÇÖZÜM MOTORU: 'cevap_anahtari' kısmında sadece şıkkı/cevabı yazıp bırakma. KESİNLİKLE kısa, öz ve pedagojik bir açıklama ekle.";
-    let baslikKurali = "\nDİKKAT: dokuman_basligi alanına konuya tam uygun, yaratıcı bir başlık koy.";
-
-    let hedefKitleMetni = activityCategory === 'Fark Etmez (Yapay Zeka Seçsin)' ? 'Konunun içeriğine ve zorluğuna bakarak hedef kitleyi ve eğitim kademesini bizzat SEN analiz et ve belirle.' : activityCategory;
-
-    let uzunlukKurali = `JSON KURALI: Kesinlikle JSON formatını bozma. Eğer metnin yarım kalacağını anlarsan, mantıklı bir yerde 'bilgi_kutusu' ile metni bitir ve "Devamı için 2. bölümü isteyin" yaz.`;
-
-    let userPromptText = `## EĞİTİM MATERYALİ TASLAĞI ##\nHedef Kitle: ${hedefKitleMetni}\nKonu/Emir: ${islenenKonu}\nİstenen Format: ${kuralMetni}\n\n${uzunlukKurali}\n${kisisellestirme}\n${cozumKurali}\n${baslikKurali}\n\nZORUNLU KURAL: İstenen her şeyi %100 kapsayan, saf akademik içeriği KESİNLİKLE JSON formatında üret.`;
-
-    let apiContents = [{ parts: [{ text: userPromptText }] }];
-    if (uploadedFileData) {
-        apiContents = [{ role: "user", parts: [ { text: userPromptText }, { inline_data: { mime_type: uploadedFileData.mimeType, data: uploadedFileData.base64 } } ] }];
-    }
-
-    try {
-        // STREAMING: içerik akarak gelir, canlı durum gösterilir
-        const istekBody = JSON.stringify({
-               systemInstruction: { parts: [{ text: "Sen dünyanın en iyi eğitim materyali editörü, zirvede bir ÖZEL EĞİTİM uzmanı ve İLK OKUMA-YAZMA öğretmenisin. Tüm okuma-yazma yöntemlerine (Ses Temelli Cümle/güncel MEB, ses, harf, hece, Ba-Sa-Ra, çözümleme, sözcük, öykü, bireşim, karma, fiş) ve özel eğitim yöntemlerine (ABA, fırsat öğretimi, PECS, beceri analizi, BEP) hakimsin; istenen yöntemin bilimsel aşamalarına SADIK kal, karıştırma, uydurma. Kullanıcının yazdığı sınıf/soru sayısı/zorluk KESİN önceliklidir ve şablon varsayılanını ezer. KULLANICI KISA YAZSA DA ZENGİN, RENKLİ (önemli yerler tek-tırnaklı vurgu, gerekli yerlerde INLINE SVG görsel) BİR ÇALIŞMA ÜRET. HTML ETİKETİ KURALI: Renklendirme/kalınlaştırma için <strong>, <em>, <span style> etiketlerini SADECE zengin_metin ve bilgi_kutusu bloklarında kullan. standart_soru, okuma_parcasi, eslestirme gibi bloklarda soru_metni içine HTML etiketi (<strong>, <span style=color> gibi) YAZMA — oralarda düz metin kullan, yoksa etiketler yazı olarak görünür. GÖRSEL ÜRETEMEZSİN: Resim/fotoğraf üretemezsin, o yüzden var olmayan bir görsele atıf yapan (yandaki resme bak, görsele göre eşleştir) soru KURMA; gerekiyorsa nesne adını/emojisini yaz. BİR ŞEY ÜRETEMEZSEN NEDENİNİ YAZ: Boş/eksik çıktı bırakma, üretemediğin şeyin nedenini bilgi_kutusu ile açıkla. SORU NUMARASI: soru_metni içine ASLA 1. 2. 3. gibi numara koyma, sistem otomatik numaralıyor. ÇOKTAN SEÇMELİ: hangisi/hangisidir/kaçtır diye soruyorsan secenekler dizisini MUTLAKA 4-5 şıkla doldur; şık üretemeyeceksen açık uçlu (bulunuz/hesaplayınız) sor. HAYATİ KURALLAR: 1) Çıktın KESİNLİKLE geçerli bir JSON formatında olmalıdır! JSON kuralları gereği tüm anahtarlar ve değerler KESİNLİKLE ÇİFT TIRNAK (\") ile sarılmalıdır. 2) Metinlerin kendi içinde bir şeyi vurgulaman gerekirse tek tırnak (') kullan. 3) Metinlerin içine asla 'Enter' ile satır atlama, yeni satır için sadece '\\n' kullan. 4. ÇOK ÖNEMLİ: Çıktını MAKUL uzunlukta tut, en fazla 10-12 blok, JSON'u MUTLAKA tam kapat. Uzun içerik yüzünden yarıda kesilmektense, daha az ama TAM ve geçerli JSON üret. Asla yarım bırakma." }] },
-                contents: apiContents,
+    const askModel = async (retry = false) => {
+        setUretimDurumu(retry ? '🔄 Sorular ve seçenekler yeniden tamamlanıyor…' : '✍️ Materyal hazırlanıyor…');
+        // CANLI BİLGİLENDİRME: isteğin türünü tanı, ne yapıldığını adım adım söyle.
+        // Aşamalar İLERİYE gider, 'Neredeyse hazır'da DURUR; asla başa sarmaz.
+        const _t = String(instruction || '').toLowerCase();
+        const _fasikul = /fasik[üu]l|dev |kapsaml|4 sayfa|sayfal[ıi]k|bol (örnek|alıştırma|alistirma)|zengin/.test(_t);
+        const asamalariKur = () => {
+            const a = ['🔎 İsteğin çözümleniyor…'];
+            if (isTestRequest) {
+                a.push(`❓ ${questionCount} soru yazılıyor…`, '🔤 Seçenekler (A-B-C-D) hazırlanıyor…', '✅ Cevap anahtarı oluşturuluyor…');
+            } else {
+                if (_fasikul) a.push('📚 Fasikülün bölümleri planlanıyor…');
+                if (/oku(ma|du)|parça|parca|metin|hikaye|masal|öykü|oyku/.test(_t)) a.push('📖 Okuma parçası yazılıyor…');
+                if (/bilgi|konu anlat|konu özet|konu ozet|açıkla|acikla|özet|ozet/.test(_t)) a.push('📝 Konu anlatımı hazırlanıyor…');
+                if (/çizgi|cizgi|motor|kalem|el.?göz|el.?goz|boyama/.test(_t)) a.push('✏️ Çizgi/motor çalışması çiziliyor…');
+                if (/eşleş|eslest|eşleştir|eslestir/.test(_t)) a.push('🔗 Eşleştirme kurgulanıyor…');
+                if (/boşluk|bosluk|doldur/.test(_t)) a.push('✍️ Boşluk doldurma yazılıyor…');
+                if (/dikte/.test(_t)) a.push('🔊 Dikte kelimeleri seçiliyor…');
+                if (/hece|ba.?sa.?ra|okuma.?yazma|ses temelli/.test(_t)) a.push('🔡 Hece tablosu hazırlanıyor…');
+                if (/venn|zihin har|kavram har|infografik|şema|sema|harita|görsel|gorsel|svg|satranç|satranc|saat|kesir|sayı doğ|sayi dog|geometri/.test(_t)) a.push('🎨 Görsel/şema çiziliyor…');
+                if (/tombala|bingo/.test(_t)) a.push('🎲 Tombala kartı hazırlanıyor…');
+                if (/flashcard|kart/.test(_t)) a.push('🃏 Kartlar hazırlanıyor…');
+                if (/soru|etkinlik|alıştırma|alistirma|quiz/.test(_t)) a.push('❓ Sorular ve etkinlikler hazırlanıyor…');
+                if (/cevap anahtar/.test(_t)) a.push('✅ Cevap anahtarı yazılıyor…');
+                if (a.length === 1) a.push('✍️ İçerik hazırlanıyor…');
+            }
+            a.push('🎨 Sayfa güzelce düzenleniyor…', '✅ Neredeyse hazır…');
+            return a.filter((x, i) => i === 0 || x !== a[i - 1]);
+        };
+        const asamalar = retry
+            ? ['🔄 Eksik kısımlar tamamlanıyor…', '📝 Yeniden yazılıyor…', '✅ Son kontrol yapılıyor…', '✅ Neredeyse hazır…']
+            : asamalariKur();
+        let ai = 0;
+        setUretimDurumu(asamalar[0]);
+        // İLERİ git; son aşamada KAL (başa sarma yok → 'neredeyse hazır' sonrası gerçek bitiş gelir)
+        const asamaTimer = setInterval(() => { if (ai < asamalar.length - 1) { ai += 1; setUretimDurumu(asamalar[ai]); } }, 1400);
+        const temizle = () => { try { clearInterval(asamaTimer); } catch(e){} };
+        const parts = [{ text: prompt + (retry ? `\n\nÖNCEKİ CEVAP GEÇERSİZDİ. ${isTestRequest ? `Kesin olarak ${questionCount} adet standart_soru ve her birinde dört seçenek ver.` : 'Tek, eksiksiz JSON nesnesi ver. Her blokta ilgili alanları MUTLAKA doldur, ASLA boş blok gönderme. cizgi_calismasi istenirse cizim_adimlari dizisine her biri en az 25 kez tekrarlayan desen dizeleri koy.'}` : '') }];
+        if (uploadedFileData) parts.push({ inline_data: { mime_type: uploadedFileData.mimeType, data: uploadedFileData.base64 } });
+        try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                systemInstruction: { parts: [{ text: 'Sen dünyanın en iyi eğitim materyali editörü ve uzmanısın; aynı zamanda alanında zirvede bir ÖZEL EĞİTİM uzmanı ve İLK OKUMA-YAZMA öğretmenisin. Tüm okuma-yazma yöntemlerine hakimsin: Ses Temelli Cümle (güncel MEB), ses/fonetik, harf/alfabe, hece, Ba-Sa-Ra, çözümleme (cümle), sözcük, cümle, öykü/metin, bireşim (sentez), karma/eklektik ve fiş yöntemi. Özel eğitimde ABA/ayrık denemeler, fırsat öğretimi, görsel destek (PECS), beceri analizi, ipucu silme, pekiştirme ve BEP hazırlama konularında uzmansın. Kullanıcı hangi yöntemi istediyse o yöntemin bilimsel aşamalarına SADIK kal, uydurma yöntem karıştırma. Materyali yaş ve düzeye uygun, çok tekrarlı, görsel destekli, cesaretlendirici ve sınıfta doğrudan kullanılabilir hazırla. Kullanıcının isteğini (sınıf, soru sayısı, zorluk) aynen karşıla. Sadece geçerli JSON üret.' }] },
+                contents: [{ role: 'user', parts }],
                 generationConfig: {
-                    responseMimeType: "application/json",
-                    temperature: 0.35, topP: 0.9, topK: 40,
-                    maxOutputTokens: 16000,
+                    responseMimeType: 'application/json',
+                    temperature: 0.25,
+                    maxOutputTokens: isTestRequest ? 8192 : 10000,
                     thinkingConfig: { thinkingBudget: 0 },
-                    responseSchema: {
-                        type: "OBJECT",
+                    responseSchema: isTestRequest ? {
+                        type: 'OBJECT',
                         properties: {
-                            dokuman_basligi: { type: "STRING" }, alt_baslik: { type: "STRING" },
+                            dokuman_basligi: { type: 'STRING' },
+                            alt_baslik: { type: 'STRING' },
                             icerik_bloklari: {
-                                type: "ARRAY",
+                                type: 'ARRAY',
                                 items: {
-                                    type: "OBJECT",
+                                    type: 'OBJECT',
                                     properties: {
-                                        blok_tipi: { type: "STRING" }, icerik_metni: { type: "STRING" }, html_icerik: { type: "STRING" }, baslik: { type: "STRING" }, renk: { type: "STRING" }, soru_metni: { type: "STRING" },
-                                        secenekler: { type: "ARRAY", items: { type: "STRING" } }, sol_sutun: { type: "ARRAY", items: { type: "STRING" } }, sag_sutun_karisik: { type: "ARRAY", items: { type: "STRING" } },
-                                        sifre_islemler: { type: "ARRAY", items: { type: "STRING" } }, gizli_sifre: { type: "STRING" }, karakter1: { type: "STRING" }, karakter2: { type: "STRING" }, konusma1: { type: "STRING" }, konusma2: { type: "STRING" },
-                                        kartlar: { type: "ARRAY", items: { type: "OBJECT", properties: { on_yuz: {type: "STRING"}, arka_yuz: {type: "STRING"} } } }, merkez_kavram: { type: "STRING" }, yan_kavramlar: { type: "ARRAY", items: { type: "STRING" } },
-                                        urunler: { type: "ARRAY", items: { type: "OBJECT", properties: { urun_adi: {type: "STRING"}, fiyat: {type: "STRING"}, adet: {type: "STRING"} } } }, toplam_tutar: { type: "STRING" }, manset: { type: "STRING" }, haber_metni: { type: "STRING" },
-                                        emojiler: { type: "ARRAY", items: { type: "STRING" } }, hatali_cozum: { type: "STRING" }, malzemeler: { type: "ARRAY", items: { type: "STRING" } }, adimlar: { type: "ARRAY", items: { type: "STRING" } },
-                                        kavram1: { type: "STRING" }, kavram2: { type: "STRING" }, kavram1_ozellikler: { type: "ARRAY", items: { type: "STRING" } }, kavram2_ozellikler: { type: "ARRAY", items: { type: "STRING" } }, ortak_ozellikler: { type: "ARRAY", items: { type: "STRING" } },
-                                        ogretilecek_kavram: { type: "STRING" }, sutunlar: { type: "ARRAY", items: { type: "STRING" } }, satirlar: { type: "ARRAY", items: { type: "OBJECT", properties: { hucreler: { type: "ARRAY", items: { type: "STRING" } } } } },
-                                        kural: { type: "STRING" }, girdiler: { type: "ARRAY", items: { type: "STRING" } }, ciktilar: { type: "ARRAY", items: { type: "STRING" } }, grid_satirlari: { type: "ARRAY", items: { type: "OBJECT", properties: { hucreler: { type: "ARRAY", items: { type: "STRING" } } } } },
-                                        ipucu: { type: "STRING" }, karisik_adimlar: { type: "ARRAY", items: { type: "STRING" } }, kriterler: { type: "ARRAY", items: { type: "STRING" } }, hece_gruplari: { type: "ARRAY", items: { type: "STRING" } },
-                                        tombala_gorevleri: { type: "ARRAY", items: { type: "STRING" } }, dikte_kelimeleri: { type: "ARRAY", items: { type: "OBJECT", properties: { emoji: {type: "STRING"}, kelime: {type: "STRING"} } } },
-                                        sertifika_ogrenci: { type: "STRING" }, sertifika_metni: { type: "STRING" }, cizim_adimlari: { type: "ARRAY", items: { type: "STRING" } }, degerlendirme_kriterleri: { type: "ARRAY", items: { type: "STRING" } },
-                                        cevap_anahtari: { type: "STRING", description: "Öğretmen nüshası için çözüm" }
+                                        blok_tipi: { type: 'STRING' },
+                                        soru_metni: { type: 'STRING' },
+                                        secenekler: { type: 'ARRAY', items: { type: 'STRING' } },
+                                        cevap_anahtari: { type: 'STRING' }
                                     },
-                                    required: ["blok_tipi"]
+                                    required: ['blok_tipi', 'soru_metni', 'secenekler', 'cevap_anahtari']
                                 }
                             }
                         },
-                        required: ["dokuman_basligi", "icerik_bloklari"]
+                        required: ['dokuman_basligi', 'icerik_bloklari']
+                    } : {
+                        type: 'OBJECT',
+                        properties: {
+                            dokuman_basligi: { type: 'STRING' }, alt_baslik: { type: 'STRING' },
+                            icerik_bloklari: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+                                blok_tipi: { type: 'STRING' }, baslik: { type: 'STRING' }, icerik_metni: { type: 'STRING' }, html_icerik: { type: 'STRING' }, soru_metni: { type: 'STRING' },
+                                secenekler: { type: 'ARRAY', items: { type: 'STRING' } }, cevap_anahtari: { type: 'STRING' },
+                                sol_sutun: { type: 'ARRAY', items: { type: 'STRING' } }, sag_sutun_karisik: { type: 'ARRAY', items: { type: 'STRING' } },
+                                cizim_adimlari: { type: 'ARRAY', items: { type: 'STRING' } }, adimlar: { type: 'ARRAY', items: { type: 'STRING' } }, malzemeler: { type: 'ARRAY', items: { type: 'STRING' } },
+                                dikte_kelimeleri: { type: 'ARRAY', items: { type: 'OBJECT', properties: { emoji: { type: 'STRING' }, kelime: { type: 'STRING' } } } },
+                                hece_gruplari: { type: 'ARRAY', items: { type: 'STRING' } }, tombala_gorevleri: { type: 'ARRAY', items: { type: 'STRING' } }, emojiler: { type: 'ARRAY', items: { type: 'STRING' } },
+                                kartlar: { type: 'ARRAY', items: { type: 'OBJECT', properties: { on_yuz: { type: 'STRING' }, arka_yuz: { type: 'STRING' } } } },
+                                merkez_kavram: { type: 'STRING' }, yan_kavramlar: { type: 'ARRAY', items: { type: 'STRING' } },
+                                kavram1: { type: 'STRING' }, kavram2: { type: 'STRING' }, kavram1_ozellikler: { type: 'ARRAY', items: { type: 'STRING' } }, kavram2_ozellikler: { type: 'ARRAY', items: { type: 'STRING' } }, ortak_ozellikler: { type: 'ARRAY', items: { type: 'STRING' } },
+                                sutunlar: { type: 'ARRAY', items: { type: 'STRING' } }, satirlar: { type: 'ARRAY', items: { type: 'OBJECT', properties: { hucreler: { type: 'ARRAY', items: { type: 'STRING' } } } } },
+                                kural: { type: 'STRING' }, girdiler: { type: 'ARRAY', items: { type: 'STRING' } }, ciktilar: { type: 'ARRAY', items: { type: 'STRING' } },
+                                karisik_adimlar: { type: 'ARRAY', items: { type: 'STRING' } }, hatali_cozum: { type: 'STRING' }, manset: { type: 'STRING' }, haber_metni: { type: 'STRING' },
+                                sertifika_ogrenci: { type: 'STRING' }, sertifika_metni: { type: 'STRING' }, degerlendirme_kriterleri: { type: 'ARRAY', items: { type: 'STRING' } }
+                            }, required: ['blok_tipi'] } }
+                        },
+                        required: ['dokuman_basligi', 'icerik_bloklari']
                     }
                 }
-            });
-
-        // Canlı his için zamanlı aşama mesajları
-        const asamalar = ['📖 İçerik planlanıyor...', '✍️ Sorular yazılıyor...', '🎨 Renkli düzenleme yapılıyor...', '✅ Neredeyse hazır, son rötuşlar...'];
-        let asamaIdx = 0;
-        const asamaTimer = setInterval(function(){ if (asamaIdx < asamalar.length - 1) { asamaIdx++; setUretimDurumu(asamalar[asamaIdx]); } }, 2500);
-        setUretimDurumu(asamalar[0]);
-
-        // ── YANIT ÇEKME: tüm parçaları birleştirir, finishReason/block bilgisini de döndürür ──
-        const cekYanit = async (bodyStr) => {
-            const rsp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: bodyStr
-            });
-            let d = null; try { d = await rsp.json(); } catch (e) { d = null; }
-            const cand = d && d.candidates && d.candidates[0];
-            const metin = ((cand && cand.content && cand.content.parts) || []).map(p => p.text || '').join('').trim();
-            const bitis = cand && cand.finishReason;
-            const blok = d && d.promptFeedback && d.promptFeedback.blockReason;
-            return { rsp, d, metin, bitis, blok };
-        };
-
-        // ── AYRIŞTIRMA: bozuk/yarım JSON'u da onarır ──
-        const ayristirMetin = (metin) => {
-            let t = String(metin || '').replace(/```json/gi, '').replace(/```/gi, '').trim();
-            const s = t.indexOf('{'); if (s !== -1) t = t.substring(s);
-            try { return { data: JSON.parse(t), onarildi: false }; } catch (e) {}
-            let o = t.replace(/[\n\r\t]/g, ' ').replace(/,\s*([\]}])/g, '$1');
-            if (!o.trim().endsWith('}')) {
-                if (((o.match(/(?<!\\)"/g) || []).length % 2) !== 0) o += '"';
-                let acikKose = (o.match(/\[/g) || []).length - (o.match(/\]/g) || []).length;
-                let acikSuslu = (o.match(/{/g) || []).length - (o.match(/}/g) || []).length;
-                for (let i = 0; i < acikKose; i++) o += ']';
-                for (let i = 0; i < acikSuslu; i++) o += '}';
-            }
-            try { return { data: JSON.parse(o), onarildi: true }; } catch (e2) { return { data: null, onarildi: false }; }
-        };
-        const bloklariDuzelt = (d) => {
-            if (!d) return d;
-            if (!d.icerik_bloklari || !Array.isArray(d.icerik_bloklari)) d.icerik_bloklari = Array.isArray(d.bloklar) ? d.bloklar : [];
-            return d;
-        };
-        const bloklarDolu = (d) => !!(d && Array.isArray(d.icerik_bloklari) && d.icerik_bloklari.length > 0);
-
-        // Şemasız gövde: dev responseSchema, boş 'icerik_bloklari' listesinin EN SIK sebebidir. Şemayı atınca
-        // prompt zaten istenen JSON biçimini ayrıntısıyla anlatıyor. Bütçeyi de büyütüyoruz.
-        let bodyNoSchema = istekBody;
-        try {
-            const o = JSON.parse(istekBody);
-            if (o.generationConfig) { delete o.generationConfig.responseSchema; o.generationConfig.maxOutputTokens = 24000; }
-            bodyNoSchema = JSON.stringify(o);
-        } catch (e) { bodyNoSchema = istekBody; }
-
-        // DENEME SIRASI: önce ŞEMASIZ (en yüksek başarı), boş/başarısızsa ŞEMALI yedek.
-        const denemeler = [ bodyNoSchema, istekBody ];
-        let sonData = null, sonYanit = null, onarildiMi = false;
-        for (let i = 0; i < denemeler.length; i++) {
-            if (i > 0) setUretimDurumu('🔄 İçerik boş geldi, farklı modda tekrar deniyorum...');
-            const y = await cekYanit(denemeler[i]);
-            sonYanit = y;
-            if (y.metin) {
-                const a = ayristirMetin(y.metin);
-                const d = bloklariDuzelt(a.data);
-                if (bloklarDolu(d)) { sonData = d; onarildiMi = a.onarildi; break; }
-                if (d && !sonData) { sonData = d; onarildiMi = a.onarildi; }
-            }
-            if (y.blok) break;
+            })
+        });
+        if (!response.ok) {
+            const error = new Error(`Gemini isteği başarısız oldu (${response.status}).`);
+            error.status = response.status;
+            throw error;
         }
+        const payload = await response.json();
+        const raw = payload?.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('');
+        return validateMaterial(parseJson(raw));
+        } finally { temizle(); }
+    };
 
-        clearInterval(asamaTimer);
+    // SON ÇARE: şemalı denemeler boş/başarısız olursa, serbest metinle mutlaka bir çıktı üret.
+    const serbestSonCare = async () => {
+        setUretimDurumu('Alternatif yöntemle hazırlanıyor…');
+        const sonPrompt = `Sen bir okul öncesi/ilkokul öğretmenine yardımcı olan uzman bir eğitim materyali hazırlayıcısısın. İstek: "${instruction}". ${targetGroup ? 'Hedef grup: ' + targetGroup + '. ' : ''}Bu istek için sınıfta KULLANILABİLİR, yazdırılabilir, düzenli bir çalışma materyali hazırla. Başlıklar, yönergeler, sorular/etkinlikler ve gerekiyorsa cevap anahtarı içersin. Zengin ve dolu bir içerik yaz; asla boş bırakma. Çıktıyı temiz HTML olarak ver: <h2>, <h3>, <p>, <ul>, <li>, <ol>, <strong>, <table> kullan. Sadece HTML gövdesi döndür, markdown veya kod bloğu kullanma.`;
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: sonPrompt }] }] })
+        });
+        if (!r.ok) { const e = new Error(`Gemini isteği başarısız (${r.status}).`); e.status = r.status; throw e; }
+        const p = await r.json();
+        let html = (p?.candidates?.[0]?.content?.parts || []).map(x => x.text || '').join('').trim();
+        html = html.replace(/^```html/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+        if (!html) throw new Error('Model boş yanıt verdi.');
+        return { dokuman_basligi: (instruction.slice(0, 60) || 'Çalışma Materyali'), icerik_bloklari: [{ blok_tipi: 'zengin_metin', baslik: '', html_icerik: html }] };
+    };
 
-        // Gerçek HTTP hatası + kullanılabilir içerik yok → catch'e düşür (ZİRVE zaten Türkçe sebep göstermiştir)
-        if (sonYanit && sonYanit.rsp && !sonYanit.rsp.ok && !bloklarDolu(sonData)) {
-            throw new Error(sonYanit.rsp.status === 429 ? '429' : ('API Error ' + sonYanit.rsp.status));
-        }
-
-        if (bloklarDolu(sonData)) {
-            // ✅ BAŞARILI
-            setUretimDurumu('✅ Neredeyse hazır, son düzenlemeler yapılıyor...');
-            setMaterialResult(sonData);
-            setShowAnswerKey(true);
-            showToast(onarildiMi ? "⚠️ Uzun materyal onarılarak hazırlandı. ✨" : "Materyal başarıyla hazırlandı! ✨");
-            setUploadedFilePreview(null);
-            setUploadedFileData(null);
-            setTimeout(() => { try { document.getElementById('matbaa-sonuc-alani')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }, 150);
-            setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
-        } else {
-            // ⚠️ BAŞARISIZ → ASLA boş ekran bırakma: net sebep + ekranda kutu
-            setUretimDurumu(''); setIsGeneratingMaterial(false);
-            const bitis = sonYanit && sonYanit.bitis;
-            const blok = sonYanit && sonYanit.blok;
-            let neden, ipucu;
-            if (blok) {
-                neden = 'Güvenlik filtresi içeriği engelledi (' + blok + ').';
-                ipucu = 'Konu ifadesini biraz yumuşatıp tekrar deneyin.';
-            } else if (bitis === 'MAX_TOKENS') {
-                neden = 'İçerik çok uzun olduğu için model yanıtı yarıda kesildi.';
-                ipucu = 'Soru/etkinlik sayısını azaltın (örn: 5 soru) ya da konuyu 2 parçaya bölüp "devam" yazın.';
-            } else if (bitis === 'RECITATION') {
-                neden = 'Model, telifli bir metne fazla benzediği için üretimi durdurdu.';
-                ipucu = 'Konuyu kendi cümlelerinizle, daha genel yazıp tekrar deneyin.';
-            } else if (sonData) {
-                neden = 'Yapay zeka bu sefer hiç içerik bloğu üretmedi (boş liste döndü).';
-                ipucu = '"Üret" butonuna tekrar basın; çoğunlukla ikinci denemede düzelir. Konuyu biraz açın (örn: "4. sınıf matematik, 10 çoktan seçmeli soru, cevap anahtarlı").';
-            } else {
-                neden = 'Yapay zeka geçerli bir içerik döndüremedi' + (bitis ? ' (' + bitis + ')' : '') + '.';
-                ipucu = '"Üret" butonuna tekrar basın ya da soru sayısını azaltın.';
+    setIsGeneratingMaterial(true);
+    setMaterialResult(null);
+    setUretimDurumu('🎨 Materyal hazırlanıyor...');
+    try {
+        let result;
+        try { result = await askModel(false); }
+        catch (firstError) {
+            if (firstError.status) throw firstError;
+            try { result = await askModel(true); }
+            catch (secondError) {
+                if (secondError.status) throw secondError;
+                try { result = await askModel(true); }
+                catch (thirdError) {
+                    if (thirdError.status) throw thirdError;
+                    result = await serbestSonCare();   // artık kesinlikle bir çıktı gelir
+                }
             }
-            showToast('⚠️ ' + neden);
-            setMaterialResult({
-                dokuman_basligi: 'Bu Sefer Üretilemedi — Tekrar Deneyin',
-                icerik_bloklari: [{ blok_tipi: 'bilgi_kutusu', renk: 'orange', baslik: 'Neden üretilemedi?', icerik_metni: neden + '\n\n👉 ' + ipucu }]
-            });
-            setShowAnswerKey(false);
-            setTimeout(() => { try { document.getElementById('matbaa-sonuc-alani')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }, 150);
-            return;
         }
-    } catch (err) { handleApiError(err); }
-    setIsGeneratingMaterial(false);
-    setUretimDurumu('');
+        setMaterialResult(result);
+        setShowAnswerKey(true);
+        setUploadedFilePreview(null);
+        setUploadedFileData(null);
+        showToast('Materyal hazırlandı! ✨');
+        setTimeout(() => { try { document.getElementById('matbaa-sonuc-alani')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }, 150);
+    } catch (error) {
+        try { handleApiError(error); } catch(e){}
+        const _detay = (error && error.message) ? (' (' + error.message + ')') : '';
+        const message = (error?.status === 401 || error?.status === 403) ? 'API anahtarı veya model erişimi geçersiz.' : (error?.status === 429 ? 'Yapay zekâ kullanım sınırına ulaşıldı; biraz sonra tekrar deneyin.' : ('Materyal üretilemedi, lütfen tekrar deneyin.' + _detay));
+        showToast('Matbaa: ' + message);
+        setMaterialResult({ dokuman_basligi: 'Bu Sefer Üretilemedi — Tekrar Deneyin', icerik_bloklari: [{ blok_tipi: 'bilgi_kutusu', renk: 'orange', baslik: 'Neden üretilemedi?', icerik_metni: message + '\n\n👉 "Üret" butonuna tekrar basın ya da soru sayısını azaltıp konuyu biraz açın.' }] });
+        setShowAnswerKey(false);
+    } finally {
+        setUretimDurumu('');
+        setIsGeneratingMaterial(false);
+    }
 };
 // --- MİNİ AI ARAÇLARI (GÜNCELLENMİŞ ZEKALAR) ---
 const generateStory = async () => {
@@ -4089,6 +4175,21 @@ title="Veli ödevi yaptıysa buraya tıklayın."
   ))}
 </div>
 <textarea value={materialTopic} onChange={(e) => setMaterialTopic(e.target.value)} rows="6" placeholder="Ne üretmek istiyorsun veya yüklediğin dosyaya ne yapalım? Örn: Bu testteki soruları uzay temasına göre baştan yaz... veya 5. sınıf matematik 10 zor soru üret..." className="w-full px-4 py-3 bg-white/10 border border-teal-400/50 rounded-xl outline-none text-white placeholder-teal-200/50 resize-y focus:bg-white focus:text-teal-900 transition mb-2"></textarea>
+{/* CANLI PROMPT DENETLEYİCİ: üretilemeyecek istekleri kırmızı gösterir, alternatif sunar */}
+{(() => { const _sorunlar = promptSorunlari(materialTopic); if (!_sorunlar.length) return null; return (
+<div className="mb-2 bg-red-50 border-2 border-red-300 rounded-xl p-3 text-left animate-fade-in">
+  <p className="text-[11px] font-black text-red-700 uppercase mb-1.5"><i className="fa-solid fa-triangle-exclamation mr-1"></i> Bu istek olduğu gibi üretilemeyebilir — şunları düzelt:</p>
+  <ul className="space-y-1.5">
+    {_sorunlar.map((s, i) => (
+      <li key={i} className="text-xs leading-snug">
+        <span className="text-red-600 font-bold">“{s.eslesme}”</span>
+        <span className="text-red-800"> → {s.kotu} </span>
+        <span className="text-emerald-700 font-semibold">(öneri: {s.oneri})</span>
+      </li>
+    ))}
+  </ul>
+</div>
+); })()}
 </div>
 <button onClick={generateMaterial} disabled={isGeneratingMaterial || !materialTopic.trim()} className="mt-4 w-full bg-yellow-400 text-teal-900 hover:bg-yellow-300 py-3.5 rounded-xl font-extrabold text-lg transition shadow-lg disabled:opacity-50 flex justify-center items-center">
 {isGeneratingMaterial ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-layer-group mr-2"></i>}
@@ -4884,6 +4985,12 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 <span className="text-sm border-l border-gray-600 pl-4 text-gray-400">Dinamik Blok Modu</span>
 </div>
 <div className="flex space-x-3 items-center flex-wrap gap-y-2 justify-end">
+<button onClick={matbaaKopyala} className="bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded-lg font-bold transition flex items-center shadow text-sm">
+<i className="fa-solid fa-copy mr-2"></i> Kopyala
+</button>
+<button onClick={matbaaPromptaEkle} title="Bu çıktıyı düzeltme talimatıyla prompt kutusuna geri gönderir; yapay zeka kendi hatalarını görüp düzeltir." className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg font-bold transition flex items-center shadow text-sm">
+<i className="fa-solid fa-rotate-left mr-2"></i> Prompta Geri Ekle (Hataları Düzelt)
+</button>
 <button onClick={() => setShowAnswerKey(!showAnswerKey)} className={`px-4 py-2 rounded-lg font-bold transition flex items-center shadow text-sm ${showAnswerKey ? 'bg-yellow-500 hover:bg-yellow-600 text-white' : 'bg-gray-600 hover:bg-gray-500 text-gray-200'}`}>
 <i className={`fa-solid ${showAnswerKey ? 'fa-eye-slash' : 'fa-eye'} mr-2`}></i> Cevap Anahtarı {showAnswerKey ? 'Gizle' : 'Göster'}
 </button>
