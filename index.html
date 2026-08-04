@@ -1205,7 +1205,7 @@ const ScreenTimeLock = () => (
     </div>
 );
 
-const TEACHER_NAMES = ["Barış Öğretmen"];
+const TEACHER_NAMES = [];
 const ALL_GRADES = ["Anaokulu", "1. Sınıf", "2. Sınıf", "3. Sınıf", "4. Sınıf", "5. Sınıf", "6. Sınıf", "7. Sınıf", "8. Sınıf"];
 const ALL_SUBJECTS = ["Sınıf Öğretmenliği (Genel)", "Türkçe / Edebiyat", "Matematik", "Fen Bilimleri", "Sosyal Bilgiler", "İngilizce", "Bilişim & Robotik", "Din Kültürü", "Görsel Sanatlar", "Müzik", "Beden Eğitimi"];
 
@@ -1357,10 +1357,7 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
                         </div>
                     ) : (
                         <div className="relative">
-                            <select value={teacherName} onChange={e=>setTeacherName(e.target.value)} className="w-full bg-black/30 border border-white/10 text-white px-6 py-4 rounded-2xl outline-none focus:border-rose-400 appearance-none font-bold text-sm md:text-base cursor-pointer text-center">
-                                {dynamicTeachers.map(t => <option key={t} value={t} className="text-black font-bold">{t}</option>)}
-                            </select>
-                            <i className="fa-solid fa-chevron-down absolute right-5 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none text-xl"></i>
+                            <input type="text" value={teacherName} onChange={e=>setTeacherName(e.target.value)} placeholder="Adınızı yazın" className="w-full bg-black/30 border border-white/10 text-white px-6 py-4 rounded-2xl outline-none focus:border-rose-400 font-bold text-sm md:text-base text-center placeholder-gray-500" />
                         </div>
                     )}
                     
@@ -1967,6 +1964,7 @@ useEffect(() => {
 const handleLogin = (data) => {
     setSystemRole(data.role);
     setK12User(data);
+    if(data.role === 'teacher') setActiveTab('tools');
     if(data.role === 'student') {
         let seconds = 1800;
         if(data.grade === 'anaokulu') seconds = 1200;
@@ -3543,11 +3541,11 @@ return (
                     <button onClick={() => {setTimerActive(false); setTimeLeft(2400);}} className="text-gray-400 hover:text-gray-600 ml-2" title="Sıfırla"><i className="fa-solid fa-rotate-right"></i></button>
                 </div>
                 <div className="hidden lg:flex space-x-1 bg-gray-100 p-1 rounded-lg">
-                    <button onClick={() => {setActiveTab('new_report'); setEditingReportId(null); setEditableResult(null);}} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'new_report' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-pen-nib mr-2"></i>Rapor</button>
-                    <button onClick={() => setActiveTab('contacts')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'contacts' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-address-book mr-2"></i>Rehber</button>
-                    <button onClick={() => setActiveTab('archive')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'archive' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-users-viewfinder mr-2"></i>Arşiv</button>
+                    {systemRole !== 'teacher' && <button onClick={() => {setActiveTab('new_report'); setEditingReportId(null); setEditableResult(null);}} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'new_report' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-pen-nib mr-2"></i>Rapor</button>}
+                    {systemRole !== 'teacher' && <button onClick={() => setActiveTab('contacts')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'contacts' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-address-book mr-2"></i>Rehber</button>}
+                    {systemRole !== 'teacher' && <button onClick={() => setActiveTab('archive')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'archive' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-users-viewfinder mr-2"></i>Arşiv</button>}
                     <button onClick={() => setActiveTab('tools')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'tools' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-wand-magic-sparkles mr-2"></i>Araçlar & Matbaa</button>
-                    <button onClick={() => setActiveTab('notepad')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'notepad' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-book-journal-whills mr-2"></i>Notlar</button>
+                    {systemRole !== 'teacher' && <button onClick={() => setActiveTab('notepad')} className={`px-4 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'notepad' ? 'bg-white text-indigo-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}><i className="fa-solid fa-book-journal-whills mr-2"></i>Notlar</button>}
                     <button onClick={() => setShowSettings(true)} className={`px-4 py-2 rounded-md text-sm font-semibold transition text-gray-600 hover:text-gray-900`}><i className="fa-solid fa-gear mr-2"></i>Ayarlar</button>
                     <button onClick={handleLogout} className={`px-4 py-2 rounded-md text-sm font-bold transition text-rose-600 hover:bg-rose-50`}><i className="fa-solid fa-sign-out-alt mr-2"></i>Çıkış</button>
                 </div>
@@ -6129,15 +6127,17 @@ notes.map(n => (
 {/* Alt Navigasyon (Mobil) */}
 <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] no-print overflow-x-auto">
 <div className="flex justify-around items-center h-16 min-w-[320px] px-2">
-<button onClick={() => {setActiveTab('new_report'); setEditingReportId(null); setEditableResult(null);}} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${activeTab === 'new_report' ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}><i className="fa-solid fa-pen-nib text-lg"></i><span className="text-[10px] font-bold">Rapor</span></button>
-<button onClick={() => setActiveTab('contacts')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${activeTab === 'contacts' ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}><i className="fa-solid fa-address-book text-lg"></i><span className="text-[10px] font-bold">Rehber</span></button>
-<button onClick={() => setActiveTab('archive')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${activeTab === 'archive' ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}><i className="fa-solid fa-users-viewfinder text-lg"></i><span className="text-[10px] font-bold">Arşiv</span></button>
+{systemRole !== 'teacher' && <button onClick={() => {setActiveTab('new_report'); setEditingReportId(null); setEditableResult(null);}} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${activeTab === 'new_report' ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}><i className="fa-solid fa-pen-nib text-lg"></i><span className="text-[10px] font-bold">Rapor</span></button>}
+{systemRole !== 'teacher' && <button onClick={() => setActiveTab('contacts')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${activeTab === 'contacts' ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}><i className="fa-solid fa-address-book text-lg"></i><span className="text-[10px] font-bold">Rehber</span></button>}
+{systemRole !== 'teacher' && <button onClick={() => setActiveTab('archive')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${activeTab === 'archive' ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}><i className="fa-solid fa-users-viewfinder text-lg"></i><span className="text-[10px] font-bold">Arşiv</span></button>}
 <button onClick={() => setActiveTab('tools')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${activeTab === 'tools' ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}><i className="fa-solid fa-wand-magic-sparkles text-lg"></i><span className="text-[10px] font-bold">Matbaa</span></button>
-<button onClick={() => setActiveTab('notepad')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${activeTab === 'notepad' ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}><i className="fa-solid fa-book text-lg"></i><span className="text-[10px] font-bold">Notlar</span></button>
+{systemRole !== 'teacher' && <button onClick={() => setActiveTab('notepad')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition ${activeTab === 'notepad' ? 'text-indigo-600 scale-110' : 'text-gray-400'}`}><i className="fa-solid fa-book text-lg"></i><span className="text-[10px] font-bold">Notlar</span></button>}
+{systemRole !== 'teacher' && (
 <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center justify-center w-full h-full ${activeTab === 'settings' ? 'text-indigo-600' : 'text-gray-400'}`}>
         <i className="fa-solid fa-gear mb-1 text-lg"></i>
         <span className="text-[10px] font-bold">Ayarlar</span>
     </button>
+)}
 </div>
 </nav>
 
