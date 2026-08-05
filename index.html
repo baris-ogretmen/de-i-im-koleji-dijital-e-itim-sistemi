@@ -1326,6 +1326,7 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col items-center justify-center p-4 relative overflow-hidden">
             <div className="absolute top-4 right-4 z-50">
                 <button onClick={openSettings} className="bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-full backdrop-blur-md transition shadow-lg border border-white/20 font-bold flex items-center gap-2"><i className="fa-solid fa-user-shield text-lg"></i> Yönetici Girişi</button>
+                <p className="text-[10px] text-white/50 mt-4 max-w-md mx-auto leading-relaxed text-center px-4"><i className="fa-solid fa-shield-halved mr-1"></i> KVKK Bilgilendirmesi: Bu uygulamadaki öğrenci, veli ve öğretmen verileri yalnızca eğitim ve gelişim amacıyla, ilgili kurum tarafından işlenir; üçüncü kişilerle paylaşılmaz. Yapay zeka çıktıları bilgilendirme amaçlıdır, önemli kararlarda uzman görüşü alınmalıdır. Giriş yaparak bu koşulları kabul etmiş olursunuz.</p>
             </div>
             
             <div className="absolute -top-32 -left-32 w-96 h-96 bg-purple-600/20 rounded-full mix-blend-screen filter blur-[100px] animate-pulse"></div>
@@ -1410,6 +1411,8 @@ const TeacherPortal = ({ user, db, apiKey, modelName }) => {
     const [hwDetails, setHwDetails] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isAILoading, setIsAILoading] = useState(false);
+    const [rubrikYukleniyor, setRubrikYukleniyor] = useState(false);
+    const [rubrikSonuc, setRubrikSonuc] = useState('');
 
     const generateAIIdea = async () => {
         if (!apiKey) return alert("Ayarlardan API anahtarınızı girin.");
@@ -1453,6 +1456,19 @@ const TeacherPortal = ({ user, db, apiKey, modelName }) => {
         setIsSaving(false);
     };
 
+    const generateRubrik = async () => {
+        if (!apiKey) return alert("Ayarlardan API anahtarınızı girin.");
+        setRubrikYukleniyor(true); setRubrikSonuc('');
+        try {
+            const konu = (hwTopic.trim() || hwDetails.trim() || selectedSubject);
+            const prompt = `${selectedGrade} ${selectedSubject} dersi "${konu}" ödevi/çalışması için öğretmenin kullanacağı DERECELİ PUANLAMA ANAHTARI (rubrik) ve değerlendirme ölçütleri hazırla. 3-4 ölçüt, her ölçüt için 4 düzey (Geliştirilmeli / Yeterli / İyi / Mükemmel) net betimleyici ifadelerle, puan aralıkları ve öğrenciye kısa geri bildirim önerileriyle. Düzenli, tablo benzeri Türkçe metin olsun.`;
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+            const data = await res.json();
+            setRubrikSonuc((data.candidates?.[0]?.content?.parts?.[0]?.text || 'Üretilemedi.').trim());
+        } catch(e) { alert("Rubrik üretilemedi."); }
+        setRubrikYukleniyor(false);
+    };
+
     if(user?.role !== 'teacher') return null;
 
     return (
@@ -1494,6 +1510,17 @@ const TeacherPortal = ({ user, db, apiKey, modelName }) => {
                     <button onClick={deleteHomework} disabled={isSaving} className="w-16 bg-red-500 text-white font-black rounded-xl shadow-lg hover:bg-red-600 transition-all flex items-center justify-center" title="Mevcut Görevi Sil">
                         <i className="fa-solid fa-trash-can text-xl"></i>
                     </button>
+                </div>
+                <div className="mt-4 border-t border-rose-400/40 pt-4">
+                    <button onClick={generateRubrik} disabled={rubrikYukleniyor} className="w-full bg-rose-900/40 hover:bg-rose-900/60 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 text-sm">
+                        {rubrikYukleniyor ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-clipboard-check"></i>} AI ile Değerlendirme Ölçütü (Rubrik) Üret
+                    </button>
+                    {rubrikSonuc && (
+                    <div className="mt-3 bg-white/95 text-slate-800 p-4 rounded-xl text-sm whitespace-pre-wrap leading-relaxed">
+                        {rubrikSonuc}
+                        <button onClick={() => {navigator.clipboard.writeText(rubrikSonuc);}} className="mt-3 bg-rose-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-rose-700"><i className="fa-solid fa-copy mr-1"></i>Kopyala</button>
+                    </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -1929,6 +1956,7 @@ const [isGeneratingMeeting, setIsGeneratingMeeting] = useState(false);
 const [absentStudentName, setAbsentStudentName] = useState('');
 const [attendanceResult, setAttendanceResult] = useState(null);
 const [isGeneratingAttendance, setIsGeneratingAttendance] = useState(false);
+const [checkupSinif, setCheckupSinif] = useState('1. Sınıf');
 
 const [readinessMotor, setReadinessMotor] = useState('');
 const [readinessDikkat, setReadinessDikkat] = useState('');
@@ -3259,7 +3287,7 @@ const generateReadiness = async () => {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 systemInstruction: { parts: [{ text: "Sen Değişim Koleji'nin profesör seviyesinde eğitim koordinatörüsün. Çocukları 21. yüzyıl becerileriyle analiz edip veliyi büyüleyen raporlar hazırlarsın. ASLA çift tırnak kullanma." }] },
-                contents: [{ parts: [{ text: `ÖĞRENCİNİN ADI: ${studentName || 'Öğrenci'}\nMotor Beceriler: ${readinessMotor}\nDikkat Gözlemi: ${readinessDikkat}\nSosyal Durum: ${readinessSosyal}\nDil & İletişim: ${readinessDil}\nBilişsel & Akademik: ${readinessBilissel}\nÖz Bakım: ${readinessOzbakim}\nİLGİ ALANLARI: ${readinessIlgi}\nGÜÇLÜ YÖNLER-YETENEKLER: ${readinessGucluYon}\nVELİNİN GÖZLEMİ VE BEKLENTİSİ: ${readinessVeli}\nÖğretmen Ek Notları: ${observation}\n\n${studentName || 'Bu öğrenci'} için 'Gelecek Tasarım' Check-Up raporu hazırla. ASLA başka bir isim uydurma; raporda ve kavram haritasında SADECE '${studentName || 'Öğrenci'}' ismini kullan. Tüm gelişim alanlarını (motor, dikkat, sosyal, dil, bilişsel, öz bakım) bütüncül değerlendir ve VELİNİN gözlem/beklentisini mutlaka dikkate alıp rapora yansıt. Tüm metinlerde Türkçe karakterleri (ç, ş, ı, ğ, ü, ö, İ) DOĞRU kullan; 'duzenli' değil 'düzenli', 'ogrenme' değil 'öğrenme' yaz. ÇOK ÖNEMLİ TUTARLILIK KURALI: Raporun BÜTÜN bölümleri (radar skorları, VAK, beyin dominansı, öğrenme kuramı, çoklu zeka, motivasyon, yetenek yönelimi, geliştirme önerileri) AYNI ÇOCUĞU anlatır ve BİRBİRİYLE UYUMLU olur. Bir alanı bir yerde 'güçlü/yüksek', başka yerde 'zayıf/düşük' GÖSTERME. Girdilerdeki gözlemlerle çelişme: veli/öğretmen 'matematiği/sayıları seviyor, hızlı öğreniyor' demişse hem radar'da bilişsel yüksek, hem mantıksal-matematiksel zeka yüksek olsun. Sayılar mantıklı ve birbirini destekler olsun, rastgele değil. 
+                contents: [{ parts: [{ text: `ÖĞRENCİNİN ADI: ${studentName || 'Öğrenci'}\nMotor Beceriler: ${readinessMotor}\nDikkat Gözlemi: ${readinessDikkat}\nSosyal Durum: ${readinessSosyal}\nDil & İletişim: ${readinessDil}\nBilişsel & Akademik: ${readinessBilissel}\nÖz Bakım: ${readinessOzbakim}\nİLGİ ALANLARI: ${readinessIlgi}\nGÜÇLÜ YÖNLER-YETENEKLER: ${readinessGucluYon}\nVELİNİN GÖZLEMİ VE BEKLENTİSİ: ${readinessVeli}\nÖğretmen Ek Notları: ${observation}\n\n${studentName || 'Bu öğrenci'} (SINIF/DÜZEY: ${checkupSinif}) için 'Gelecek Tasarım' Check-Up raporu hazırla. Değerlendirme KATEGORİLERİNİ, ÖLÇÜTLERİNİ ve AL destekli GENİŞLETİLEBİLİR gelişim/başarı YOL HARİTASINI tamamen ${checkupSinif} düzeyine göre uyarla: o sınıfın/yaşın gelişimsel beklentileri, akademik kazanımları ve öğrenme hedeflerine göre başlıklar ve ölçütler seç. Yol haritası adım adım ve genişletilebilir olsun. ASLA başka bir isim uydurma; raporda ve kavram haritasında SADECE '${studentName || 'Öğrenci'}' ismini kullan. Tüm gelişim alanlarını (motor, dikkat, sosyal, dil, bilişsel, öz bakım) bütüncül değerlendir ve VELİNİN gözlem/beklentisini mutlaka dikkate alıp rapora yansıt. Tüm metinlerde Türkçe karakterleri (ç, ş, ı, ğ, ü, ö, İ) DOĞRU kullan; 'duzenli' değil 'düzenli', 'ogrenme' değil 'öğrenme' yaz. ÇOK ÖNEMLİ TUTARLILIK KURALI: Raporun BÜTÜN bölümleri (radar skorları, VAK, beyin dominansı, öğrenme kuramı, çoklu zeka, motivasyon, yetenek yönelimi, geliştirme önerileri) AYNI ÇOCUĞU anlatır ve BİRBİRİYLE UYUMLU olur. Bir alanı bir yerde 'güçlü/yüksek', başka yerde 'zayıf/düşük' GÖSTERME. Girdilerdeki gözlemlerle çelişme: veli/öğretmen 'matematiği/sayıları seviyor, hızlı öğreniyor' demişse hem radar'da bilişsel yüksek, hem mantıksal-matematiksel zeka yüksek olsun. Sayılar mantıklı ve birbirini destekler olsun, rastgele değil. 
                 1. ÖĞRENME DNA'SI: VAK (Görsel, İşitsel, Kinestetik) yüzdelerini belirle (Toplam 100 olmalı).
                 2. BEYİN DOMİNANSI: Sağ beyin ve Sol beyin yüzdesini belirle.
                 3. YETENEK KARTLARI: Bilişsel, Sosyal ve Motor alanlar için 3'er adet alt beceri ve 1-10 arası skor ver.
@@ -3313,7 +3341,7 @@ const generateReadiness = async () => {
         if (isFbReady && user && db) {
             await window.FirebaseSDK.addDoc(window.FirebaseSDK.collection(db, 'artifacts', appId, 'users', user.uid, 'reports'), {
                 studentName: studentName || "Aday Öğrenci",
-                category: "1. Sınıf Check-Up",
+                category: (checkupSinif + " Check-Up"),
                 date: new Date().toISOString().split('T')[0],
                 result: { veli_mesaji: res.genel_analiz, ogrenci_notu: res.veli_ikna_senaryosu, gelisim_puani: res.radar_skorlari.dikkat },
                 checkup_detay: res,
@@ -3508,6 +3536,36 @@ if (systemRole === 'student' && screenTimeLeft <= 0) return <><ScreenTimeLock />
 if (!systemRole) return <>{renderSharedUI()}<LoginScreen onLogin={handleLogin} openSettings={()=>setShowSettings(true)} globalConfig={globalConfig} /></>;
 if (systemRole === 'student') return <>{renderSharedUI()}<StudentPortal user={k12User} logout={handleLogout} timeLeft={screenTimeLeft} globalConfig={globalConfig} /></>;
 if (systemRole === 'parent') return <>{renderSharedUI()}<ParentPortal user={k12User} logout={handleLogout} globalConfig={globalConfig} /></>;
+if (systemRole === 'teacher') return <>{renderSharedUI()}
+<div className="min-h-screen bg-gray-50 pt-16 pb-24 px-3">
+<div className="max-w-3xl mx-auto">
+<div className="flex items-center justify-between mb-4 no-print">
+<div className="flex items-center gap-2 text-gray-700"><i className="fa-solid fa-chalkboard-user text-2xl text-rose-500"></i><div><p className="font-black text-lg leading-tight">Öğretmen Paneli</p><p className="text-xs text-gray-400">{k12User?.name || 'Öğretmen'} · {(okulAdi || localStorage.getItem('okul_adi') || 'Değişim Koleji')}</p></div></div>
+<button onClick={handleLogout} className="bg-white border border-gray-200 hover:bg-gray-100 text-gray-600 px-4 py-2 rounded-xl font-bold text-sm transition"><i className="fa-solid fa-right-from-bracket mr-2"></i>Çıkış</button>
+</div>
+<div className="space-y-8">
+<TeacherPortal user={k12User} db={db} apiKey={apiKey} modelName={modelName} />
+<div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+<div className="bg-yellow-500 p-4 text-white flex items-center"><i className="fa-solid fa-clipboard-user text-3xl mr-3"></i><div><h3 className="font-bold text-lg text-yellow-900">Akıllı Yoklama Bildirimi</h3><p className="text-yellow-800 text-xs font-medium">Gelmeyen öğrenciler için kurumsal veli mesajı.</p></div></div>
+<div className="p-5 flex-1 flex flex-col gap-4">
+<input type="text" value={absentStudentName} onChange={(e) => setAbsentStudentName(e.target.value)} placeholder="Gelmeyen Öğrenci Kim? Örn: Ayşe Yılmaz" className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm font-medium" />
+<button onClick={generateAttendance} disabled={isGeneratingAttendance || !absentStudentName.trim()} className="w-full bg-yellow-100 text-yellow-800 hover:bg-yellow-200 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center shadow-sm">
+{isGeneratingAttendance ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-paper-plane mr-2"></i>} Mesaj Hazırla ✨
+</button>
+{attendanceResult && (
+<div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl text-sm text-gray-800 whitespace-pre-wrap relative shadow-inner">
+{attendanceResult}
+<div className="mt-4 flex space-x-2">
+<button onClick={() => {navigator.clipboard.writeText(attendanceResult); showToast("Kopyalandı! WhatsApp'tan gönderebilirsiniz.");}} className="flex-1 bg-green-500 text-white font-bold py-2 rounded-lg hover:bg-green-600 transition shadow-sm"><i className="fa-brands fa-whatsapp mr-2"></i>Kopyala & Gönder</button>
+</div>
+</div>
+)}
+</div>
+</div>
+</div>
+</div>
+</div>
+</>;
 
 return (
 <div className="min-h-screen flex flex-col bg-gray-50 pb-safe md:pb-0 relative pt-10">
@@ -4742,12 +4800,13 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 {/* YENİ EKLENEN ARAÇ: 1. SINIF HAZIRBULUNUŞLUK CHECK-UP AI */}
 <div className="bg-white rounded-3xl shadow-xl border-4 border-sky-100 overflow-hidden flex flex-col lg:col-span-2" id="tool-printable-readiness">
     <div className="bg-gradient-to-r from-sky-600 to-indigo-700 p-6 text-white flex justify-between items-center">
-        <div className="flex items-center"><i className="fa-solid fa-microscope text-4xl mr-4 opacity-80"></i><div><h3 className="font-bold text-xl">1. Sınıf Check-Up (Gelişmiş Analiz)</h3><p className="text-sky-100 text-xs font-bold uppercase tracking-widest">Akademik Hazırbulunuşluk & Gelişim Haritası</p></div></div>
+        <div className="flex items-center"><i className="fa-solid fa-microscope text-4xl mr-4 opacity-80"></i><div><h3 className="font-bold text-xl">{checkupSinif} Check-Up (Gelişmiş Analiz)</h3><p className="text-sky-100 text-xs font-bold uppercase tracking-widest">Akademik Hazırbulunuşluk & Gelişim Haritası</p></div></div>
     </div>
     
     <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 no-print bg-slate-50">
         <div className="space-y-4">
             <div><label className="text-[10px] font-black text-sky-700 uppercase ml-2">Öğrenci Adı</label><input type="text" value={studentName} onChange={e=>setStudentName(e.target.value)} placeholder="Aday Öğrencinin Adı" className="w-full px-4 py-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-sky-500 transition font-bold" /></div>
+            <div><label className="text-[10px] font-black text-sky-700 uppercase ml-2"><i className="fa-solid fa-layer-group mr-1"></i> Sınıf / Düzey (değerlendirme ve yol haritası buna göre uyarlanır)</label><select value={checkupSinif} onChange={e=>setCheckupSinif(e.target.value)} className="w-full px-4 py-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-sky-500 transition font-bold bg-white"><option>Okul Öncesi</option><option>1. Sınıf</option><option>2. Sınıf</option><option>3. Sınıf</option><option>4. Sınıf</option><option>5. Sınıf</option><option>6. Sınıf</option><option>7. Sınıf</option><option>8. Sınıf</option><option>Lise 9</option><option>Lise 10</option><option>Lise 11</option><option>Lise 12</option></select></div>
             <div><label className="text-[10px] font-black text-sky-700 uppercase ml-2"><i className="fa-solid fa-certificate mr-1"></i> Bu Rapor Kimin Adına? (Okul / Kurum / Kişi)</label><input type="text" value={okulAdi} onChange={e=>{ setOkulAdi(e.target.value); localStorage.setItem('okul_adi', e.target.value); }} placeholder="Örn: Değişim Koleji, Barış Öğretmen..." className="w-full px-4 py-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-sky-500 transition font-bold" /></div>
             <div><label className="text-[10px] font-black text-sky-700 uppercase ml-2">Dikkat & Odaklanma</label><SecenekCipleri alan="dikkat" deger={readinessDikkat} setDeger={setReadinessDikkat} /><textarea value={readinessDikkat} onChange={e=>setReadinessDikkat(e.target.value)} placeholder="Oturma süresi, yönerge takibi..." className="w-full px-4 py-2 rounded-xl border-2 border-white shadow-sm outline-none focus:border-sky-500 transition text-sm min-h-[80px]" /></div>
             <div><label className="text-[10px] font-black text-sky-700 uppercase ml-2">İnce & Kalın Motor</label><SecenekCipleri alan="motor" deger={readinessMotor} setDeger={setReadinessMotor} /><textarea value={readinessMotor} onChange={e=>setReadinessMotor(e.target.value)} placeholder="Kalem tutuşu, makas kullanımı, denge..." className="w-full px-4 py-2 rounded-xl border-2 border-white shadow-sm outline-none focus:border-sky-500 transition text-sm min-h-[80px]" /></div>
