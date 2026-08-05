@@ -1413,6 +1413,7 @@ const TeacherPortal = ({ user, db, apiKey, modelName }) => {
     const [isAILoading, setIsAILoading] = useState(false);
     const [rubrikYukleniyor, setRubrikYukleniyor] = useState(false);
     const [rubrikSonuc, setRubrikSonuc] = useState('');
+    const [sonAtanan, setSonAtanan] = useState('');
 
     const generateAIIdea = async () => {
         if (!apiKey) return alert("Ayarlardan API anahtarınızı girin.");
@@ -1437,7 +1438,7 @@ const TeacherPortal = ({ user, db, apiKey, modelName }) => {
             const hwField = `hw_${selectedGrade.replace(/\s+/g, '').replace(/\./g, '')}`; 
             const hwText = `📌 DERS: ${selectedSubject}\n${hwTopic.trim() ? `🎯 KONU: ${hwTopic}\n` : ''}📝 GÖREV: ${hwDetails}\n👨‍🏫 Ekleyen: ${user?.name || "Öğretmen"}`;
             await window.FirebaseSDK.setDoc(confRef, { [hwField]: hwText }, { merge: true });
-            alert(`Harika! Ödev ${selectedGrade} sınıfına gönderildi.`);
+            alert(`Harika! Ödev ${selectedGrade} sınıfına gönderildi.`); setSonAtanan(selectedGrade);
             setHwTopic(''); setHwDetails('');
         } catch(err) { alert("Hata: " + err.message); }
         setIsSaving(false);
@@ -1511,6 +1512,7 @@ const TeacherPortal = ({ user, db, apiKey, modelName }) => {
                         <i className="fa-solid fa-trash-can text-xl"></i>
                     </button>
                 </div>
+                <div className="mt-3 text-center text-sm font-bold text-rose-100 bg-rose-900/30 rounded-lg py-2">📌 Şu an <span className="text-yellow-300">{selectedGrade}</span> sınıfına görev atıyorsunuz{sonAtanan ? <span className="block text-[11px] text-emerald-300 font-semibold mt-1">✅ Son gönderilen: {sonAtanan} sınıfı</span> : null}</div>
                 <div className="mt-4 border-t border-rose-400/40 pt-4">
                     <button onClick={generateRubrik} disabled={rubrikYukleniyor} className="w-full bg-rose-900/40 hover:bg-rose-900/60 text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 text-sm">
                         {rubrikYukleniyor ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-clipboard-check"></i>} AI ile Değerlendirme Ölçütü (Rubrik) Üret
@@ -2085,6 +2087,8 @@ onAuthStateChanged(auth, async (u) => {
             return;
         }
         setIsApiValid(true);
+        setSystemRole('admin');
+        setK12User({ name: 'Yönetici', role: 'admin', grade: '' });
     }
     setUser(u); 
     setIsFbReady(true); 
