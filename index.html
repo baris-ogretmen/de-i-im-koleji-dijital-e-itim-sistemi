@@ -1951,6 +1951,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
     { k:'teslim',  ad:'Teslimler',  ikon:'fa-clipboard-check' },
     { k:'dna',     ad:'Öğrenme DNA', ikon:'fa-dna' },
     { k:'rozet',   ad:'Rozet & Sıralama', ikon:'fa-trophy' },
+    { k:'veli',    ad:'Veli İletişim', ikon:'fa-comments' },
     { k:'duyuru',  ad:'Duyuru',     ikon:'fa-bullhorn' },
   ];
 
@@ -1980,6 +1981,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='teslim'  && <TeslimTakip db={db} odevler={odevler} teslimler={teslimler} ogrenciler={ogrenciler} />}
         {!yukleniyor && sekme==='dna'     && <DnaYonetim db={db} ogrenciler={ogrenciler} apiKey={apiKey} modelName={modelName} />}
         {!yukleniyor && sekme==='rozet'   && <RozetSiralama db={db} ogrenciler={ogrenciler} />}
+        {!yukleniyor && sekme==='veli'    && <VeliIletisim ogrenciler={ogrenciler} apiKey={apiKey} modelName={modelName} />}
         {!yukleniyor && sekme==='duyuru'  && <DuyuruYonetim db={db} user={user} duyurular={duyurular} />}
       </div>
     </div>
@@ -2489,6 +2491,8 @@ const OgrenciMerkezi = ({ db, user }) => {
         </div>
       )}
 
+      <KonuCalisma grade={sinifim} />
+
       {/* Ödevlerim */}
       <div className="bg-white border-4 border-orange-200 rounded-[2rem] p-6 shadow-lg">
         <h3 className="text-xl font-black text-orange-900 mb-4 flex items-center"><i className="fa-solid fa-list-check text-orange-500 mr-2"></i>Ödevlerim ({benimOdevler.length})</h3>
@@ -2621,6 +2625,261 @@ const VeliMerkezi = ({ db, user }) => {
             )}
           </div>
         </>
+      )}
+    </div>
+  );
+};
+
+/* ============================================================================
+   MAARIF / MEB MÜFREDAT — sınıf bazlı konu listesi (öğrenci konu çalışması için)
+   ============================================================================ */
+const MAARIF_MUFREDAT = {
+  "Anaokulu": [
+    { ders:"Bilişsel Gelişim", konular:["Renkler","Şekiller","Sayılar 1-10","Büyük-Küçük","Az-Çok","Örüntü","Eşleştirme","Gruplama"] },
+    { ders:"Dil Gelişimi", konular:["Sesler","Tekerlemeler","Hikâye Dinleme","Kelime Dağarcığı","İlk Ses Farkındalığı"] },
+    { ders:"Öz Bakım & Sosyal", konular:["Duygular","Paylaşma","El Yıkama","Nezaket Sözcükleri","Trafik Kuralları"] },
+    { ders:"Doğa & Bilim", konular:["Mevsimler","Hava Olayları","Canlılar","Duyu Organları","Su ve Doğa"] },
+  ],
+  "1. Sınıf": [
+    { ders:"Türkçe", konular:["Sesler ve Harfler","Hece","Kelime Okuma","Cümle Okuma","Okuduğunu Anlama","Görsel Okuma","Dinleme"] },
+    { ders:"Matematik", konular:["Rakamlar 1-20","Ritmik Sayma","Toplama","Çıkarma","Geometrik Şekiller","Uzunluk-Ölçme","Örüntü","Sayı Karşılaştırma"] },
+    { ders:"Hayat Bilgisi", konular:["Okulumuz","Ben ve Ailem","Sağlığım","Güvenlik","Değerlerimiz","Doğa ve Çevre"] },
+    { ders:"İngilizce", konular:["Greetings","Colors","Numbers 1-10","Family","Animals"] },
+  ],
+  "2. Sınıf": [
+    { ders:"Türkçe", konular:["Okuma Akıcılığı","Okuduğunu Anlama","Hikâye Ögeleri","Yazım-Noktalama","Eş-Zıt Anlam","Kelime Türetme","Dinleme-Konuşma"] },
+    { ders:"Matematik", konular:["Sayılar 100'e kadar","Onluk-Birlik","Toplama-Çıkarma","Çarpma (Giriş)","Geometri","Uzunluk-Zaman-Para","Kesirler (Yarım-Çeyrek)","Örüntü"] },
+    { ders:"Hayat Bilgisi", konular:["Okul Heyecanı","Benim Eşsiz Yuvam","Sağlıklı Yaşam","Güvenli Yaşam","Ülkemiz","Doğa ve Çevre"] },
+    { ders:"İngilizce", konular:["Words","Friends","In the Classroom","Numbers","Fruits"] },
+  ],
+  "3. Sınıf": [
+    { ders:"Türkçe", konular:["Okuduğunu Anlama","Ana Fikir","Metin Türleri","Yazım-Noktalama","Sözcükte Anlam","Cümlede Anlam","Yazma","5N1K"] },
+    { ders:"Matematik", konular:["Sayılar 1000'e kadar","Toplama-Çıkarma","Çarpma Tablosu","Bölme","Kesirler","Geometrik Cisimler","Ölçme (Uzunluk-Sıvı-Zaman)","Veri (Tablo-Grafik)"] },
+    { ders:"Fen Bilimleri", konular:["Duyu Organlarımız","Kuvvet ve Hareket","Maddeyi Tanıyalım","Çevremizdeki Işık-Ses","Canlılar Dünyası","Gezegenimizi Tanıyalım"] },
+    { ders:"Hayat Bilgisi", konular:["Okul-Toplum","Aile-Ben","Sağlık-Güvenlik","Ülkem-Dünya","Doğa-Çevre"] },
+    { ders:"İngilizce", konular:["Greetings","Family","Toys-Games","Body","Feelings"] },
+  ],
+  "4. Sınıf": [
+    { ders:"Türkçe", konular:["Okuma Stratejileri","Ana-Yardımcı Fikir","Metin Türleri","Söz Sanatları","Sözcükte Anlam","Cümlede Anlam","Yazım-Noktalama","Yazma (Öykü-Bilgilendirici)"] },
+    { ders:"Matematik", konular:["Doğal Sayılar (Milyon)","Toplama-Çıkarma","Çarpma-Bölme","Kesirler","Ondalık Gösterim","Geometri (Açı-Üçgen-Dörtgen)","Ölçme (Alan-Çevre)","Zaman-Veri"] },
+    { ders:"Fen Bilimleri", konular:["Yer Kabuğu","Besinlerimiz","Kuvvetin Etkileri","Maddenin Özellikleri","Aydınlatma-Ses","İnsan ve Çevre","Basit Elektrik Devreleri"] },
+    { ders:"Sosyal Bilgiler", konular:["Birey-Toplum","Kültür-Miras","İnsanlar-Yerler-Çevreler","Bilim-Teknoloji","Üretim-Tüketim","Etkin Vatandaşlık","Küresel Bağlantılar"] },
+    { ders:"İngilizce", konular:["Classroom Rules","Nationality","Cartoon Characters","Free Time","Jobs"] },
+    { ders:"Din Kültürü", konular:["Görgü Kuralları","Temizlik","Peygamberimizin Hayatı","Din ve Ahlak"] },
+  ],
+  "5. Sınıf": [
+    { ders:"Türkçe", konular:["Okuma-Anlama","Metin Türleri","Söz Varlığı","Yazım-Noktalama","Fiiller","Yazma Çalışmaları","Sözlü İletişim"] },
+    { ders:"Matematik", konular:["Doğal Sayılarla İşlemler","Kesirler","Ondalık Gösterim","Yüzdeler","Temel Geometrik Kavramlar","Üçgen-Dörtgen","Uzunluk-Alan Ölçme","Veri Analizi"] },
+    { ders:"Fen Bilimleri", konular:["Güneş-Dünya-Ay","Canlılar Dünyası","Kuvvetin Ölçülmesi","Madde ve Değişim","Işığın Yayılması","İnsan ve Çevre","Elektrik Devre Elemanları"] },
+    { ders:"Sosyal Bilgiler", konular:["Birey-Toplum","Kültür-Miras","İnsanlar-Yerler-Çevreler","Bilim-Teknoloji","Üretim-Dağıtım-Tüketim","Etkin Vatandaşlık","Küresel Bağlantılar"] },
+    { ders:"İngilizce", konular:["Hello","My Town","Games-Hobbies","My Daily Routine","Health","Movies","Party Time"] },
+    { ders:"Din Kültürü", konular:["Allah İnancı","Temizlik-İbadet","Hz. Muhammed'in Hayatı","Vahiy-Akıl"] },
+  ],
+  "6. Sınıf": [
+    { ders:"Türkçe", konular:["Okuma-Anlama","Metin Türleri","Sözcükte Anlam","Cümlede Anlam","Sözcük Türleri","Yazım-Noktalama","Yazma","Söz Sanatları"] },
+    { ders:"Matematik", konular:["Doğal Sayılarla İşlemler","Çarpanlar-Katlar","Kümeler","Tam Sayılar","Kesirlerle İşlemler","Ondalık Gösterim","Oran","Cebirsel İfadeler","Alan-Açı","Veri Analizi"] },
+    { ders:"Fen Bilimleri", konular:["Güneş Sistemi","Vücudumuzdaki Sistemler","Kuvvet ve Hareket","Madde ve Isı","Ses ve Özellikleri","Vücudumuzda Sistemler","Elektriğin İletimi"] },
+    { ders:"Sosyal Bilgiler", konular:["Birey-Toplum","Tarih (İlk Uygarlıklar)","Coğrafya (İklim-Yeryüzü)","Bilim-Teknoloji","Ekonomi","Vatandaşlık","Küresel Bağlantılar"] },
+    { ders:"İngilizce", konular:["Life","Yummy Breakfast","Downtown","Weather","At the Fair","Occupations","Holidays"] },
+    { ders:"Din Kültürü", konular:["Peygamber-İlahi Kitap","Namaz","Zararlı Alışkanlıklar","Hz. Muhammed'in Örnekliği"] },
+  ],
+  "7. Sınıf": [
+    { ders:"Türkçe", konular:["Okuma-Anlama","Metin Türleri","Sözcükte Anlam","Cümlede Anlam","Fiiller-Fiilimsi (Giriş)","Yazım-Noktalama","Yazma","Söz Sanatları"] },
+    { ders:"Matematik", konular:["Tam Sayılarla İşlemler","Rasyonel Sayılar","Cebirsel İfadeler","Eşitlik-Denklem","Oran-Orantı","Yüzdeler","Doğrular-Açılar","Çember","Cisimler","Veri Analizi","Olasılık"] },
+    { ders:"Fen Bilimleri", konular:["Güneş Sistemi-Ötesi","Hücre-Bölünmeler","Kuvvet-Enerji","Saf Madde-Karışım","Işığın Madde ile Etkileşimi","Aynalar-Işık","Elektrik Devreleri"] },
+    { ders:"Sosyal Bilgiler", konular:["Birey-Toplum-İletişim","Tarih (Osmanlı Kuruluş)","Coğrafya (Nüfus-Göç)","Bilim-Teknoloji","Ekonomi-Sosyal Hayat","Yaşayan Demokrasi","Ülkeler Arası Köprüler"] },
+    { ders:"İngilizce", konular:["Appearance","Sports","Biographies","Wild Animals","Television","Celebrations","Dreams","Public Buildings"] },
+    { ders:"Din Kültürü", konular:["Melek-Ahiret","Hac-Kurban","Ahlaki Davranışlar","Kur'an'da Bilgi"] },
+  ],
+  "8. Sınıf": [
+    { ders:"Türkçe (LGS)", konular:["Sözcükte Anlam","Cümlede Anlam","Paragraf","Fiilimsiler","Cümlenin Ögeleri","Fiil Çatısı","Cümle Türleri","Anlatım Bozuklukları","Yazım-Noktalama","Söz Sanatları"] },
+    { ders:"Matematik (LGS)", konular:["Çarpanlar-Katlar","Üslü İfadeler","Kareköklü İfadeler","Veri Analizi","Olasılık","Cebirsel İfadeler-Özdeşlikler","Doğrusal Denklemler","Eşitsizlikler","Üçgenler","Dönüşüm Geometrisi","Geometrik Cisimler"] },
+    { ders:"Fen Bilimleri (LGS)", konular:["Mevsimler-İklim","DNA ve Genetik Kod","Basınç","Madde ve Endüstri","Basit Makineler","Enerji Dönüşümleri","Elektrik Yükleri-Enerjisi"] },
+    { ders:"T.C. İnkılap Tarihi", konular:["Bir Kahraman Doğuyor","Milli Uyanış","Milli Bir Destan","Atatürkçülük","Demokratikleşme","Atatürk Dönemi Dış Politika","Atatürk'ün Ölümü"] },
+    { ders:"İngilizce (LGS)", konular:["Friendship","Teen Life","In the Kitchen","On the Phone","The Internet","Adventures","Tourism","Chores","Science","Natural Forces"] },
+    { ders:"Din Kültürü (LGS)", konular:["Kader İnancı","Zekât-Sadaka","Din ve Hayat","Hz. Muhammed'in Örnekliği","Kur'an ve Yorumu"] },
+  ],
+};
+
+/* Anahtar/model çözücü — öğrenci cihazında localStorage yoksa ZİRVE ringinden/gömülüden dener */
+function cozKey(){
+  try{ const k = localStorage.getItem('gemini_api_key'); if(k && k.trim().length>10) return k.trim(); }catch(e){}
+  try{ if(window.ZIRVE && window.ZIRVE.RING && Array.isArray(window.ZIRVE.RING.keys) && window.ZIRVE.RING.keys.length) return String(window.ZIRVE.RING.keys[0]).trim(); }catch(e){}
+  try{ if(typeof GOMULU_ANAHTARLAR!=='undefined' && GOMULU_ANAHTARLAR && GOMULU_ANAHTARLAR.length){ const g=String(GOMULU_ANAHTARLAR[0]||'').trim(); if(g.length>10) return g; } }catch(e){}
+  return '';
+}
+function cozModel(){
+  try{ const m = localStorage.getItem('gemini_model_name'); if(m) return m; }catch(e){}
+  try{ if(window.ZIRVE && window.ZIRVE.model) return window.ZIRVE.model; }catch(e){}
+  return 'gemini-2.5-flash';
+}
+
+/* ============================================================================
+   VELİ İLETİŞİM — öğretmen, kayıtlı öğrencinin velisine mesaj (WhatsApp/kopya, AI taslak)
+   ============================================================================ */
+const VeliIletisim = ({ ogrenciler, apiKey, modelName }) => {
+  const [id, setId] = useState('');
+  const [konu, setKonu] = useState('bilgilendirme');
+  const [mesaj, setMesaj] = useState('');
+  const [aiYukleniyor, setAiYukleniyor] = useState(false);
+  const ogr = ogrenciler.find(o=>o.id===id);
+
+  const konuSecenek = [
+    { k:'bilgilendirme', ad:'Genel Bilgilendirme' },
+    { k:'olumlu', ad:'Olumlu Geri Bildirim / Takdir' },
+    { k:'odev', ad:'Ödev / Çalışma Hatırlatma' },
+    { k:'devamsizlik', ad:'Devamsızlık' },
+    { k:'gorusme', ad:'Görüşme Daveti' },
+    { k:'gelisim', ad:'Gelişim Değerlendirmesi' },
+  ];
+
+  const aiTaslak = async () => {
+    if(!ogr) return alert("Önce bir öğrenci seçin.");
+    const anahtar = apiKey || cozKey();
+    if(!anahtar) return alert("Ayarlardan Gemini API anahtarınızı girin.");
+    setAiYukleniyor(true);
+    try{
+      const konuAd = (konuSecenek.find(x=>x.k===konu)||{}).ad || konu;
+      const dnaNot = ogr.dna ? `Öğrencinin baskın öğrenme stili: ${dnaBaskin(ogr.dna)?.a.ad}.` : '';
+      const p = `Bir öğretmen olarak, "${ogr.ad}" (${ogr.sinif}) adlı öğrencinin velisi ${ogr.veliAdi? '('+ogr.veliAdi+') ':''}için "${konuAd}" konulu, kurumsal ama sıcak ve nazik bir veli mesajı yaz. ${dnaNot} Kısa (3-5 cümle), doğrudan gönderilebilir olsun. Sadece mesaj metnini yaz, başka açıklama ekleme.`;
+      const t = await geminiMetin(anahtar, modelName || cozModel(), p);
+      if(t) setMesaj(t);
+    }catch(e){ alert("AI taslak üretemedi."); }
+    setAiYukleniyor(false);
+  };
+
+  const telTemiz = (t) => (t||'').replace(/[^0-9]/g,'').replace(/^0/,'90');
+  const waLink = ogr && ogr.veliTel ? `https://wa.me/${telTemiz(ogr.veliTel)}?text=${encodeURIComponent(mesaj)}` : '';
+
+  return (
+    <div>
+      <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 mb-4">
+        <h4 className="font-black text-teal-800 text-sm mb-3"><i className="fa-solid fa-comments mr-1"></i>Veli ile İletişim</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+          <select value={id} onChange={e=>{setId(e.target.value); setMesaj('');}} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none">
+            <option value="">— Öğrenci seç —</option>
+            {OKUL_SINIFLAR.map(s=>{ const g=ogrenciler.filter(o=>o.sinif===s); return g.length? <optgroup key={s} label={s}>{g.map(o=><option key={o.id} value={o.id}>{o.ad}</option>)}</optgroup> : null; })}
+          </select>
+          <select value={konu} onChange={e=>setKonu(e.target.value)} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none">
+            {konuSecenek.map(k=><option key={k.k} value={k.k}>{k.ad}</option>)}
+          </select>
+        </div>
+        {ogr && (
+          <div className="bg-white rounded-lg p-3 mb-2 text-xs text-slate-600 border border-teal-100">
+            <span className="font-black text-slate-700">{ogr.ad}</span> · {ogr.sinif}
+            {ogr.veliAdi && <span> · Veli: <b>{ogr.veliAdi}</b></span>}
+            {ogr.veliTel ? <span> · <i className="fa-solid fa-phone text-teal-500"></i> {ogr.veliTel}</span> : <span className="text-orange-500"> · ⚠️ Veli telefonu kayıtlı değil (Öğrenciler sekmesinden ekleyin)</span>}
+          </div>
+        )}
+        <div className="flex justify-between items-center mb-1">
+          <label className="text-[11px] font-black text-teal-700 uppercase">Mesaj</label>
+          <button onClick={aiTaslak} disabled={aiYukleniyor || !ogr} className="bg-teal-500 text-white hover:bg-teal-600 px-3 py-1 rounded-lg text-[10px] font-black transition disabled:opacity-50">
+            {aiYukleniyor ? <i className="fa-solid fa-spinner fa-spin mr-1"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-1"></i>}AI ile Taslak Yaz
+          </button>
+        </div>
+        <textarea value={mesaj} onChange={e=>setMesaj(e.target.value)} rows="4" placeholder="Veliye gönderilecek mesaj… (elle yazabilir veya AI'dan taslak alabilirsiniz)" className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none resize-y mb-2"></textarea>
+        <div className="flex gap-2">
+          <button onClick={()=>{ if(!mesaj.trim()) return alert('Mesaj boş.'); try{navigator.clipboard.writeText(mesaj); toast('📋 Mesaj kopyalandı.','green');}catch(e){alert('Kopyalanamadı.');} }} className="flex-1 bg-slate-200 text-slate-700 font-black py-2.5 rounded-lg text-sm hover:bg-slate-300 transition"><i className="fa-solid fa-copy mr-1"></i>Kopyala</button>
+          {ogr && ogr.veliTel ? (
+            <a href={mesaj.trim()?waLink:undefined} onClick={(e)=>{ if(!mesaj.trim()){e.preventDefault(); alert('Önce mesaj yazın.');} }} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green-500 text-white font-black py-2.5 rounded-lg text-sm hover:bg-green-600 transition text-center"><i className="fa-brands fa-whatsapp mr-1"></i>WhatsApp'tan Gönder</a>
+          ) : (
+            <button disabled className="flex-1 bg-slate-100 text-slate-400 font-black py-2.5 rounded-lg text-sm cursor-not-allowed"><i className="fa-brands fa-whatsapp mr-1"></i>Telefon Yok</button>
+          )}
+        </div>
+      </div>
+      <p className="text-[11px] text-slate-400 text-center">WhatsApp butonu velinin numarasını kullanarak hazır mesajla sohbeti açar; göndermeden önce kontrol edebilirsiniz.</p>
+    </div>
+  );
+};
+
+/* ============================================================================
+   ÖĞRENCİ KONU ÇALIŞMA — sınıfa göre Maarif müfredatı; konuya dokun → renkli özet + etkinlik
+   ============================================================================ */
+const KonuCalisma = ({ grade }) => {
+  const dersler = MAARIF_MUFREDAT[grade] || [];
+  const [dersIdx, setDersIdx] = useState(0);
+  const [konu, setKonu] = useState('');
+  const [mod, setMod] = useState('');
+  const [yukleniyor, setYukleniyor] = useState(false);
+  const [sonuc, setSonuc] = useState('');
+  const [hata, setHata] = useState('');
+
+  const kucuk = ['Anaokulu','1. Sınıf','2. Sınıf','3. Sınıf'].includes(grade);
+  const ders = dersler[dersIdx];
+
+  if(dersler.length===0){
+    return null;
+  }
+
+  const uret = async (secilenKonu, tur) => {
+    setKonu(secilenKonu); setMod(tur); setSonuc(''); setHata('');
+    const anahtar = cozKey();
+    if(!anahtar){ setHata('Bu özellik için yapay zeka anahtarı gerekiyor. Öğretmenine söyle 🙂'); return; }
+    setYukleniyor(true);
+    try{
+      const seviye = kucuk ? 'ÇOK BASİT, kısa cümleli, bol emoji ve renkli; küçük çocuğun anlayacağı dilde' : 'yaş düzeyine uygun, net ve öğretici';
+      const istem = tur==='ozet'
+        ? `${grade} öğrencisi için "${ders.ders}" dersinden "${secilenKonu}" konusunu ${seviye} bir şekilde ÖZETLE. Renkli HTML döndür: <h3> başlık, önemli yerler <b> ve renkli <span style="color:...">, örnekler kutular içinde. Bol emoji kullan. SADECE HTML gövdesi döndür (html/head/body etiketi olmadan), kod bloğu (üç tırnak) kullanma.`
+        : `${grade} öğrencisi için "${ders.ders}" dersinden "${secilenKonu}" konusuyla ilgili EĞLENCELİ 3-4 ETKİNLİK/ALIŞTIRMA hazırla (${seviye}). Bilmece, eşleştirme, boşluk doldurma, mini quiz gibi. Renkli HTML döndür (başlıklar, renkli kutular, emoji). Cevapları en sonda "✅ Cevaplar" başlığı altında ver. SADECE HTML gövdesi döndür, kod bloğu kullanma.`;
+      let t = await geminiMetin(anahtar, cozModel(), istem);
+      t = (t||'').replace(/```html|```/g,'').trim();
+      if(!t){ setHata('Şu an üretilemedi, tekrar dene.'); }
+      else setSonuc(t);
+    }catch(e){ setHata('Bir sorun oldu, tekrar dene.'); }
+    setYukleniyor(false);
+  };
+
+  return (
+    <div className={`border-4 rounded-[2rem] p-6 shadow-lg ${kucuk?'bg-gradient-to-br from-yellow-50 to-pink-50 border-pink-200':'bg-white border-cyan-200'}`}>
+      <h3 className={`font-black mb-1 flex items-center ${kucuk?'text-3xl text-pink-600':'text-xl text-cyan-800'}`}>
+        <i className="fa-solid fa-book-open-reader mr-2"></i>Konu Çalış {kucuk && '🌈'}
+      </h3>
+      <p className={`mb-4 ${kucuk?'text-base text-pink-500 font-bold':'text-sm text-slate-500'}`}>{grade} müfredatından istediğin konuyu seç, sana özet ve etkinlik hazırlayayım!</p>
+
+      {/* Ders seçimi */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {dersler.map((d,i)=>(
+          <button key={d.ders} onClick={()=>{setDersIdx(i); setSonuc(''); setKonu('');}}
+            className={`px-4 py-2 rounded-full font-black transition ${kucuk?'text-base':'text-xs'} ${dersIdx===i ? 'bg-cyan-500 text-white shadow-lg scale-105' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+            {d.ders}
+          </button>
+        ))}
+      </div>
+
+      {/* Konu kartları */}
+      <div className={`grid gap-2 mb-4 ${kucuk?'grid-cols-1 sm:grid-cols-2':'grid-cols-2 sm:grid-cols-3'}`}>
+        {ders.konular.map((k,i)=>{
+          const renkler = ['from-rose-400 to-pink-500','from-amber-400 to-orange-500','from-emerald-400 to-teal-500','from-sky-400 to-blue-500','from-violet-400 to-purple-500','from-fuchsia-400 to-pink-500'];
+          const renk = renkler[i%renkler.length];
+          const aktif = konu===k;
+          return (
+            <div key={k} className={`rounded-2xl p-3 text-white bg-gradient-to-br ${renk} shadow ${aktif?'ring-4 ring-cyan-300':''} ${kucuk?'text-center':''}`}>
+              <p className={`font-black mb-2 ${kucuk?'text-lg':'text-sm'} leading-tight`}>{k}</p>
+              <div className="flex gap-1.5 justify-center">
+                <button onClick={()=>uret(k,'ozet')} className="bg-white/25 hover:bg-white/40 backdrop-blur px-2.5 py-1 rounded-lg text-[11px] font-black transition">📘 Özet</button>
+                <button onClick={()=>uret(k,'etkinlik')} className="bg-white/25 hover:bg-white/40 backdrop-blur px-2.5 py-1 rounded-lg text-[11px] font-black transition">🎨 Etkinlik</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Sonuç */}
+      {yukleniyor && (
+        <div className="text-center py-8 bg-slate-50 rounded-2xl">
+          <i className="fa-solid fa-spinner fa-spin text-3xl text-cyan-500 mb-2"></i>
+          <p className="font-black text-slate-600">"{konu}" için {mod==='ozet'?'özet':'etkinlik'} hazırlanıyor… ✨</p>
+        </div>
+      )}
+      {hata && <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-4 text-orange-700 font-bold text-center">{hata}</div>}
+      {sonuc && !yukleniyor && (
+        <div className="bg-white rounded-2xl border-2 border-cyan-200 shadow-inner overflow-hidden">
+          <div className="bg-cyan-500 text-white px-4 py-2 flex items-center justify-between">
+            <span className="font-black text-sm"><i className={`fa-solid ${mod==='ozet'?'fa-book':'fa-palette'} mr-2`}></i>{konu} · {mod==='ozet'?'Özet':'Etkinlik'}</span>
+            <button onClick={()=>{ try{navigator.clipboard.writeText(sonuc.replace(/<[^>]+>/g,''));toast('📋 Kopyalandı','green');}catch(e){} }} className="bg-white/20 hover:bg-white/40 px-2 py-1 rounded text-[11px] font-black"><i className="fa-solid fa-copy mr-1"></i>Kopyala</button>
+          </div>
+          <div className="p-5 leading-relaxed text-slate-800 konu-cikti" style={{fontSize: kucuk?'17px':'15px'}} dangerouslySetInnerHTML={{__html: sonuc}}></div>
+        </div>
       )}
     </div>
   );
@@ -7054,6 +7313,196 @@ notes.map(n => (
                 <App />
             </ErrorBoundary>
         );
+</script>
+<!-- ════════════════════════════════════════════════════════════════════
+     🔒 KURUMSAL ONAY KODU (LİSANS) KATMANI  ·  ZİRVE
+     Bağımsız katman — React'e dokunmaz. Okul adına bağlı onay kodu.
+     ⚠️ SATMADAN ÖNCE AŞAĞIDAKİ 2 DEĞERİ DEĞİŞTİR:
+        USTA_SIFRE  = yönetici (senin) ana parolan
+        LISANS_TUZ  = gizli tuz (kod üretiminin sırrı)
+     Bu ikisini kimseyle paylaşma. Değiştirirsen ürettiğin eski kodlar
+     geçersiz olur (yeni tuzla yeniden üret).
+     ════════════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  "use strict";
+  // ————— AYAR (sadece bunları değiştir) —————
+  var USTA_SIFRE = "baris2026";              // 🔑 senin ana parolan
+  var LISANS_TUZ = "ZIRVE-DEGISIM-2026-GIZLI"; // 🧂 gizli tuz
+  // ————————————————————————————————————————
+
+  var LS = window.localStorage;
+  function trNorm(s){
+    s = String(s||"");
+    var m = {"ç":"c","Ç":"c","ğ":"g","Ğ":"g","ı":"i","İ":"i","ö":"o","Ö":"o","ş":"s","Ş":"s","ü":"u","Ü":"u"};
+    s = s.replace(/[çÇğĞıİöÖşŞüÜ]/g,function(c){return m[c]||c;});
+    return s.toLowerCase().replace(/[^a-z0-9]/g,"");
+  }
+  function hh(str, seed){
+    var h = seed>>>0;
+    for(var i=0;i<str.length;i++){ h = ((h<<5)+h) ^ str.charCodeAt(i); h = h>>>0; }
+    return h>>>0;
+  }
+  // Okul adından deterministik onay kodu üretir  → ör. "A7K-3PQ-9ZM"
+  function lisansKodu(okulAdi){
+    var t = trNorm(okulAdi) + "|" + LISANS_TUZ;
+    var a = hh(t, 5381), b = hh(t.split("").reverse().join(""), 52711);
+    var raw = (a.toString(36) + b.toString(36)).toUpperCase().replace(/[^A-Z0-9]/g,"");
+    while(raw.length < 9) raw += "X";
+    raw = raw.slice(0,9);
+    return raw.slice(0,3)+"-"+raw.slice(3,6)+"-"+raw.slice(6,9);
+  }
+  function kodNorm(k){ return String(k||"").toUpperCase().replace(/[^A-Z0-9]/g,""); }
+
+  function lisansGecerli(){
+    try{
+      var raw = LS.getItem("zirve_lisans"); if(!raw) return false;
+      var o = JSON.parse(raw);
+      if(o && o.master === true) return true;
+      if(o && o.okulAdi && o.kod && kodNorm(o.kod) === kodNorm(lisansKodu(o.okulAdi))) return true;
+    }catch(e){}
+    return false;
+  }
+  function lisansKaydet(okulAdi, kod, master){
+    try{
+      LS.setItem("zirve_lisans", JSON.stringify({okulAdi:okulAdi||"", kod:kod||"", master:!!master, ts:Date.now()}));
+      if(okulAdi) LS.setItem("okul_adi", okulAdi);   // ← beyaz etiket: marka bu isme döner
+    }catch(e){}
+  }
+  function markaAdi(){
+    try{ return LS.getItem("okul_adi") || "Kurumsal Eğitim Platformu"; }catch(e){ return "Kurumsal Eğitim Platformu"; }
+  }
+
+  // ————— Stil —————
+  var css = ""
+   + "#zlisans-kapi{position:fixed;inset:0;z-index:2147483000;background:linear-gradient(135deg,#0f172a,#134e4a 55%,#0f766e);display:flex;align-items:center;justify-content:center;padding:18px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:auto}"
+   + "#zlisans-kapi *{box-sizing:border-box}"
+   + ".zl-card{width:100%;max-width:420px;background:#fff;border-radius:22px;padding:26px 22px;box-shadow:0 30px 80px rgba(0,0,0,.5)}"
+   + ".zl-logo{width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#14b8a6,#0d9488);display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 12px}"
+   + ".zl-title{font-size:21px;font-weight:800;color:#0f172a;text-align:center;margin:0 0 3px}"
+   + ".zl-sub{font-size:13px;color:#64748b;text-align:center;margin:0 0 18px;line-height:1.4}"
+   + ".zl-lbl{display:block;font-size:11px;font-weight:800;color:#0f766e;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 5px}"
+   + ".zl-inp{width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:12px;font-size:15px;font-weight:600;outline:none;transition:.15s}"
+   + ".zl-inp:focus{border-color:#14b8a6;box-shadow:0 0 0 3px rgba(20,184,166,.15)}"
+   + ".zl-btn{width:100%;margin-top:16px;padding:13px;border:0;border-radius:12px;background:linear-gradient(135deg,#14b8a6,#0d9488);color:#fff;font-size:16px;font-weight:800;cursor:pointer;transition:.15s}"
+   + ".zl-btn:hover{filter:brightness(1.07)}"
+   + ".zl-btn.gri{background:#f1f5f9;color:#475569}"
+   + ".zl-btn.kod{background:linear-gradient(135deg,#6366f1,#4f46e5)}"
+   + ".zl-err{background:#fef2f2;border:1px solid #fecaca;color:#dc2626;font-size:13px;font-weight:700;border-radius:10px;padding:9px 12px;margin-top:12px;display:none}"
+   + ".zl-ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;font-size:13px;font-weight:700;border-radius:10px;padding:9px 12px;margin-top:12px;display:none}"
+   + ".zl-mini{font-size:12px;color:#94a3b8;text-align:center;margin-top:16px}"
+   + ".zl-link{color:#0d9488;font-weight:800;cursor:pointer;text-decoration:none;font-size:12px}"
+   + ".zl-kodkutu{margin-top:10px;background:#eef2ff;border:2px dashed #c7d2fe;border-radius:12px;padding:14px;text-align:center}"
+   + ".zl-kodbuyuk{font-size:26px;font-weight:900;letter-spacing:2px;color:#4338ca;font-family:ui-monospace,monospace}"
+   + "#zlisans-fab{position:fixed;left:10px;bottom:10px;z-index:2147482000;width:30px;height:30px;border-radius:50%;background:rgba(15,23,42,.35);color:#fff;border:0;cursor:pointer;font-size:13px;opacity:.4;transition:.2s}"
+   + "#zlisans-fab:hover{opacity:1}";
+
+  function el(html){ var d=document.createElement("div"); d.innerHTML=html.trim(); return d.firstChild; }
+  function style(){ if(document.getElementById("zl-style")) return; var s=document.createElement("style"); s.id="zl-style"; s.textContent=css; document.head.appendChild(s); }
+
+  // ————— Yönetici (üreteç) ekranı —————
+  function yoneticiEkran(kart){
+    kart.innerHTML = ""
+    + '<div class="zl-logo" style="background:linear-gradient(135deg,#6366f1,#4f46e5)">🔑</div>'
+    + '<h1 class="zl-title">Yönetici · Onay Kodu Üret</h1>'
+    + '<p class="zl-sub">Sattığın okulun adını yaz, kodu al ve okula gönder. O okuldaki herkes bu okul adı + kodla açar.</p>'
+    + '<label class="zl-lbl">Okul / Kurum Adı</label>'
+    + '<input id="zl-uret-ad" class="zl-inp" placeholder="ör. Değişim Koleji" autocomplete="off">'
+    + '<div id="zl-uret-kutu" class="zl-kodkutu" style="display:none"><div style="font-size:11px;font-weight:800;color:#6366f1;text-transform:uppercase;margin-bottom:4px">Onay Kodu</div><div id="zl-uret-kod" class="zl-kodbuyuk">—</div></div>'
+    + '<button id="zl-uret-btn" class="zl-btn kod">Kodu Üret</button>'
+    + '<div id="zl-uret-aksiyon" style="display:none;gap:8px;margin-top:8px"><button id="zl-uret-kopya" class="zl-btn gri" style="margin-top:8px">📋 Kopyala</button><a id="zl-uret-wa" class="zl-btn" style="margin-top:8px;display:block;text-align:center;text-decoration:none" target="_blank">📲 WhatsApp ile Gönder</a></div>'
+    + '<button id="zl-uret-ac" class="zl-btn gri" style="margin-top:14px">Bu cihazı bu okul adıyla AÇ (demo/kendi kullanımın)</button>'
+    + '<button id="zl-uret-sifirla" class="zl-btn gri" style="margin-top:8px;color:#dc2626">Bu cihazın lisansını sıfırla</button>'
+    + '<p class="zl-mini"><span class="zl-link" id="zl-geri">← Geri</span></p>';
+
+    var ad = kart.querySelector("#zl-uret-ad");
+    var kutu = kart.querySelector("#zl-uret-kutu");
+    var kodEl = kart.querySelector("#zl-uret-kod");
+    var aks = kart.querySelector("#zl-uret-aksiyon");
+    function hesapla(){
+      var v = ad.value.trim();
+      if(!v){ kutu.style.display="none"; aks.style.display="none"; return; }
+      var k = lisansKodu(v);
+      kodEl.textContent = k; kutu.style.display="block"; aks.style.display="flex";
+      var msg = "Kurumunuzun \""+v+"\" için "+markaAdi()+" onay kodu: "+k+"  (Uygulamada okul adını ve bu kodu girin.)";
+      kart.querySelector("#zl-uret-wa").href = "https://wa.me/?text="+encodeURIComponent(msg);
+      kart.querySelector("#zl-uret-kopya").onclick = function(){ try{ navigator.clipboard.writeText(k); this.textContent="✓ Kopyalandı"; var self=this; setTimeout(function(){self.textContent="📋 Kopyala";},1500);}catch(e){ window.prompt("Kodu kopyala:", k);} };
+    }
+    kart.querySelector("#zl-uret-btn").onclick = hesapla;
+    ad.addEventListener("input", hesapla);
+    kart.querySelector("#zl-uret-ac").onclick = function(){
+      var v = ad.value.trim(); if(!v){ ad.focus(); return; }
+      lisansKaydet(v, lisansKodu(v), false); location.reload();
+    };
+    kart.querySelector("#zl-uret-sifirla").onclick = function(){
+      if(window.confirm("Bu cihazdaki lisans silinsin mi? (Uygulama tekrar kilitlenir)")){ try{LS.removeItem("zirve_lisans");}catch(e){} location.reload(); }
+    };
+    kart.querySelector("#zl-geri").onclick = function(){ kilitEkran(kart); };
+  }
+
+  // ————— Okul (kilit) ekranı —————
+  function kilitEkran(kart){
+    kart.innerHTML = ""
+    + '<div class="zl-logo">🏫</div>'
+    + '<h1 class="zl-title">'+markaAdi()+'</h1>'
+    + '<p class="zl-sub">Kurumsal erişim. Okulunuzun adını ve size verilen <b>onay kodunu</b> girin. Bir kez girince cihaz açık kalır.</p>'
+    + '<label class="zl-lbl">Okul / Kurum Adı</label>'
+    + '<input id="zl-ad" class="zl-inp" placeholder="ör. Değişim Koleji" autocomplete="off">'
+    + '<label class="zl-lbl">Onay Kodu</label>'
+    + '<input id="zl-kod" class="zl-inp" placeholder="ör. A7K-3PQ-9ZM" autocomplete="off" style="text-transform:uppercase;font-family:ui-monospace,monospace">'
+    + '<div id="zl-err" class="zl-err"></div>'
+    + '<button id="zl-ac" class="zl-btn">Etkinleştir ve Gir</button>'
+    + '<p class="zl-mini">Kodun yok mu? Kurum yöneticinizden isteyin.<br><span class="zl-link" id="zl-yonetici">🔑 Yönetici girişi</span></p>';
+
+    function dene(){
+      var ad = kart.querySelector("#zl-ad").value.trim();
+      var kod = kart.querySelector("#zl-kod").value.trim();
+      var err = kart.querySelector("#zl-err");
+      if(!ad){ err.textContent="Lütfen okul/kurum adını yazın."; err.style.display="block"; return; }
+      if(kodNorm(kod) === kodNorm(lisansKodu(ad))){
+        lisansKaydet(ad, kod, false); location.reload();
+      } else {
+        err.textContent="Onay kodu okul adıyla eşleşmiyor. Adın yazımını ve kodu kontrol edin."; err.style.display="block";
+      }
+    }
+    kart.querySelector("#zl-ac").onclick = dene;
+    kart.querySelector("#zl-kod").addEventListener("keydown", function(e){ if(e.key==="Enter") dene(); });
+    kart.querySelector("#zl-yonetici").onclick = function(){
+      var p = window.prompt("Yönetici ana parolası:");
+      if(p === null) return;
+      if(p === USTA_SIFRE){ yoneticiEkran(kart); }
+      else { var err=kart.querySelector("#zl-err"); err.textContent="Yönetici parolası hatalı."; err.style.display="block"; }
+    };
+  }
+
+  // ————— Küçük yönetici düğmesi (her zaman görünür) —————
+  function fabEkle(){
+    if(document.getElementById("zlisans-fab")) return;
+    var b = document.createElement("button");
+    b.id="zlisans-fab"; b.textContent="🔑"; b.title="Yönetici / Onay Kodu";
+    b.onclick = function(){
+      var p = window.prompt("Yönetici ana parolası:");
+      if(p === null) return;
+      if(p !== USTA_SIFRE){ alert("Parola hatalı."); return; }
+      style();
+      var kapi = document.getElementById("zlisans-kapi");
+      if(!kapi){ kapi = el('<div id="zlisans-kapi"><div class="zl-card"></div></div>'); document.body.appendChild(kapi); }
+      yoneticiEkran(kapi.querySelector(".zl-card"));
+    };
+    document.body.appendChild(b);
+  }
+
+  function baslat(){
+    style(); fabEkle();
+    if(lisansGecerli()) return;                 // lisans var → uygulama açık
+    var kapi = el('<div id="zlisans-kapi"><div class="zl-card"></div></div>');
+    document.body.appendChild(kapi);
+    kilitEkran(kapi.querySelector(".zl-card"));
+  }
+
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", baslat);
+  else baslat();
+})();
 </script>
 </body>
 </html>
