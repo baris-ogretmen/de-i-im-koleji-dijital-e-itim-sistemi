@@ -2227,11 +2227,13 @@ const TeslimTakip = ({ db, odevler, teslimler, ogrenciler }) => {
               const yapti = yapanIds.has(o.id);
               const t = teslimler.find(x=>x.odevId===seciliOdev && x.ogrenciId===o.id);
               return (
-                <div key={o.id} className={`flex items-center gap-2 rounded-lg p-2.5 border ${yapti?'bg-emerald-50 border-emerald-200':'bg-slate-50 border-slate-200'}`}>
-                  <i className={`fa-solid ${yapti?'fa-circle-check text-emerald-500':'fa-circle text-slate-300'}`}></i>
-                  <span className="flex-1 text-sm font-bold text-slate-700">{o.ad}</span>
-                  {t && t.mesaj && <span className="text-[11px] text-slate-500 italic truncate max-w-[120px]" title={t.mesaj}>“{t.mesaj}”</span>}
-                  {yapti && <span className="text-[10px] text-emerald-600 font-black">{trTarih(t.tarih)}</span>}
+                <div key={o.id} className={`rounded-lg p-2.5 border ${yapti?'bg-emerald-50 border-emerald-200':'bg-slate-50 border-slate-200'}`}>
+                  <div className="flex items-center gap-2">
+                    <i className={`fa-solid ${yapti?'fa-circle-check text-emerald-500':'fa-circle text-slate-300'}`}></i>
+                    <span className="flex-1 text-sm font-bold text-slate-700">{o.ad}</span>
+                    {yapti && <span className="text-[10px] text-emerald-600 font-black">{trTarih(t.tarih)}</span>}
+                  </div>
+                  {t && t.mesaj && <div className="mt-1.5 ml-6 text-[13px] text-slate-700 bg-white border border-emerald-100 rounded-lg p-2 whitespace-pre-wrap"><span className="text-[10px] font-black text-emerald-600 uppercase mr-1">Cevabı:</span>{t.mesaj}</div>}
                 </div>
               );
             })}
@@ -2419,6 +2421,28 @@ const DuyuruYonetim = ({ db, user, duyurular }) => {
 /* ============================================================================
    ÖĞRENCİ MERKEZİ — kişisel + sınıf ödevleri, teslim, DNA, rozet, sıralama, duyuru
    ============================================================================ */
+const GUNUN_SOZLERI = [
+  "Bugün küçük bir adım at, yarın büyük fark görürsün! 🌱",
+  "Hata yapmak öğrenmenin bir parçasıdır; denemeye devam! 💪",
+  "Merak eden çocuk, öğrenen çocuktur. Soru sormaktan çekinme! ❓",
+  "Bir kitap, bin maceradır. Bugün hangisine dalacaksın? 📚",
+  "Zeki olmak değil, çalışmak kazandırır. Sen yaparsın! ⭐",
+  "Bugün öğrendiğin küçük şey, yarının süper gücü olabilir! 🦸",
+  "Yavaş git ama durma; kaplumbağa da yarışı bitirir! 🐢",
+  "Kendine inan; beynin bir kas gibidir, çalıştıkça güçlenir! 🧠",
+  "Her uzman bir zamanlar acemiydi. Sen de başaracaksın! 🚀",
+  "Bugün gülümse, öğren ve birine iyilik yap! 😊"
+];
+const GununSozu = () => {
+  const s = GUNUN_SOZLERI[Math.floor(Date.now()/86400000) % GUNUN_SOZLERI.length];
+  return (
+    <div className="bg-gradient-to-r from-fuchsia-500 to-indigo-500 rounded-3xl p-5 text-white shadow-lg flex items-center gap-3">
+      <span className="text-3xl">✨</span>
+      <div><p className="text-[11px] font-black uppercase tracking-wide text-white/70 mb-0.5">Günün Sözü</p><p className="font-bold leading-snug">{s}</p></div>
+    </div>
+  );
+};
+
 const OgrenciMerkezi = ({ db, user }) => {
   const ogrDoc = useOkulDoc(db, "k12_ogrenciler");
   const odevDoc = useOkulDoc(db, "k12_odevler");
@@ -2445,12 +2469,15 @@ const OgrenciMerkezi = ({ db, user }) => {
   const yaptim = async (odev) => {
     if(!ben){ return; }
     if(yapilanIds.has(odev.id)) return;
-    const kayit = { id:yeniId(), odevId:odev.id, ogrenciId:ben.id, ogrenciAd:ben.ad, durum:'yapildi', mesaj:(mesajTaslak[odev.id]||'').trim(), tarih:Date.now() };
+    const cevap = (mesajTaslak[odev.id]||'').trim();
+    if(cevap.length < 10){ alert("Önce yaptığını/cevabını yaz (en az birkaç kelime). Yapmadan gönderemezsin 🙂"); return; }
+    const kayit = { id:yeniId(), odevId:odev.id, ogrenciId:ben.id, ogrenciAd:ben.ad, durum:'yapildi', mesaj:cevap, tarih:Date.now() };
     const okT = await okulYaz(db, "k12_teslim", { liste:[kayit, ...teslimler] });
     if(okT){
       const liste = ogrenciler.map(o=> o.id===ben.id ? { ...o, puan:(o.puan||0)+10 } : o);
       await okulYaz(db, "k12_ogrenciler", { liste });
       toast('🎉 Görev tamamlandı! +10 D-Coin kazandın.','green');
+      try{ window.ZKUTLA && window.ZKUTLA(); }catch(e){}
     }
   };
 
@@ -2491,6 +2518,8 @@ const OgrenciMerkezi = ({ db, user }) => {
         </div>
       )}
 
+      <GununSozu />
+
       <KonuCalisma grade={sinifim} />
 
       {/* Ödevlerim */}
@@ -2507,15 +2536,24 @@ const OgrenciMerkezi = ({ db, user }) => {
                   <div className="flex items-center gap-2 mb-1">
                     {o.tur==='birey' ? <span className="text-[10px] bg-violet-500 text-white font-black px-2 py-0.5 rounded-full">SANA ÖZEL</span> : <span className="text-[10px] bg-rose-500 text-white font-black px-2 py-0.5 rounded-full">SINIF</span>}
                     <span className="text-xs font-black text-slate-600">{o.ders}{o.konu?` · ${o.konu}`:''}</span>
+                    {o.ekleyen && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full"><i className="fa-solid fa-user-pen mr-1"></i>{o.ekleyen}</span>}
                     {o.sonTeslim && <span className="text-[10px] text-red-500 font-bold ml-auto"><i className="fa-solid fa-clock mr-1"></i>{o.sonTeslim}</span>}
                   </div>
                   <p className="text-slate-800 font-medium whitespace-pre-wrap leading-relaxed text-sm">{o.detay}</p>
-                  {ben && !yapildi && (
-                    <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                      <input value={mesajTaslak[o.id]||''} onChange={e=>setMesajTaslak({...mesajTaslak,[o.id]:e.target.value})} placeholder="Öğretmene not (opsiyonel)…" className="flex-1 px-3 py-2 rounded-lg border border-orange-200 text-sm outline-none" />
-                      <button onClick={()=>yaptim(o)} className="bg-emerald-500 text-white font-black px-5 py-2 rounded-lg text-sm hover:bg-emerald-600 transition whitespace-nowrap"><i className="fa-solid fa-check mr-1"></i>Yaptım (+10)</button>
+                  {ben && !yapildi && (() => {
+                    const cevap = (mesajTaslak[o.id]||'');
+                    const yeterli = cevap.trim().length >= 10;
+                    return (
+                    <div className="mt-3">
+                      <label className="block text-[11px] font-black text-orange-700 mb-1">✍️ Ödevini yaptıysan cevabını / ne yaptığını yaz (öğretmenin görecek). Yazmadan gönderemezsin:</label>
+                      <textarea value={cevap} onChange={e=>setMesajTaslak({...mesajTaslak,[o.id]:e.target.value})} rows="2" placeholder="Örn: 5 kesir sorusunu çözdüm. Cevaplarım: 1/2, 3/4… veya kısaca ne yaptığını anlat." className="w-full px-3 py-2 rounded-lg border-2 border-orange-200 text-sm outline-none resize-y mb-2 focus:border-orange-400"></textarea>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[11px] font-bold ${yeterli?'text-emerald-600':'text-slate-400'}`}>{yeterli?'✓ Artık gönderebilirsin':`Biraz daha yaz (${cevap.trim().length}/10)`}</span>
+                        <button onClick={()=>yaptim(o)} disabled={!yeterli} className={`ml-auto font-black px-5 py-2 rounded-lg text-sm transition whitespace-nowrap ${yeterli?'bg-emerald-500 text-white hover:bg-emerald-600':'bg-slate-200 text-slate-400 cursor-not-allowed'}`}><i className="fa-solid fa-check mr-1"></i>Yaptım (+10)</button>
+                      </div>
                     </div>
-                  )}
+                    );
+                  })()}
                   {yapildi && <p className="mt-2 text-emerald-600 font-black text-sm"><i className="fa-solid fa-circle-check mr-1"></i>Tamamlandı! Aferin 🎉</p>}
                   {!ben && <p className="mt-2 text-[11px] text-slate-400">Teslim edebilmek için yukarıdan kaydını seç.</p>}
                 </div>
@@ -2615,6 +2653,7 @@ const VeliMerkezi = ({ db, user }) => {
                       <div className="flex items-center gap-2 mb-1">
                         {o.tur==='birey' ? <span className="text-[10px] bg-violet-500 text-white font-black px-2 py-0.5 rounded-full">ÖZEL</span> : <span className="text-[10px] bg-rose-500 text-white font-black px-2 py-0.5 rounded-full">SINIF</span>}
                         <span className="text-xs font-black text-slate-600">{o.ders}{o.konu?` · ${o.konu}`:''}</span>
+                    {o.ekleyen && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full"><i className="fa-solid fa-user-pen mr-1"></i>{o.ekleyen}</span>}
                         <span className={`text-[10px] font-black ml-auto ${yapildi?'text-emerald-600':'text-orange-500'}`}>{yapildi?'✅ Yapıldı':'⏳ Bekliyor'}</span>
                       </div>
                       <p className="text-slate-700 text-sm whitespace-pre-wrap">{o.detay}</p>
@@ -2876,6 +2915,7 @@ const KonuCalisma = ({ grade }) => {
         <div className="bg-white rounded-2xl border-2 border-cyan-200 shadow-inner overflow-hidden">
           <div className="bg-cyan-500 text-white px-4 py-2 flex items-center justify-between">
             <span className="font-black text-sm"><i className={`fa-solid ${mod==='ozet'?'fa-book':'fa-palette'} mr-2`}></i>{konu} · {mod==='ozet'?'Özet':'Etkinlik'}</span>
+            <button onClick={()=>{ try{ var u=new SpeechSynthesisUtterance(sonuc.replace(/<[^>]+>/g,' ')); u.lang='tr-TR'; u.rate=kucuk?0.9:1; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); }catch(e){} }} className="bg-white/20 hover:bg-white/40 px-2 py-1 rounded text-[11px] font-black mr-1"><i className="fa-solid fa-volume-high mr-1"></i>Sesli Oku</button>
             <button onClick={()=>{ try{navigator.clipboard.writeText(sonuc.replace(/<[^>]+>/g,''));toast('📋 Kopyalandı','green');}catch(e){} }} className="bg-white/20 hover:bg-white/40 px-2 py-1 rounded text-[11px] font-black"><i className="fa-solid fa-copy mr-1"></i>Kopyala</button>
           </div>
           <div className="p-5 leading-relaxed text-slate-800 konu-cikti" style={{fontSize: kucuk?'17px':'15px'}} dangerouslySetInnerHTML={{__html: sonuc}}></div>
@@ -2969,6 +3009,8 @@ const [matFocus, setMatFocus] = useState('');
 const [ogrenciProfilleri, setOgrenciProfilleri] = useState(() => { try { return JSON.parse(localStorage.getItem('mat_ogrenci_profilleri') || '[]'); } catch(e){ return []; } });
 const [seciliProfil, setSeciliProfil] = useState('');
 const [sablonAcik, setSablonAcik] = useState(false);
+const [matbaaGecmisi, setMatbaaGecmisi] = useState(()=>{ try{ return JSON.parse(localStorage.getItem('zirve_matbaa_gecmis')||'[]'); }catch(e){ return []; } });
+const setMaterialError = () => {};
 const [ozelAcik, setOzelAcik] = useState(false);
 const [showAnswerKey, setShowAnswerKey] = useState(true);
 const [uploadedFilePreview, setUploadedFilePreview] = useState(null);
@@ -3663,6 +3705,183 @@ const fasikulHazirla = () => {
     setTimeout(() => { try { document.querySelector('textarea')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {} }, 150);
 };
 
+/* ⚡ ANINDA HAZIR — index.html'den taşınan üreteçler */
+const gecmiseEkle = (res) => {
+    if (!res || !Array.isArray(res.icerik_bloklari) || !res.icerik_bloklari.length) return;
+    try { var _n = parseInt(localStorage.getItem('zirve_uretim_sayaci') || '0', 10) || 0; localStorage.setItem('zirve_uretim_sayaci', String(_n + 1)); } catch(e){}
+    setMatbaaGecmisi(prev => {
+        const kayit = { id: Date.now() + '_' + Math.random().toString(36).slice(2, 7), zaman: Date.now(), sonuc: res };
+        const suz = prev.filter(x => !(x.sonuc && x.sonuc.dokuman_basligi === res.dokuman_basligi && (x.sonuc.icerik_bloklari || []).length === (res.icerik_bloklari || []).length));
+        const yeni = [kayit, ...suz].slice(0, 10);
+        try { localStorage.setItem('zirve_matbaa_gecmis', JSON.stringify(yeni)); } catch(e){ /* kota dolarsa oturum içi hafıza yeter */ }
+        return yeni;
+    });
+};
+const gecmistenGetir = (res) => {
+    if (!res) return;
+    setMaterialResult(res);
+    try { setShowAnswerKey(true); } catch(e){}
+    if (typeof setActiveTab === 'function') { try { setActiveTab('tools'); } catch(e){} }
+    showToast('↩️ Çalışma geri getirildi.');
+    setTimeout(() => { try { document.getElementById('printable-material')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e){} }, 120);
+};
+const gecmistenSil = (id) => { setMatbaaGecmisi(prev => { const yeni = prev.filter(x => x.id !== id); try { localStorage.setItem('zirve_matbaa_gecmis', JSON.stringify(yeni)); } catch(e){} return yeni; }); };
+const gecmisiTemizle = () => { if (!window.confirm('Son çalışmalar listesi tamamen silinsin mi? (Ekrandaki çalışma kalır)')) return; setMatbaaGecmisi([]); try { localStorage.removeItem('zirve_matbaa_gecmis'); } catch(e){} showToast('🗑️ Geçmiş temizlendi.'); };
+// Son çalışmalar şeridi (hem Matbaa formunda hem çıktı ekranında gösterilir).
+const gecmisSeridi = () => {
+    if (!matbaaGecmisi.length) return null;
+    return (
+        <div className="mb-3 bg-white/90 border border-slate-200 rounded-xl p-2.5 shadow-sm no-print">
+            <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-black text-slate-600 uppercase"><i className="fa-solid fa-clock-rotate-left mr-1 text-indigo-500"></i> Son Çalışmalarım <span className="text-slate-400 font-bold">({matbaaGecmisi.length})</span></span>
+                <button onClick={gecmisiTemizle} className="text-[9px] text-slate-400 hover:text-red-500 font-bold"><i className="fa-solid fa-trash-can mr-0.5"></i> Temizle</button>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+                {matbaaGecmisi.map(k => (
+                    <div key={k.id} className="relative shrink-0">
+                        <button onClick={() => gecmistenGetir(k.sonuc)} className="max-w-[175px] text-left text-[11px] bg-slate-100 hover:bg-indigo-500 hover:text-white text-slate-700 pl-2.5 pr-6 py-1.5 rounded-md font-semibold transition border border-slate-200 truncate block">
+                            {(k.sonuc && k.sonuc.dokuman_basligi) ? k.sonuc.dokuman_basligi : 'Çalışma'}
+                        </button>
+                        <button onClick={() => gecmistenSil(k.id)} title="Listeden sil" className="absolute -top-1.5 -right-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px]"><i className="fa-solid fa-times"></i></button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// ⚡ ANINDA: Seçimi Matbaa "Üret" kutusuna DÜŞÜRÜR (biriktirir). İstersen orada düzenle, sonra Üret'e bas.
+const anindaUret = (comboIstem, tip) => {
+    if (tip && typeof setMaterialType === 'function') { try { setMaterialType(tip); } catch(e){} }
+    setMaterialTopic(t => { const cur = (t || '').trim(); return cur ? (cur + '\n+ ' + comboIstem) : comboIstem; });
+    try { setMaterialError(''); } catch(e){}
+    if (typeof setActiveTab === 'function') { try { setActiveTab('tools'); } catch(e){} }
+    showToast('✅ Üret kutusuna eklendi — istersen düzenle, sonra “Üret”e bas.');
+    setTimeout(() => { try { document.querySelector('textarea')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch(e){} }, 120);
+};
+
+// ✍️ İZLİ (ÜZERİNDEN GEÇMELİ) ÇALIŞMA — çevrimdışı, yapay zeka gerektirmez, kota harcamaz.
+// Çizgili satırda noktalı/kesik harflerin üzerinden geçilir; altına boş satır bırakılır.
+// Bu çalışmanın tasarımı uygulamanın matbaa çıktısıyla birebir uyumludur.
+const izGeciCalismasi = (baslik, yonerge, aciklama, kelimeler) => {
+    const kelimeSatiri = (kelime) => {
+        const tekrar = (String(kelime) + '&nbsp;&nbsp;&nbsp;&nbsp;').repeat(3);
+        return (
+            '<div style="margin:14px 0 24px 0;break-inside:avoid;">' +
+                '<div style="display:inline-block;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:2px 10px;font-size:15px;color:#4338ca;font-weight:800;margin-bottom:6px;">' + String(kelime) + '</div>' +
+                // İZLİ satır (üzerinden geçilecek — noktalı/açık gri harfler)
+                '<div style="position:relative;height:72px;border-top:2px solid #cbd5e1;border-bottom:3px solid #475569;">' +
+                    '<div style="position:absolute;left:0;right:0;top:50%;border-top:2px dashed #cbd5e1;"></div>' +
+                    '<div style="position:absolute;left:12px;top:2px;font-size:46px;line-height:64px;letter-spacing:10px;color:#cbd5e1;font-weight:700;white-space:nowrap;">' + tekrar + '</div>' +
+                '</div>' +
+                // BOŞ satır (çocuk kendi yazar)
+                '<div style="position:relative;height:72px;margin-top:8px;border-top:2px solid #e2e8f0;border-bottom:3px solid #94a3b8;">' +
+                    '<div style="position:absolute;left:0;right:0;top:50%;border-top:2px dashed #e2e8f0;"></div>' +
+                '</div>' +
+            '</div>'
+        );
+    };
+    const html =
+        '<div style="text-align:center;margin-bottom:10px;">' +
+            '<div style="font-size:13px;letter-spacing:3px;color:#0ea5e9;font-weight:800;text-transform:uppercase;">İLK OKUMA-YAZMA ÇALIŞMASI</div>' +
+        '</div>' +
+        '<div style="background:#eff6ff;border:2px solid #bfdbfe;border-radius:12px;padding:10px 14px;margin-bottom:10px;">' +
+            '<div style="font-size:16px;color:#1d4ed8;font-weight:800;">📌 Yönerge: ' + yonerge + '</div>' +
+        '</div>' +
+        '<p style="font-size:15px;color:#334155;margin:0 0 12px 0;line-height:1.5;">' + aciklama + '</p>' +
+        (kelimeler || []).map(kelimeSatiri).join('');
+    setMaterialResult({ dokuman_basligi: baslik, alt_baslik: yonerge, icerik_bloklari: [{ blok_tipi: 'zengin_metin', baslik: '', html_icerik: html }] });
+    try { gecmiseEkle({ dokuman_basligi: baslik, alt_baslik: yonerge, icerik_bloklari: [{ blok_tipi: 'zengin_metin', baslik: '', html_icerik: html }] }); } catch(e){}
+    try { setShowAnswerKey(false); } catch(e){}
+    if (typeof setActiveTab === 'function') { try { setActiveTab('tools'); } catch(e){} }
+    showToast('✍️ Çalışma hazır! PDF/Yazdır ile alabilirsin.');
+    setTimeout(() => { try { document.getElementById('printable-material')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e){} }, 120);
+};
+
+// 📖 CÜMLE OKUMA-YAZMA (Ba-Sa-Ra) — çevrimdışı, yüklenen tasarıma birebir uyumlu.
+// Kırmızı olacak heceleri köşeli parantezle işaretle:  "taha sahaya [gel]"
+const cumleOkumaCalismasi = (ogrenci, cumleler) => {
+    const ikon = ['🌞','🐟','🔍','🦋','⭐','🍎','🌈','🎈','🐢','🚗'];
+    const kart = (c, i) => {
+        const html = String(c).replace(/\[(.*?)\]/g, '<span style="color:#dc2626;font-weight:800;">$1</span>');
+        return (
+            '<div style="margin-bottom:4px;break-inside:avoid;">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:14px 18px;box-shadow:0 1px 2px rgba(0,0,0,.05);">' +
+                    '<div style="font-size:26px;font-weight:800;color:#0f172a;line-height:1.45;">' + html + '</div>' +
+                    '<div style="font-size:28px;flex-shrink:0;">' + ikon[i % ikon.length] + '</div>' +
+                '</div>' +
+                '<div style="border-top:2px dashed #94a3b8;margin:20px 6px;"></div>' +
+                '<div style="border-top:2px dashed #cbd5e1;margin:20px 6px 24px 6px;"></div>' +
+            '</div>'
+        );
+    };
+    const html =
+        '<div style="border:2px solid #bfdbfe;border-radius:18px;padding:16px;background:#f8fafc;">' +
+            '<div style="font-size:22px;font-weight:800;color:#2563eb;margin-bottom:6px;">1. Cümle Okuma ve Yazma Çalışması</div>' +
+            '<p style="font-size:15px;color:#334155;margin:0 0 14px 0;">Sevgili <b>' + (ogrenci || 'Öğrencim') + '</b>, aşağıdaki cümleleri dikkatlice oku ve altlarındaki kılavuz çizgilere yaz.</p>' +
+            (cumleler || []).map(kart).join('') +
+        '</div>';
+    const res = { dokuman_basligi: 'Cümle Okuma ve Yazma Çalışması', alt_baslik: (ogrenci ? (ogrenci + ' için') : ''), icerik_bloklari: [{ blok_tipi: 'zengin_metin', baslik: '', html_icerik: html }] };
+    setMaterialResult(res); try { gecmiseEkle(res); } catch(e){}
+    try { setShowAnswerKey(false); } catch(e){}
+    if (typeof setActiveTab === 'function') { try { setActiveTab('tools'); } catch(e){} }
+    showToast('📖 Cümle çalışması hazır!');
+    setTimeout(() => { try { document.getElementById('printable-material')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e){} }, 120);
+};
+
+// 👄 DKT DUDAK HAREKETLERİ — çevrimdışı; her ses için yüz + ağız (dudak) pozisyonu SVG.
+const dudakHareketiCalismasi = (sesler) => {
+    const agiz = {
+        'a':'<ellipse cx="50" cy="62" rx="21" ry="17" fill="#b91c1c"/><ellipse cx="50" cy="70" rx="12" ry="7" fill="#f472b6"/>',
+        'e':'<ellipse cx="50" cy="62" rx="21" ry="11" fill="#b91c1c"/>',
+        'ı':'<rect x="32" y="59" width="36" height="7" rx="3.5" fill="#b91c1c"/>',
+        'i':'<rect x="30" y="58" width="40" height="7" rx="3.5" fill="#b91c1c"/>',
+        'o':'<circle cx="50" cy="62" r="14" fill="#b91c1c"/>',
+        'u':'<circle cx="50" cy="62" r="9" fill="#b91c1c"/>',
+        'ö':'<ellipse cx="50" cy="62" rx="13" ry="13" fill="#b91c1c"/>',
+        'ü':'<ellipse cx="50" cy="62" rx="10" ry="11" fill="#b91c1c"/>',
+        'm':'<line x1="33" y1="62" x2="67" y2="62" stroke="#7f1d1d" stroke-width="5" stroke-linecap="round"/>',
+        'b':'<line x1="33" y1="62" x2="67" y2="62" stroke="#7f1d1d" stroke-width="5" stroke-linecap="round"/>',
+        'p':'<line x1="33" y1="62" x2="67" y2="62" stroke="#7f1d1d" stroke-width="5" stroke-linecap="round"/>',
+        'f':'<rect x="37" y="55" width="26" height="5" rx="1" fill="#f1f5f9" stroke="#94a3b8"/><path d="M37 64 Q50 70 63 64" stroke="#b91c1c" stroke-width="4" fill="none"/>',
+        'v':'<rect x="37" y="55" width="26" height="5" rx="1" fill="#f1f5f9" stroke="#94a3b8"/><path d="M37 64 Q50 70 63 64" stroke="#b91c1c" stroke-width="4" fill="none"/>',
+        'l':'<ellipse cx="50" cy="62" rx="16" ry="11" fill="#b91c1c"/><rect x="46" y="51" width="8" height="13" rx="3" fill="#f472b6"/>',
+        's':'<rect x="35" y="59" width="30" height="7" rx="3" fill="#b91c1c"/><rect x="39" y="57" width="22" height="3" fill="#fff"/>',
+        'ş':'<circle cx="50" cy="62" r="11" fill="#b91c1c"/><rect x="42" y="55" width="16" height="3" fill="#fff"/>',
+        'r':'<ellipse cx="50" cy="62" rx="15" ry="11" fill="#b91c1c"/><rect x="45" y="53" width="10" height="9" rx="3" fill="#f472b6"/>',
+        'z':'<rect x="36" y="59" width="28" height="7" rx="3" fill="#b91c1c"/><rect x="40" y="57" width="20" height="3" fill="#fff"/>',
+        'k':'<ellipse cx="50" cy="62" rx="16" ry="12" fill="#b91c1c"/>',
+        't':'<ellipse cx="50" cy="62" rx="15" ry="9" fill="#b91c1c"/><rect x="42" y="55" width="16" height="3" fill="#fff"/>'
+    };
+    const nasil = {
+        'a':'Ağzını iyice aç, dilin aşağıda.','e':'Ağzını orta aç, dudaklar hafif yayvan.','ı':'Dudaklar yana gerili, ağız az açık.','i':'Dudaklar gülümser gibi yana gerili.','o':'Dudaklar yuvarlak, orta açık.','u':'Dudaklar büzülü, küçük yuvarlak.','ö':'Dudaklar yuvarlak, orta açık.','ü':'Dudaklar büzülü ve öne.','m':'Dudaklar KAPALI, ses burundan.','b':'Dudaklar kapalı, patlayarak aç.','p':'Dudaklar kapalı, üfleyerek aç.','f':'Üst dişler alt dudakta, üfle.','v':'Üst dişler alt dudakta, titret.','l':'Dil ucu üst diş ardında.','s':'Dişler kapalı, dudak yayvan, ıslık.','ş':'Dudaklar büzülü, "şşş".','r':'Dil ucu titrer, damağa yakın.','z':'Dişler kapalı, titreşimli "zzz".','k':'Dil arkası damağa değer.','t':'Dil ucu üst dişe değer.'
+    };
+    const yuz = (s) => '<svg viewBox="0 0 100 112" width="86" height="96" xmlns="http://www.w3.org/2000/svg">' +
+        '<circle cx="50" cy="56" r="45" fill="#fde68a" stroke="#f59e0b" stroke-width="2"/>' +
+        '<circle cx="35" cy="44" r="5" fill="#1f2937"/><circle cx="65" cy="44" r="5" fill="#1f2937"/>' +
+        '<path d="M28 33 Q35 28 42 33" stroke="#92400e" stroke-width="2" fill="none"/><path d="M58 33 Q65 28 72 33" stroke="#92400e" stroke-width="2" fill="none"/>' +
+        (agiz[s] || agiz['a']) + '</svg>';
+    const kart = (s) => '<div style="display:inline-flex;flex-direction:column;align-items:center;width:150px;margin:8px;padding:10px 8px;border:1px solid #e2e8f0;border-radius:16px;background:#fff;vertical-align:top;break-inside:avoid;box-shadow:0 1px 3px rgba(0,0,0,.05);">' +
+        yuz(s) + '<div style="font-size:34px;font-weight:800;color:#0f172a;margin-top:2px;">' + s + '</div>' +
+        '<div style="font-size:12px;color:#475569;text-align:center;margin-top:2px;line-height:1.35;">' + (nasil[s] || 'Aynaya bakarak tekrarla.') + '</div></div>';
+    const list = (sesler && sesler.length) ? sesler : ['a','e','ı','i','o','u','ö','ü','m','b','p','f','v','l','s','ş','r','z'];
+    const html =
+        '<div style="text-align:center;margin-bottom:6px;"><div style="font-size:13px;letter-spacing:2px;color:#0ea5e9;font-weight:800;text-transform:uppercase;">DİL VE KONUŞMA · DUDAK HAREKETLERİ</div></div>' +
+        '<div style="background:#eff6ff;border:2px solid #bfdbfe;border-radius:12px;padding:10px 14px;margin-bottom:12px;"><div style="font-size:15px;color:#1d4ed8;font-weight:800;">📌 Aynaya bak, aşağıdaki dudak/ağız şekline göre sesi çıkar ve tekrar et.</div></div>' +
+        '<div style="text-align:center;">' + list.map(kart).join('') + '</div>';
+    const res = { dokuman_basligi: 'DKT · Dudak Hareketleri', alt_baslik: 'Ağız/dudak pozisyonları', icerik_bloklari: [{ blok_tipi: 'zengin_metin', baslik: '', html_icerik: html }] };
+    setMaterialResult(res); try { gecmiseEkle(res); } catch(e){}
+    try { setShowAnswerKey(false); } catch(e){}
+    if (typeof setActiveTab === 'function') { try { setActiveTab('tools'); } catch(e){} }
+    showToast('👄 Dudak hareketleri çalışması hazır!');
+    setTimeout(() => { try { document.getElementById('printable-material')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch(e){} }, 120);
+};
+
+// 📈 BİREYSEL DERS TAKİBİ — her öğrenci+ders için "kaldığın yeri" hatırlar (Ders 1, 2, ... 103).
+const bipAnahtar = (o, d) => 'zirve_bip_' + String(o || '').trim().toLowerCase() + '_' + String(d || '').trim().toLowerCase();
+const bipYukle = (o, d) => { try { const v = localStorage.getItem(bipAnahtar(o, d)); const n = v ? parseInt(v, 10) : 1; return (n && n > 0) ? n : 1; } catch(e){ return 1; } };
+useEffect(() => { setBipDersNo(bipYukle(bipOgrenci, bipDers)); }, [bipOgrenci, bipDers]);
+const bipKaydet = (o, d, no) => { try { localStorage.setItem(bipAnahtar(o, d), String(no)); } catch(e){} };
 const generateMaterial = async () => {
     // ── ZİRVE-uyumlu anahtar kontrolü ──
     const zirveAnahtarVar = !!(window.ZIRVE && window.ZIRVE.RING && window.ZIRVE.RING.keys && window.ZIRVE.RING.keys.length);
@@ -5528,6 +5747,70 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 </div>
 </div>
 )}
+{/* ⚡ ANINDA HAZIR ÇALIŞMALAR — Üret kutusuna düşer */}
+<div className="mb-3 bg-gradient-to-br from-fuchsia-600/25 to-indigo-600/20 p-3 rounded-xl border border-fuchsia-400/30">
+  <div className="flex items-center justify-between mb-2">
+    <span className="text-xs font-black text-fuchsia-100 uppercase tracking-wide"><i className="fa-solid fa-bolt text-yellow-300 mr-1"></i> Anında Hazır Çalışmalar</span>
+    <span className="text-[10px] text-fuchsia-200/70">Üret kutusuna düşer</span>
+  </div>
+  <div className="flex flex-wrap gap-1.5">
+    {[
+      {e:'✍️ isa · masa · kasa · para', f:()=>izGeciCalismasi('Kelime Çalışması: isa · masa · kasa · para', 'Kelimeleri önce noktalı harflerin üzerinden geç, sonra boş satıra kendin yaz.', 'Aşağıdaki kelimeleri çizgiye dikkat ederek, harfleri düzgün oturtarak yaz. Acele etme, güzel yaz. 👇', ['isa','masa','kasa','para'])},
+      {e:'ɑ Küçük "a" yazımı', f:()=>izGeciCalismasi('Küçük "a" Yazıyorum', 'Küçük a harfinin ve kelimelerin üzerinden geç, sonra kendin yaz.', 'Kalemini noktalı harften başlat. Önce üzerinden geç, sonra boş satıra sen yaz. 🖊️', ['a','al','at','ana','ata','ada'])},
+      {e:'🔤 Harf: seçtiğin harf', f:()=>{ const h=(window.prompt('Hangi küçük harf? (ör. e, l, m, o)','e')||'').trim(); if(!h) return; izGeciCalismasi('Küçük "'+h+'" Yazıyorum', '“'+h+'” harfinin ve kelimelerinin üzerinden geç, sonra kendin yaz.', 'Harfi çocukların ilk öğrendiği biçimde, çizgiye dikkat ederek yaz. 🖊️', [h, h+h, h+h+h]); }},
+      {e:'🎨 Renk kavramı (görsel)', f:()=>anindaUret('Okul öncesi için RENK kavramını öğreten görsel bir çalışma hazırla: temel renkleri (kırmızı, mavi, sarı, yeşil, turuncu, mor) renkli inline SVG kutucuklarla tanıt; renk-nesne eşleştirme, "hangi renk?" etkinliği ve bir boyama bölümü ekle. Bol emoji ve büyük renkli başlık kullan.', 'Fark Etmez (Yapay Zeka Seçsin)')},
+      {e:'🔢 Sayılar 1–10', f:()=>anindaUret('Okul öncesi için 1’den 10’a kadar sayıları tanıtan görsel bir çalışma hazırla: her sayının yanına o kadar nesne/emoji, rakamın üzerinden geçmeli yazımı ve sayma etkinliği olsun.', 'Fark Etmez (Yapay Zeka Seçsin)')},
+      {e:'📖 Ses temelli: "e" sesi', f:()=>anindaUret('Güncel MEB Ses Temelli Cümle Yöntemiyle "e" sesi için ilk okuma-yazma çalışması hazırla: sesi hissettirme, e ile hece tablosu (el, ev, et...), kelime ve basit cümle oluşturma aşamaları, bol emoji ve renkli görsel olsun.', 'Fark Etmez (Yapay Zeka Seçsin)')},
+      {e:'🐢 Çizgi çalışması', f:()=>anindaUret('Okul öncesi için el-göz koordinasyonu çizgi çalışması hazırla: her satırda kalemle üzerinden geçilecek farklı bir desen (düz, dalgalı, zikzak, yay, halka) olsun; en az 6 satır.', 'cizgi_calismasi')},
+      {e:'🕐 Saat okuma (görsel)', f:()=>anindaUret('Saati öğreten çalışma hazırla: birkaç analog saati renkli inline SVG ile farklı saatleri gösterecek şekilde çiz, altlarına "saat kaç?" boşluğu bırak; cevapları en sona koy.', 'Fark Etmez (Yapay Zeka Seçsin)')},
+      {e:'🍕 Kesir modeli (görsel)', f:()=>anindaUret('Kesirleri görselleştiren çalışma hazırla: pizza/çubuk modellerini renkli inline SVG ile parçalara bölünmüş çiz (1/2, 1/3, 1/4, 3/4), her modelin altına kesri yaz; bir eşleştirme/boyama görevi ekle.', 'Fark Etmez (Yapay Zeka Seçsin)')},
+      {e:'📚 4 sayfalık fasikül', f:()=>anindaUret('Seçili konuda renkli, heceli açıklamalı, bol örnek ve alıştırmalı 4 sayfalık DEV bir fasikül hazırla; her bölüm kendi renkli başlığıyla ayrılsın. Cevap gerektiren bölümlerin anahtarını ekle.', 'Fark Etmez (Yapay Zeka Seçsin)')},
+      {e:'❓ 10 soruluk quiz', f:()=>anindaUret('Seçili konudan 10 soruluk çoktan seçmeli bir quiz hazırla; her soruda dört seçenek olsun, sonuna cevap anahtarı ve kısa açıklama ekle.', 'test')},
+      {e:'📗 Konu + mini quiz', f:()=>anindaUret('Seçili konuyu renkli, örnekli bir konu özetiyle anlat; ardından 5 soruluk mini quiz ve cevap anahtarı ekle.', 'karma')},
+      {e:'🧩 Farkı bul', f:()=>anindaUret('Okul öncesi için emoji matrisinde farklı olanı bulma çalışması hazırla; kolaydan zora doğru 6 satır olsun.', 'emoji')},
+      {e:'🔁 Son çalışmanın aynısı', f:()=>{ if(materialResult){ matbaaUyarla('Aynı yöntem, düzen ve biçimi koruyarak birebir benzer, yeni bir versiyon üret.'); } else { const son=(lastPromptContext|| (function(){try{return localStorage.getItem('mat_memory_genel')||'';}catch(e){return '';}})()); if(son){ anindaUret('Daha önce ürettiğim şu çalışmanın YÖNTEM ve DÜZENİNİN aynısını kullanarak yeniden hazırla: '+son); } else { showToast('Önce bir çalışma üret, sonra bu buton onun aynısını çıkarır.'); } } }},
+      {e:'📖 Cümle Okuma-Yazma (Ba-Sa-Ra)', f:()=>{ const ad=(window.prompt('Öğrenci adı (boş bırakabilirsin):','')||'').trim(); const cs=(window.prompt('Cümleleri alt alta yaz. Kırmızı olacak heceyi [ ] içine al.\nÖrn: taha sahaya [gel]\nBoş bırakırsan hazır örnek gelir.','')||'').trim(); const list = cs ? cs.split('\n').map(x=>x.trim()).filter(Boolean) : ['taha sahaya [gel]','oya [sabaha] hamama [gel]','isa o [hayata] bak','Kaya ba[na] yara[sa] al']; cumleOkumaCalismasi(ad, list); }},
+      {e:'👄 DKT Dudak Hareketleri', f:()=>{ const s=(window.prompt('Hangi sesler? Boşlukla ayır (boş bırak = geniş set).\nÖrn: a e o m b p','')||'').trim(); const list = s ? s.split(/\s+/).map(x=>x.trim().toLowerCase()).filter(Boolean) : null; dudakHareketiCalismasi(list); }},
+      {e:'🔤 Hece Tablosu', f:()=>izGeciCalismasi('Hece Yazma Çalışması','Heceleri önce üzerinden geç, sonra kendin yaz.','Sesli harflerle heceleri oku ve yaz. 👇',['ba','be','bı','bi','bo','bö','bu','bü'])},
+      {e:'🧠 Bilgi İşleme Kuramına göre', f:()=>anindaUret('Bilgi İşleme Kuramına göre bir çalışma hazırla: (1) DUYUSAL KAYIT için dikkat çeken renkli görsel/uyaran, (2) KISA SÜRELİ BELLEK için az miktarda bilgi + tekrar ve gruplama, (3) UZUN SÜRELİ BELLEK için anlamlandırma, ilişkilendirme ve hatırlama görevleri olsun. Özel eğitim öğrencisine uygun; her aşama açık etiketli, sade ve tekrarlı olsun.', 'Fark Etmez (Yapay Zeka Seçsin)')},
+      {e:'🧩 Çok Duyulu (VAKT)', f:()=>anindaUret('Çok duyulu (VAKT: görsel-işitsel-dokunsal-kinestetik) okuma-yazma çalışması hazırla: harfi/heceyi görme, sesini söyleme, havada/kum üzerinde yazma ve parmakla üzerinden geçme adımlarını içersin. Okuma güçlüğü çeken öğrenci için sade ve çok tekrarlı olsun.', 'zengin_metin')},
+      {e:'📚 Çözümleme (Cümle) Yöntemi', f:()=>anindaUret('Çözümleme (cümle) yöntemiyle ilk okuma çalışması hazırla: kısa anlamlı bir cümleyle başla, cümleyi kelimelere, kelimeleri hecelere, heceleri seslere ayır; sonra bu parçalarla yeni kelime ve cümleler kur. Her aşama görsel destekli olsun.', 'zengin_metin')},
+      {e:'🔡 Ses Temelli (MEB)', f:()=>anindaUret('Güncel MEB Ses Temelli Cümle Yöntemiyle bir ses için (senin belirteceğin ya da "e" sesi) ilk okuma-yazma çalışması hazırla: sesi hissettirme, görsel-kelime örnekleri, hece tablosu, kelime ve cümle oluşturma aşamaları, bitişik eğik yazı çizgi çalışması olsun.', 'zengin_metin')},
+      {e:'🗣️ Artikülasyon (R sesi)', f:()=>anindaUret('R sesini doğru çıkaramayan öğrenci için artikülasyon çalışması hazırla: başta-ortada-sonda R geçen kelimeler, görsellerle, kolaydan zora; ayna karşısında dudak/dil pozisyonu yönergesi ve tekrar cümleleri olsun.', 'zengin_metin')},
+      {e:'💭 Kısa Süreli Bellek', f:()=>anindaUret('Kısa süreli belleği güçlendiren çalışma hazırla: giderek uzayan sayı/kelime dizileri hatırlama, "gördüklerini/duyduklarını sırayla söyle", gruplama (chunking) ve tekrar görevleri olsun.', 'Fark Etmez (Yapay Zeka Seçsin)')},
+      {e:'🖼️ Görsel Dikte', f:()=>anindaUret('Emojili görsel dikte çalışması hazırla: her emojinin altına kelimeyi yazması için çizgili boşluk bırak, 8 kelime olsun.', 'Fark Etmez (Yapay Zeka Seçsin)')},
+      {e:'🔗 Eşleştirme Kartları', f:()=>anindaUret('Kesilip eşleştirilecek kart çiftleri hazırla (kelime-görsel veya kavram-tanım), karışık sırayla, cevap anahtarıyla.', 'eslestirme')},
+      {e:'⏱️ Ritmik Sayma', f:()=>anindaUret('2\'şer, 5\'er ve 10\'ar ritmik sayma çalışması hazırla, boşluk doldurmalı, renkli.', 'Fark Etmez (Yapay Zeka Seçsin)')},
+      {e:'🏅 Başarı Sertifikası', f:()=>anindaUret('Bir öğrenci için renkli, motive edici başarı sertifikası hazırla; isim, tarih ve öğretmen imzası alanı olsun.', 'sertifika')},
+      {e:'🌸 Bloom Sarmalı Sorular', f:()=>anindaUret('Seçili konudan Bloom taksonomisinin HER basamağı için (hatırlama, anlama, uygulama, analiz, değerlendirme, yaratma) soru hazırla; her basamağı etiketle, üst düzeye ağırlık ver, cevap/ölçütleri sona koy.', 'standart_soru')},
+      {e:'🔬 5E Ders Etkinliği', f:()=>anindaUret('Seçili konuyu 5E modeline (Girme-Keşfetme-Açıklama-Derinleştirme-Değerlendirme) göre bir ders etkinliği olarak hazırla; her aşamada öğrenci ne yapacak, öğretmen ne soracak yaz.', 'zengin_metin')},
+      {e:'🎚️ Farklılaştırılmış 3 Seviye', f:()=>anindaUret('Seçili konuda AYNI kazanım için üç seviyeli (DESTEK / TEMEL / İLERİ) tek bir çalışma hazırla; her seviye açık başlıkla ayrılsın, aynı konuyu farklı derinlikte işlesin.', 'zengin_metin')},
+      {e:'🤝 İş Birlikli (Jigsaw)', f:()=>anindaUret('Seçili konu için iş birlikli öğrenme (Jigsaw) etkinliği hazırla: uzman grup görev kartları, ana gruba dönüp öğretme aşaması ve ortak değerlendirme olsun.', 'zengin_metin')},
+      {e:'🎩 6 Şapkalı Düşünme', f:()=>anindaUret('Seçili konuyu Altı Şapkalı Düşünme tekniğiyle ele alan etkinlik hazırla; her şapka için ayrı yönerge ve yazma boşluğu olsun.', 'zengin_metin')},
+      {e:'👅 İleri Oral Motor', f:()=>anindaUret('Dünyanın en iyi dil-konuşma terapisti seviyesinde İLERİ oral-motor egzersiz programı hazırla: dil, dudak, çene, yanak ve yumuşak damak egzersizleri; her biri için adım adım yönerge, tekrar sayısı (ör. 10x3), süre ve ayna notu. Bol egzersiz, kademeli zorluk, sade düzen.', 'zengin_metin')},
+      {e:'🗣️ Artikülasyon (ses seç)', f:()=>{ const s=(window.prompt('Hangi ses? (ör. r, s, ş, k, l)','r')||'').trim(); if(!s) return; anindaUret('/'+s+'/ sesi için kapsamlı artikülasyon çalışması hazırla: ağız/dil pozisyonu tarifi, izole ses, hece (tüm ünlülerle), başta-ortada-sonda '+s+' geçen EN AZ 20 kelime, kelime çiftleri, cümle ve kısa metin düzeyleri; kolaydan zora, görsellerle, sade düzen.', 'zengin_metin'); }},
+      {e:'📚 Çizgi Roman Hikâye', f:()=>{ const k=(window.prompt('Çizgi roman konusu/hedefi? (ör. paylaşmak, /r/ sesi, trafik kuralları)','')||'').trim(); anindaUret('4-6 kareli ÇİZGİ ROMAN (comic) formatında bir hikâye hazırla'+(k?(' (konu: '+k+')'):'')+': her karede sahne betimi ve BOŞ konuşma balonları olsun; öğrenci balonları doldurup diyaloğu okusun. Sade, net kareler, karışık olmayan düzen.', 'zengin_metin'); }},
+      {e:'🧩 Minimal Çiftler', f:()=>anindaUret('Sesletim ayrımı için minimal çift çalışması hazırla (ör. bal-dal, saç-şaç): 15 çift, her çiftin yanına küçük görsel betimi; doğru olanı işaretleyip tekrar etsin.', 'eslestirme')},
+      {e:'🧠 Fonolojik Farkındalık', f:()=>anindaUret('Fonolojik farkındalık çalışması hazırla: ilk/son ses bulma, ses sayma, ses ekleme-çıkarma-değiştirme, hece bölme-birleştirme, kafiye; kolaydan zora, görsel destekli.', 'zengin_metin')},
+      {e:'❤️ Duygu Kartları (SEL)', f:()=>anindaUret('Sosyal-duygusal öğrenme için duygu kartları hazırla: 8 duygu yüz ifadesi (emoji/betim), her biri için "ne zaman böyle hissederim" ve sakinleşme önerisi.', 'zengin_metin')},
+      {e:'🔁 Geri Getirme Testi', f:()=>anindaUret('Seçili konudan geri getirme pratiği (retrieval) çalışması hazırla: bakmadan hatırlama soruları ve sonda cevap anahtarı olsun.', 'standart_soru')},
+      {e:'🧩 Boşluk Doldurma', f:()=>anindaUret('Seçili konudan 10 cümlelik boşluk doldurma çalışması hazırla; kelime havuzu ve cevap anahtarı ekle.', 'bosluk')},
+      {e:'✅ Doğru / Yanlış', f:()=>anindaUret('Seçili konudan 10 maddelik doğru-yanlış çalışması hazırla; cevap anahtarı ekle.', 'dogru_yanlis')},
+      {e:'🔗 Eşleştirme Testi', f:()=>anindaUret('Seçili konudan sütun eşleştirme çalışması hazırla; sağ sütun karışık, cevap anahtarlı olsun.', 'eslestirme')},
+      {e:'📝 Klasik (açık uçlu)', f:()=>anindaUret('Seçili konudan 8 açık uçlu (kısa cevaplı) soru hazırla; cevap anahtarı ekle.', 'standart_soru')},
+      {e:'🆕 Yeni Nesil Test', f:()=>anindaUret('Seçili konudan günlük hayatla ilişkili, paragraf/görsel içeren 8 soruluk yeni nesil test hazırla; cevap anahtarlı olsun.', 'yeni_nesil_test')},
+      {e:'🧒 Okul Öncesi: Kavram', f:()=>anindaUret('Okul öncesi için renk-şekil-boyut kavramlarını öğreten, boyama ve eşleştirme içeren görsel bir çalışma hazırla.', 'Fark Etmez (Yapay Zeka Seçsin)')},
+      {e:'🧒 Okul Öncesi: Dikkat', f:()=>anindaUret('Okul öncesi için emoji matrisinde farklı olanı bulma ve eşini bulma dikkat çalışması hazırla; kolaydan zora 6 satır.', 'emoji')},
+      {e:'🧒 Okumaya Hazırlık', f:()=>anindaUret('Okul öncesi için okumaya hazırlık çalışması hazırla: görsel okuma, soldan-sağa takip çizgileri, şekil-zemin ve ses farkındalığı etkinlikleriyle.', 'zengin_metin')},
+      {e:'🗣️ Sosyal Senaryo Kartları', f:()=>anindaUret('Sosyal iletişim için kesilebilir SOSYAL SENARYO canlandırma kartları hazırla: her kartta gerçek, kısa ve anlamlı bir günlük durum (ör. oyuna katılma, sıra bekleme, yardım isteme) ve altında "ne yaparım / ne derim" bölümü olsun. En az 6 kart, ANLAMLI içerik, doldurma metin YOK.', 'flashcard_grid')},
+      {e:'👂 İşitsel Bellek', f:()=>anindaUret('Dil-konuşma için işitsel bellek çalışması hazırla: giderek uzayan kelime/sayı dizileri, cümle tekrarı ve "sırayla tekrarla" görevleri; terapist yönergeleriyle.', 'zengin_metin')},
+      {e:'🍎 Kelime Dağarcığı', f:()=>anindaUret('Kelime dağarcığını genişleten çalışma hazırla: kategori, zıt-eş anlam, tanımdan kelime bulma ve kelime-görsel eşleştirme; her kelime görsel betimiyle.', 'zengin_metin')},
+    ].map((k,i)=>(
+      <button key={i} onClick={k.f} className="text-[11px] bg-white/10 hover:bg-fuchsia-400 hover:text-slate-900 text-fuchsia-50 px-2.5 py-1.5 rounded-md font-bold transition border border-fuchsia-300/30">{k.e}</button>
+    ))}
+  </div>
+  <p className="text-[10px] text-fuchsia-100/70 mt-2"><i className="fa-solid fa-lightbulb text-yellow-300 mr-1"></i>İpucu: Renkli/quiz/fasikül gibi seçenekler <b>Üret kutusuna düşer</b> — orada düzenleyip “Üret”e basarsın. isa·masa·kasa·para, küçük “a” ve harf çalışmaları ise <b>anında hazır</b> gelir (kotasız). 🎯</p>
+</div>
 <textarea value={materialTopic} onChange={(e) => setMaterialTopic(e.target.value)} rows="6" placeholder="Ne üretmek istiyorsun veya yüklediğin dosyaya ne yapalım? Örn: Bu testteki soruları uzay temasına göre baştan yaz... veya 5. sınıf matematik 10 zor soru üret..." className="w-full px-4 py-3 bg-white/10 border border-teal-400/50 rounded-xl outline-none text-white placeholder-teal-200/50 resize-y focus:bg-white focus:text-teal-900 transition mb-2"></textarea>
 {/* CANLI PROMPT DENETLEYİCİ: üretilemeyecek istekleri kırmızı gösterir, alternatif sunar */}
 {(() => { const _sorunlar = promptSorunlari(materialTopic); if (!_sorunlar.length) return null; return (
@@ -7394,6 +7677,16 @@ notes.map(n => (
    + ".zl-link{color:#0d9488;font-weight:800;cursor:pointer;text-decoration:none;font-size:12px}"
    + ".zl-kodkutu{margin-top:10px;background:#eef2ff;border:2px dashed #c7d2fe;border-radius:12px;padding:14px;text-align:center}"
    + ".zl-kodbuyuk{font-size:26px;font-weight:900;letter-spacing:2px;color:#4338ca;font-family:ui-monospace,monospace}"
+   + ".zl-wrap{display:flex;gap:26px;align-items:center;justify-content:center;flex-wrap:wrap;max-width:940px;width:100%}"
+   + ".zl-card{order:1}"
+   + ".zl-info{order:2;flex:1;min-width:270px;max-width:420px;color:#eafffb}"
+   + ".zl-info h2{font-size:24px;font-weight:800;margin:0 0 10px;line-height:1.2}"
+   + ".zl-info p{font-size:14px;line-height:1.55;color:#c9f2ea;margin:0 0 14px}"
+   + ".zl-info .zl-ozet{list-style:none;padding:0;margin:0}"
+   + ".zl-info .zl-ozet li{font-size:13.5px;color:#eafffb;margin:8px 0;padding-left:26px;position:relative}"
+   + ".zl-info .zl-ozet li:before{content:\"✓\";position:absolute;left:0;top:0;color:#5eead4;font-weight:900}"
+   + ".zl-info .zl-imza{font-size:12px;color:#9fe3d6;margin-top:16px}"
+   + "@media(max-width:820px){.zl-info{order:2;text-align:center;max-width:420px}.zl-info h2{font-size:20px}}"
    + "#zlisans-fab{position:fixed;left:10px;bottom:10px;z-index:2147482000;width:30px;height:30px;border-radius:50%;background:rgba(15,23,42,.35);color:#fff;border:0;cursor:pointer;font-size:13px;opacity:.4;transition:.2s}"
    + "#zlisans-fab:hover{opacity:1}";
 
@@ -7492,10 +7785,54 @@ notes.map(n => (
     document.body.appendChild(b);
   }
 
+  // 🎊 Kutlama efekti — her yerden window.ZKUTLA() ile çağrılır
+  window.ZKUTLA = function(){
+    try{
+      var c=document.createElement("canvas");
+      c.style.cssText="position:fixed;inset:0;pointer-events:none;z-index:2147483600";
+      document.body.appendChild(c);
+      var x=c.getContext("2d"); function rs(){c.width=window.innerWidth;c.height=window.innerHeight;} rs();
+      var renk=["#f43f5e","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ec4899","#14b8a6"], P=[];
+      for(var i=0;i<130;i++) P.push({x:Math.random()*c.width,y:-20-Math.random()*c.height*0.4,r:5+Math.random()*7,c:renk[i%renk.length],vy:2.5+Math.random()*4.5,vx:-2.5+Math.random()*5,rot:Math.random()*6.28,vr:-0.25+Math.random()*0.5});
+      var t0=Date.now();
+      (function tick(){
+        x.clearRect(0,0,c.width,c.height);
+        for(var i=0;i<P.length;i++){ var p=P[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=0.03; p.rot+=p.vr; x.save(); x.translate(p.x,p.y); x.rotate(p.rot); x.fillStyle=p.c; x.fillRect(-p.r/2,-p.r/2,p.r,p.r*0.6); x.restore(); }
+        if(Date.now()-t0<2800) requestAnimationFrame(tick); else c.remove();
+      })();
+    }catch(e){}
+  };
+
+  // 🔗 QR/bağlantı ile hızlı katılım:  ...?okul=Değişim%20Koleji&kod=A7K-3PQ-9ZM
+  function paramGiris(){
+    try{
+      var q=new URLSearchParams(location.search), okul=q.get("okul"), kod=q.get("kod");
+      if(okul && kod && kodNorm(kod)===kodNorm(lisansKodu(okul))){ lisansKaydet(okul,kod,false); return true; }
+    }catch(e){}
+    return false;
+  }
+
+  function infoHTML(){
+    return '<div class="zl-info">'
+      + '<h2>'+markaAdi()+' · Dijital Eğitim Ekosistemi</h2>'
+      + '<p>Öğretmen, öğrenci ve velinin tek çatı altında buluştuğu; yapay zeka destekli, tamamen Türkçe okul platformu.</p>'
+      + '<ul class="zl-ozet">'
+      + '<li><b>Yapay zeka ile materyal:</b> Sınıf düzeyine uygun çalışma kâğıdı, test ve etkinlikler saniyeler içinde.</li>'
+      + '<li><b>Ödev & takip:</b> Öğretmen ödev verir, öğrenci yapıp gönderir, veli anında görür.</li>'
+      + '<li><b>Öğrenme DNA’sı:</b> Her öğrencinin güçlü yönlerini keşfet, kişiye özel öner.</li>'
+      + '<li><b>Konu çalış:</b> Maarif müfredatına uygun renkli özet ve etkinlikler, sesli okuma.</li>'
+      + '<li><b>Rozet & D-Coin:</b> Oyunlaştırma ile motivasyon; veliyle kolay iletişim.</li>'
+      + '<li><b>DKT içerikleri:</b> Dil-konuşma ve özel eğitim materyalleri hazır.</li>'
+      + '</ul>'
+      + '<p class="zl-imza">Barış Öğretmen tarafından geliştirildi · Türkiye’de bir ilk 🇹🇷</p>'
+      + '</div>';
+  }
+
   function baslat(){
     style(); fabEkle();
+    if(paramGiris()){ try{ history.replaceState(null,"",location.pathname); }catch(e){} }
     if(lisansGecerli()) return;                 // lisans var → uygulama açık
-    var kapi = el('<div id="zlisans-kapi"><div class="zl-card"></div></div>');
+    var kapi = el('<div id="zlisans-kapi"><div class="zl-wrap"><div class="zl-card"></div>'+infoHTML()+'</div></div>');
     document.body.appendChild(kapi);
     kilitEkran(kapi.querySelector(".zl-card"));
   }
