@@ -1952,6 +1952,8 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
     { k:'dna',     ad:'Öğrenme DNA', ikon:'fa-dna' },
     { k:'rozet',   ad:'Rozet & Sıralama', ikon:'fa-trophy' },
     { k:'veli',    ad:'Veli İletişim', ikon:'fa-comments' },
+    { k:'karne',   ad:'Sınıf Karnesi', ikon:'fa-file-lines' },
+    { k:'qr',      ad:'QR Katılım', ikon:'fa-qrcode' },
     { k:'duyuru',  ad:'Duyuru',     ikon:'fa-bullhorn' },
   ];
 
@@ -1982,6 +1984,8 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='dna'     && <DnaYonetim db={db} ogrenciler={ogrenciler} apiKey={apiKey} modelName={modelName} />}
         {!yukleniyor && sekme==='rozet'   && <RozetSiralama db={db} ogrenciler={ogrenciler} />}
         {!yukleniyor && sekme==='veli'    && <VeliIletisim ogrenciler={ogrenciler} apiKey={apiKey} modelName={modelName} />}
+        {!yukleniyor && sekme==='karne'   && <SinifKarnesi ogrenciler={ogrenciler} odevler={odevler} teslimler={teslimler} />}
+        {!yukleniyor && sekme==='qr'      && <SinifQR />}
         {!yukleniyor && sekme==='duyuru'  && <DuyuruYonetim db={db} user={user} duyurular={duyurular} />}
       </div>
     </div>
@@ -2251,6 +2255,7 @@ const DnaYonetim = ({ db, ogrenciler, apiKey, modelName }) => {
   const [dna, setDna] = useState(bosDna());
   const [gozlem, setGozlem] = useState('');
   const [aiYukleniyor, setAiYukleniyor] = useState(false);
+  const [kapsamli, setKapsamli] = useState(false);
   const ogr = ogrenciler.find(o=>o.id===id);
 
   useEffect(()=>{ if(ogr){ setDna(ogr.dna ? { ...bosDna(), ...ogr.dna } : bosDna()); } }, [id]);
@@ -2283,6 +2288,13 @@ SADECE şu JSON'u döndür, başka hiçbir şey yazma:
     if(ok) toast('✅ '+ogr.ad+' için DNA kaydedildi. Veli ve öğrenci artık görebilir.','green');
   };
 
+  const kapsamliKaydet = async (dna) => {
+    if(!ogr) return;
+    const liste = ogrenciler.map(o=> o.id===id ? { ...o, dna } : o);
+    const ok = await okulYaz(db, "k12_ogrenciler", { liste });
+    if(ok){ setDna({ ...bosDna(), ...dna }); setKapsamli(false); toast('✅ '+ogr.ad+' için kapsamlı DNA kaydedildi.','green'); }
+  };
+
   return (
     <div>
       <select value={id} onChange={e=>setId(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none mb-3">
@@ -2292,7 +2304,17 @@ SADECE şu JSON'u döndür, başka hiçbir şey yazma:
           return grp.length ? <optgroup key={s} label={s}>{grp.map(o=><option key={o.id} value={o.id}>{o.ad}</option>)}</optgroup> : null;
         })}
       </select>
-      {!ogr ? <p className="text-center text-slate-400 py-6 text-sm">DNA oluşturmak için bir öğrenci seçin.</p> : (
+      {ogr && (
+        <div className="mb-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl p-3 flex items-center gap-3">
+          <div className="text-2xl">🧬</div>
+          <div className="flex-1"><p className="text-sm font-black text-indigo-800">Kapsamlı Değerlendirme · 17 boyut · 51 soru</p><p className="text-[11px] text-slate-500">Veli/öğretmenle uygulayın; görsel rapor + öneriler oluşsun.</p></div>
+          <button onClick={()=>setKapsamli(k=>!k)} className="bg-indigo-600 text-white font-black px-4 py-2 rounded-lg text-xs whitespace-nowrap">{kapsamli?'Kapat':'Uygula'}</button>
+        </div>
+      )}
+      {ogr && kapsamli && (
+        <DnaDegerlendirme ad={ogr.ad} grade={ogr.sinif} apiKey={apiKey} modelName={modelName} onKaydet={kapsamliKaydet} onKapat={()=>setKapsamli(false)} />
+      )}
+      {!kapsamli && (!ogr ? <p className="text-center text-slate-400 py-6 text-sm">DNA oluşturmak için bir öğrenci seçin.</p> : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div>
             <textarea value={gozlem} onChange={e=>setGozlem(e.target.value)} rows="3" placeholder={`${ogr.ad} hakkında kısa gözlem: nelerden hoşlanıyor, nasıl daha iyi öğreniyor, güçlü/zayıf yönler…`} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none resize-y mb-2"></textarea>
@@ -2314,7 +2336,7 @@ SADECE şu JSON'u döndür, başka hiçbir şey yazma:
           </div>
           <div><DNAKarti dna={dna} ad={ogr.ad} /></div>
         </div>
-      )}
+      ))}
     </div>
   );
 };
@@ -2519,6 +2541,10 @@ const OgrenciMerkezi = ({ db, user }) => {
       )}
 
       <GununSozu />
+
+      {ben && <KendiniKesfet db={db} ogrenciler={ogrenciler} ben={ben} teslimler={teslimler} />}
+
+      {ben && <KitapTakip db={db} ogrenciler={ogrenciler} ben={ben} />}
 
       <KonuCalisma grade={sinifim} />
 
@@ -2919,6 +2945,450 @@ const KonuCalisma = ({ grade }) => {
             <button onClick={()=>{ try{navigator.clipboard.writeText(sonuc.replace(/<[^>]+>/g,''));toast('📋 Kopyalandı','green');}catch(e){} }} className="bg-white/20 hover:bg-white/40 px-2 py-1 rounded text-[11px] font-black"><i className="fa-solid fa-copy mr-1"></i>Kopyala</button>
           </div>
           <div className="p-5 leading-relaxed text-slate-800 konu-cikti" style={{fontSize: kucuk?'17px':'15px'}} dangerouslySetInnerHTML={{__html: sonuc}}></div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ============================================================================
+   KAPSAMLI ÖĞRENME DNA DEĞERLENDİRMESİ  ·  17 boyut · 51 soru · görsel rapor
+   Çoklu Zeka + Öğrenme Stilleri + Öğrenme Becerileri/Karakter
+   ============================================================================ */
+const DNA2_BOYUTLAR = [
+  { k:'gorsel',     kat:'stil',    ad:'Görsel Öğrenme',        ikon:'fa-eye',                  renk:'#3b82f6', kisa:'Görerek, resim ve şemalarla öğrenir.', ogr:'Renkli görseller, şema, zihin haritası ve videolarla anlatın; tahtayı etkin kullanın.', veli:'Konuları resimler, renkli notlar ve çizimlerle destekleyin; görsel kartlar hazırlayın.', etk:'Kavram haritası çıkarma, çizerek özetleme, renkli kod kartları.' },
+  { k:'isitsel',    kat:'stil',    ad:'İşitsel Öğrenme',       ikon:'fa-ear-listen',           renk:'#10b981', kisa:'Dinleyerek ve konuşarak öğrenir.', ogr:'Sesli anlatım, tartışma ve tekrar kullanın; konuyu öğrenciye anlattırın.', veli:'Konuları sesli okuyun, birlikte konuşarak tekrar edin; sesli kitaplardan yararlanın.', etk:'Sesli tekrar, konuyu birine anlatma, ritimli ezber, podcast dinleme.' },
+  { k:'kinestetik', kat:'stil',    ad:'Bedensel-Kinestetik',   ikon:'fa-child-reaching',       renk:'#f59e0b', kisa:'Yaparak, dokunarak ve hareket ederek öğrenir.', ogr:'Deney, drama, model yapımı ve hareketli etkinlikler ekleyin; ara ara mola verin.', veli:'Öğrenmeyi harekete bağlayın; nesnelerle, oyunla ve deneyle çalıştırın.', etk:'Deney, rol yapma, nesnelerle sayma, hamurla model, dokunmatik kartlar.' },
+  { k:'sozel',      kat:'zeka',    ad:'Sözel-Dilsel Zeka',     ikon:'fa-book-open',            renk:'#8b5cf6', kisa:'Kelimeler, okuma ve yazmayla güçlüdür.', ogr:'Hikâye, sunum, tartışma ve yazma görevleri verin; kelime dağarcığını besleyin.', veli:'Birlikte kitap okuyun, günlük/öykü yazmaya teşvik edin, kelime oyunları oynayın.', etk:'Öykü yazma, kelime oyunları, kitap kulübü, sunum hazırlama.' },
+  { k:'mantik',     kat:'zeka',    ad:'Mantık-Matematik Zeka', ikon:'fa-square-root-variable', renk:'#ef4444', kisa:'Mantık, sayılar ve problem çözmede güçlüdür.', ogr:'Problem tabanlı öğrenme, örüntü, sınıflandırma ve “neden?” sorularıyla ilerleyin.', veli:'Bulmaca, strateji oyunları ve günlük hayatta sayı-mantık sorularıyla besleyin.', etk:'Bulmacalar, mantık oyunları, deney tasarlama, kodlama.' },
+  { k:'muzik',      kat:'zeka',    ad:'Müziksel-Ritmik Zeka',  ikon:'fa-music',                renk:'#06b6d4', kisa:'Ritim, melodi ve seslerle güçlüdür.', ogr:'Bilgileri şarkı/ritme dökün, ritimli tekrar ve müzikli geçişler kullanın.', veli:'Konuları şarkıya çevirin, ritim tutarak çalıştırın; enstrümana yönlendirin.', etk:'Konu şarkısı yazma, ritimle ezber, müzikli oyunlar.' },
+  { k:'sosyal',     kat:'zeka',    ad:'Sosyal (Kişilerarası)', ikon:'fa-users',                renk:'#ec4899', kisa:'Başkalarıyla birlikte öğrenmede güçlüdür.', ogr:'Grup çalışması, akran öğretimi ve iş birlikli görevlere ağırlık verin.', veli:'Arkadaşlarıyla birlikte çalışmasına imkân tanıyın, sosyal projelere yönlendirin.', etk:'Grup projeleri, akranla öğretme, münazara, ortak oyunlar.' },
+  { k:'icsel',      kat:'zeka',    ad:'İçsel (Öze Dönük)',     ikon:'fa-lightbulb',            renk:'#14b8a6', kisa:'Kendi başına, iç dünyasıyla öğrenir.', ogr:'Bireysel hedefler, öz-değerlendirme ve sessiz çalışma alanları sunun.', veli:'Kendi başına çalışma zamanı ve alanı tanıyın; hedeflerini kendi koymasına izin verin.', etk:'Günlük tutma, bireysel proje, hedef belirleme, öz-değerlendirme.' },
+  { k:'doga',       kat:'zeka',    ad:'Doğacı Zeka',           ikon:'fa-leaf',                 renk:'#84cc16', kisa:'Doğa, canlılar ve gözlemle güçlüdür.', ogr:'Doğa örnekleri, gözlem-sınıflandırma ve açık hava etkinlikleri ekleyin.', veli:'Doğa gezileri yapın, hayvan/bitki gözlemi ve toplama-sınıflama oyunları oynayın.', etk:'Doğa gözlemi, koleksiyon-sınıflama, bahçe/deney, belgesel izleme.' },
+  { k:'dikkat',     kat:'beceri',  ad:'Dikkat & Odaklanma',    ikon:'fa-bullseye',             renk:'#6366f1', kisa:'Odağını toplama ve sürdürme becerisi.', ogr:'Kısa net yönergeler, tek adımlı görevler ve sık ama kısa molalar verin.', veli:'Çalışma ortamını sadeleştirin, ekran/gürültüyü azaltın, Pomodoro (kısa süre+mola) deneyin.', etk:'Odak oyunları, zamanlı görevler, dikkat egzersizleri.' },
+  { k:'motivasyon', kat:'beceri',  ad:'Merak & İçsel Motivasyon',ikon:'fa-fire',              renk:'#f97316', kisa:'Öğrenmeye içten istek ve merak duyar.', ogr:'Merak uyandıran açık uçlu sorular ve seçim özgürlüğü sunun; anlamı vurgulayın.', veli:'İlgi alanlarını keşfetmesine izin verin, “neden/nasıl” sorularını besleyin.', etk:'Proje seçme özgürlüğü, keşif görevleri, “merak defteri”.' },
+  { k:'ozduzen',    kat:'beceri',  ad:'Öz-düzenleme & Plan',   ikon:'fa-list-check',           renk:'#0ea5e9', kisa:'Planlama, düzen ve zaman yönetimi becerisi.', ogr:'Kontrol listesi, ajanda ve adım adım plan alışkanlığı kazandırın.', veli:'Birlikte haftalık plan yapın, ödev takvimi ve düzenli çalışma rutini oluşturun.', etk:'Yapılacaklar listesi, plan tablosu, hedef takip kartı.' },
+  { k:'yaraticilik',kat:'beceri',  ad:'Yaratıcılık & Hayal',   ikon:'fa-palette',              renk:'#d946ef', kisa:'Özgün fikirler ve farklı çözümler üretir.', ogr:'Açık uçlu, tek doğrusu olmayan görevler ve “başka nasıl olur?” sorularıyla besleyin.', veli:'Serbest oyun, sanat ve tasarım fırsatları verin; farklı çözümleri takdir edin.', etk:'Tasarım görevleri, beyin fırtınası, hikâye uydurma, icat kutusu.' },
+  { k:'azim',       kat:'beceri',  ad:'Azim & Sebat',          ikon:'fa-mountain',             renk:'#b45309', kisa:'Zorlukta pes etmeden çalışmaya devam eder.', ogr:'Ulaşılabilir küçük hedefler ve çabayı öven geri bildirim verin; süreci vurgulayın.', veli:'Sonuç kadar çabayı takdir edin, “henüz” dilini kullanın, küçük başarıları kutlayın.', etk:'Aşamalı hedefler, ilerleme grafiği, “bir daha dene” alışkanlığı.' },
+  { k:'duygu',      kat:'beceri',  ad:'Duygusal Farkındalık',  ikon:'fa-heart',                renk:'#f43f5e', kisa:'Duygularını tanır ve yönetebilir.', ogr:'Duygu paylaşımına alan açın; sakinleşme ve nefes teknikleri öğretin.', veli:'Duygularını adlandırmasına yardım edin, sakinleşme rutinleri kurun, örnek olun.', etk:'Duygu çarkı, nefes egzersizleri, günlükle duygu takibi.' },
+  { k:'buyume',     kat:'beceri',  ad:'Büyüme Zihniyeti',      ikon:'fa-seedling',             renk:'#22c55e', kisa:'Çabayla gelişebileceğine inanır.', ogr:'Hatayı öğrenme fırsatı olarak çerçeveleyin; çabayı ve stratejiyi övün.', veli:'“Yeteneğin gelişir” mesajı verin, hataları normalleştirin, çabayı vurgulayın.', etk:'Hata günlüğü, “henüz” tablosu, süreç odaklı hedefler.' },
+  { k:'isbirligi',  kat:'beceri',  ad:'İşbirliği & Liderlik',  ikon:'fa-handshake',            renk:'#0d9488', kisa:'Takımda sorumluluk alır, paylaşır.', ogr:'Rol dağıtımlı grup görevleri ve liderlik fırsatları verin.', veli:'Ev içi sorumluluklar ve takım oyunlarıyla iş birliğini destekleyin.', etk:'Rollü grup projeleri, takım oyunları, akran mentörlüğü.' },
+];
+
+const DNA2_SORULAR = [
+  {b:'gorsel', s:'Bir şeyi resim, şema veya renkli notlarla görünce daha kolay öğrenirim.'},
+  {b:'gorsel', s:'Gördüğüm şeyleri, duyduklarımdan daha iyi hatırlarım.'},
+  {b:'gorsel', s:'Bir konuyu anlarken onu gözümde canlandırırım.'},
+  {b:'isitsel', s:'Bir konuyu dinleyince, sadece okumaktan daha iyi anlarım.'},
+  {b:'isitsel', s:'Sesli tekrar edince daha kolay ezberlerim.'},
+  {b:'isitsel', s:'Anlatılan şeyleri konuşarak tekrar etmek işime yarar.'},
+  {b:'kinestetik', s:'Yaparak ve dokunarak öğrenmek bana daha kolay gelir.'},
+  {b:'kinestetik', s:'Uzun süre hareketsiz oturmak beni zorlar.'},
+  {b:'kinestetik', s:'Deney, oyun ve el işleriyle daha iyi öğrenirim.'},
+  {b:'sozel', s:'Kelimelerle oynamayı, hikâye ve kitap okumayı severim.'},
+  {b:'sozel', s:'Düşüncelerimi konuşarak veya yazarak kolayca anlatırım.'},
+  {b:'sozel', s:'Yeni kelimeler öğrenmek hoşuma gider.'},
+  {b:'mantik', s:'Bulmaca, sayı ve mantık oyunlarını severim.'},
+  {b:'mantik', s:'Bir şeyin nasıl çalıştığını merak eder, sebebini sorarım.'},
+  {b:'mantik', s:'Problemleri adım adım çözmekten keyif alırım.'},
+  {b:'muzik', s:'Şarkıları ve ritimleri kolayca aklımda tutarım.'},
+  {b:'muzik', s:'Çalışırken mırıldanmak veya ritim tutmak hoşuma gider.'},
+  {b:'muzik', s:'Bir melodiyi duyunca kolayca tekrar edebilirim.'},
+  {b:'sosyal', s:'Arkadaşlarımla birlikte çalışmayı tek başıma çalışmaya tercih ederim.'},
+  {b:'sosyal', s:'Başkalarının duygularını kolayca anlarım.'},
+  {b:'sosyal', s:'Grup içinde iş birliği yapmaktan hoşlanırım.'},
+  {b:'icsel', s:'Tek başıma, sessiz bir yerde daha iyi çalışırım.'},
+  {b:'icsel', s:'Kendi güçlü ve zayıf yönlerimi iyi bilirim.'},
+  {b:'icsel', s:'Kararlarımı kendi başıma vermeyi severim.'},
+  {b:'doga', s:'Hayvanlar, bitkiler ve doğa çok ilgimi çeker.'},
+  {b:'doga', s:'Dışarıda, doğada olmak beni mutlu eder.'},
+  {b:'doga', s:'Canlıları gözlemlemekten ve keşfetmekten hoşlanırım.'},
+  {b:'dikkat', s:'Bir işe başlayınca uzun süre dikkatimi verebilirim.'},
+  {b:'dikkat', s:'Çevremde gürültü olsa bile işime odaklanabilirim.'},
+  {b:'dikkat', s:'Verilen bir görevi dağılmadan tamamlarım.'},
+  {b:'motivasyon', s:'Yeni bir şey öğrenmek beni heyecanlandırır.'},
+  {b:'motivasyon', s:'Ödül olmasa bile merak ettiğim konuları araştırırım.'},
+  {b:'motivasyon', s:'Zor bir konuyu anlayınca kendimi çok iyi hissederim.'},
+  {b:'ozduzen', s:'Ödevlerimi ve eşyalarımı düzenli tutarım.'},
+  {b:'ozduzen', s:'Bir işe başlamadan önce plan yaparım.'},
+  {b:'ozduzen', s:'İşlerimi son ana bırakmadan zamanında yaparım.'},
+  {b:'yaraticilik', s:'Yeni fikirler ve farklı çözümler bulmayı severim.'},
+  {b:'yaraticilik', s:'Hayal kurmaktan ve bir şeyler tasarlamaktan hoşlanırım.'},
+  {b:'yaraticilik', s:'Sıradan şeyleri farklı şekillerde kullanmayı denerim.'},
+  {b:'azim', s:'Zor bir iş olsa bile kolay kolay pes etmem.'},
+  {b:'azim', s:'Başaramadığımda tekrar tekrar denerim.'},
+  {b:'azim', s:'Bir hedefe ulaşmak için sabırla çalışırım.'},
+  {b:'duygu', s:'Sinirlendiğimde kendimi sakinleştirmeyi bilirim.'},
+  {b:'duygu', s:'Ne hissettiğimi fark eder ve ifade edebilirim.'},
+  {b:'duygu', s:'Hayal kırıklığına uğrayınca kendimi toparlayabilirim.'},
+  {b:'buyume', s:'Çalışırsam neredeyse her şeyi öğrenebileceğime inanırım.'},
+  {b:'buyume', s:'Hatalar öğrenmemin bir parçasıdır.'},
+  {b:'buyume', s:'Yeteneklerimin çabayla gelişeceğine inanırım.'},
+  {b:'isbirligi', s:'Grup çalışmalarında sorumluluk almayı severim.'},
+  {b:'isbirligi', s:'Arkadaşlarıma yardım etmekten hoşlanırım.'},
+  {b:'isbirligi', s:'Bir görevi paylaşırken herkesin fikrini dinlerim.'},
+];
+
+const DNA2_LIKERT = [
+  { v:1, ad:'Hiç', renk:'#f87171' },
+  { v:2, ad:'Az',  renk:'#fb923c' },
+  { v:3, ad:'Orta',renk:'#fbbf24' },
+  { v:4, ad:'Çok', renk:'#34d399' },
+  { v:5, ad:'Tam', renk:'#10b981' },
+];
+const DNA2_KAT = { stil:'Öğrenme Stili', zeka:'Çoklu Zeka', beceri:'Öğrenme Becerileri & Karakter' };
+
+function dna2Hesapla(cevaplar){
+  const top={}, say={};
+  DNA2_SORULAR.forEach((q,i)=>{ const v=cevaplar[i]; if(v){ top[q.b]=(top[q.b]||0)+v; say[q.b]=(say[q.b]||0)+1; } });
+  const skor={};
+  DNA2_BOYUTLAR.forEach(b=>{ const ort = say[b.k]? top[b.k]/say[b.k] : 0; skor[b.k]= say[b.k]? Math.round((ort-1)/4*100) : 0; });
+  return skor;
+}
+
+const DnaDegerlendirme = ({ ad, grade, apiKey, modelName, onKaydet, onKapat }) => {
+  const [adim, setAdim] = useState('intro'); // intro | test | rapor
+  const [cevaplar, setCevaplar] = useState({});
+  const [aiMetin, setAiMetin] = useState('');
+  const [aiYuk, setAiYuk] = useState(false);
+  const toplam = DNA2_SORULAR.length;
+  const yanit = Object.keys(cevaplar).length;
+  const skor = adim==='rapor' ? dna2Hesapla(cevaplar) : {};
+  const sirali = DNA2_BOYUTLAR.map(b=>({b, s:skor[b.k]||0})).sort((x,y)=>y.s-x.s);
+  const guclu = sirali.slice(0,5);
+
+  const raporaGec = () => { if(yanit<toplam){ alert(`Lütfen tüm soruları yanıtlayın. (${yanit}/${toplam})`); return; } setAdim('rapor'); window.scrollTo(0,0); };
+
+  const aiYorum = async () => {
+    const anahtar = apiKey || (typeof cozKey==='function'?cozKey():'');
+    if(!anahtar){ alert('AI yorumu için Ayarlardan anahtar girin.'); return; }
+    setAiYuk(true);
+    try{
+      const list = sirali.map(x=>`${x.b.ad}: %${x.s}`).join(', ');
+      const p = `Bir eğitim psikoloğu ve rehber öğretmen gibi yaz. "${ad}" (${grade||''}) adlı öğrencinin Öğrenme DNA sonuçları (yüzde): ${list}.
+Veliyi ve öğretmeni etkileyecek, sıcak, umut veren ve profesyonel bir DEĞERLENDİRME yaz. Şu bölümler olsun (HTML döndür, kod bloğu kullanma): 
+<h3>Genel Profil</h3> 2-3 cümle güçlü yön vurgusu. 
+<h3>Öğretmene Öneriler</h3> 3 madde. 
+<h3>Veliye Öneriler</h3> 3 madde. 
+<h3>Bu Ay Denenecek 3 Etkinlik</h3> 3 madde. 
+Damgalayıcı dil kullanma; her çocuğun geliştirilebilir olduğunu vurgula.`;
+      let t = await geminiMetin(anahtar, modelName || (typeof cozModel==='function'?cozModel():'gemini-2.5-flash'), p);
+      t = (t||'').replace(/```html|```/g,'').trim();
+      setAiMetin(t);
+    }catch(e){ alert('AI yorumu üretilemedi, tekrar deneyin.'); }
+    setAiYuk(false);
+  };
+
+  const kaydet = () => {
+    const dna = { ...bosDna() };
+    DNA_ALANLAR.forEach(a=>{ dna[a.k] = skor[a.k]||0; });
+    dna.detay = skor;
+    dna.ozet = `En güçlü yönler: ${guclu.slice(0,3).map(x=>x.b.ad).join(', ')}. Bu profile göre öğrenme deneyimi kişiselleştirilebilir.`;
+    dna.oneri = guclu.slice(0,3).map(x=>`• ${x.b.ad}: ${x.b.ogr}`).join('\n');
+    dna.tamam = true; dna.guncelleme = Date.now();
+    if(aiMetin) dna.aiRapor = aiMetin;
+    onKaydet && onKaydet(dna);
+  };
+
+  // INTRO
+  if(adim==='intro'){
+    return (
+      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-2xl p-6">
+        <div className="text-center mb-4">
+          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-3xl mb-2">🧬</div>
+          <h3 className="text-xl font-black text-indigo-900">Kapsamlı Öğrenme DNA Değerlendirmesi</h3>
+          <p className="text-sm text-slate-500 mt-1">{ad} · {grade||''}</p>
+        </div>
+        <p className="text-sm text-slate-600 leading-relaxed mb-3">Bu değerlendirme <b>17 boyutta</b> (öğrenme stilleri, çoklu zeka ve öğrenme becerileri) <b>{toplam} soru</b> ile çocuğun nasıl daha iyi öğrendiğini ortaya çıkarır. Sonunda veli ve öğretmen için kişiselleştirilmiş bir <b>rapor</b> oluşur.</p>
+        <div className="bg-white rounded-xl p-3 text-xs text-slate-500 mb-4 border border-indigo-100">
+          <i className="fa-solid fa-circle-info text-indigo-400 mr-1"></i>Her cümleyi çocuğun kendisi yanıtlayabilir; küçük sınıflarda veli/öğretmen çocuğu düşünerek işaretleyebilir. Doğru-yanlış yoktur, samimi yanıt önemlidir.
+        </div>
+        <div className="flex gap-2">
+          {onKapat && <button onClick={onKapat} className="flex-1 bg-slate-200 text-slate-600 font-black py-3 rounded-xl text-sm">Vazgeç</button>}
+          <button onClick={()=>{setAdim('test'); window.scrollTo(0,0);}} className="flex-[2] bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black py-3 rounded-xl text-sm hover:brightness-110"><i className="fa-solid fa-play mr-1"></i>Değerlendirmeye Başla</button>
+        </div>
+      </div>
+    );
+  }
+
+  // TEST
+  if(adim==='test'){
+    let siraNo=0;
+    return (
+      <div className="bg-white border-2 border-indigo-200 rounded-2xl overflow-hidden">
+        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur px-4 py-3 border-b border-indigo-100">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-xs font-black text-indigo-700">{ad} · Öğrenme DNA</span>
+            <span className="text-xs font-black text-slate-500">{yanit}/{toplam}</span>
+          </div>
+          <div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 transition-all" style={{width:`${Math.round(yanit/toplam*100)}%`}}></div></div>
+        </div>
+        <div className="p-4">
+          {['stil','zeka','beceri'].map(kat=>(
+            <div key={kat} className="mb-4">
+              <h4 className="text-sm font-black text-indigo-800 mb-1 mt-2 flex items-center"><span className="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>{DNA2_KAT[kat]}</h4>
+              {DNA2_SORULAR.map((q,i)=>{
+                if(DNA2_BOYUTLAR.find(b=>b.k===q.b).kat!==kat) return null;
+                siraNo++;
+                return (
+                  <div key={i} className="py-2.5 border-b border-slate-100 last:border-0">
+                    <p className="text-sm font-bold text-slate-700 mb-2">{siraNo}. {q.s}</p>
+                    <div className="flex gap-1.5">
+                      {DNA2_LIKERT.map(l=>(
+                        <button key={l.v} onClick={()=>setCevaplar({...cevaplar,[i]:l.v})} className={`flex-1 py-2 rounded-lg text-[11px] font-black transition ${cevaplar[i]===l.v?'text-white shadow scale-105':'bg-slate-100 text-slate-400 hover:bg-slate-200'}`} style={cevaplar[i]===l.v?{background:l.renk}:{}}>{l.ad}</button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          <button onClick={raporaGec} disabled={yanit<toplam} className={`w-full mt-3 font-black py-3 rounded-xl text-sm transition ${yanit<toplam?'bg-slate-200 text-slate-400 cursor-not-allowed':'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:brightness-110'}`}>
+            {yanit<toplam?`Devam etmek için ${toplam-yanit} soru daha`:'📊 Raporu Oluştur'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // RAPOR
+  return (
+    <div className="bg-white border-2 border-indigo-200 rounded-2xl overflow-hidden">
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-5 text-center">
+        <div className="text-3xl mb-1">🧬</div>
+        <h3 className="text-lg font-black">{ad} · Öğrenme DNA Raporu</h3>
+        <p className="text-xs text-indigo-100 mt-0.5">{grade||''} · {new Date().toLocaleDateString('tr-TR')}</p>
+      </div>
+      <div className="p-5 space-y-5">
+        {/* Süper güçler */}
+        <div>
+          <h4 className="font-black text-slate-800 mb-2"><i className="fa-solid fa-star text-amber-400 mr-1"></i>Süper Güçlerin</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {guclu.map(({b,s})=>(
+              <div key={b.k} className="rounded-xl p-3 text-white shadow" style={{background:`linear-gradient(135deg, ${b.renk}, ${b.renk}cc)`}}>
+                <div className="flex items-center gap-2 mb-1"><i className={`fa-solid ${b.ikon}`}></i><span className="font-black text-sm">{b.ad}</span><span className="ml-auto font-black">%{s}</span></div>
+                <p className="text-[12px] text-white/90 leading-snug">{b.kisa}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Tüm boyutlar */}
+        <div>
+          <h4 className="font-black text-slate-800 mb-2"><i className="fa-solid fa-chart-simple text-indigo-500 mr-1"></i>Tüm Boyutlar</h4>
+          {['stil','zeka','beceri'].map(kat=>(
+            <div key={kat} className="mb-3">
+              <p className="text-[11px] font-black text-slate-400 uppercase tracking-wide mb-1">{DNA2_KAT[kat]}</p>
+              {DNA2_BOYUTLAR.filter(b=>b.kat===kat).map(b=>(
+                <div key={b.k} className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[12px] font-bold text-slate-600 w-40 shrink-0 truncate"><i className={`fa-solid ${b.ikon} mr-1`} style={{color:b.renk}}></i>{b.ad}</span>
+                  <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden"><div className="h-full rounded-full" style={{width:`${skor[b.k]||0}%`, background:b.renk}}></div></div>
+                  <span className="text-[11px] font-black text-slate-500 w-9 text-right">%{skor[b.k]||0}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        {/* Öğretmen & Veli önerileri */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+            <h5 className="font-black text-blue-800 text-sm mb-2"><i className="fa-solid fa-chalkboard-user mr-1"></i>Öğretmene Öneriler</h5>
+            <ul className="space-y-1.5">{guclu.slice(0,4).map(({b})=><li key={b.k} className="text-[12px] text-slate-700 leading-snug"><b style={{color:b.renk}}>{b.ad}:</b> {b.ogr}</li>)}</ul>
+          </div>
+          <div className="bg-rose-50 border border-rose-200 rounded-xl p-3">
+            <h5 className="font-black text-rose-800 text-sm mb-2"><i className="fa-solid fa-house-user mr-1"></i>Veliye Öneriler</h5>
+            <ul className="space-y-1.5">{guclu.slice(0,4).map(({b})=><li key={b.k} className="text-[12px] text-slate-700 leading-snug"><b style={{color:b.renk}}>{b.ad}:</b> {b.veli}</li>)}</ul>
+          </div>
+        </div>
+        {/* Etkinlik önerileri */}
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+          <h5 className="font-black text-emerald-800 text-sm mb-2"><i className="fa-solid fa-lightbulb mr-1"></i>Bu Profile Uygun Etkinlikler</h5>
+          <ul className="space-y-1.5">{guclu.slice(0,4).map(({b})=><li key={b.k} className="text-[12px] text-slate-700 leading-snug"><b style={{color:b.renk}}>{b.ad}:</b> {b.etk}</li>)}</ul>
+        </div>
+        {/* AI derin yorum */}
+        <div>
+          {!aiMetin && <button onClick={aiYorum} disabled={aiYuk} className="w-full bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white font-black py-2.5 rounded-xl text-sm hover:brightness-110 disabled:opacity-60">{aiYuk?<i className="fa-solid fa-spinner fa-spin mr-1"></i>:<i className="fa-solid fa-wand-magic-sparkles mr-1"></i>}Yapay Zeka ile Uzman Yorumu Ekle</button>}
+          {aiMetin && <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-sm text-slate-800 leading-relaxed konu-cikti" dangerouslySetInnerHTML={{__html:aiMetin}}></div>}
+        </div>
+        {/* Aksiyonlar */}
+        <div className="flex flex-col sm:flex-row gap-2 pt-1">
+          <button onClick={()=>{ setAdim('test'); window.scrollTo(0,0); }} className="bg-slate-200 text-slate-600 font-black py-3 rounded-xl text-sm px-4"><i className="fa-solid fa-pen mr-1"></i>Yanıtları Düzelt</button>
+          <button onClick={()=>{ try{window.print();}catch(e){} }} className="bg-slate-200 text-slate-600 font-black py-3 rounded-xl text-sm px-4"><i className="fa-solid fa-print mr-1"></i>Yazdır / PDF</button>
+          {onKaydet && <button onClick={kaydet} className="flex-1 bg-emerald-600 text-white font-black py-3 rounded-xl text-sm hover:bg-emerald-700"><i className="fa-solid fa-floppy-disk mr-1"></i>Raporu Kaydet</button>}
+          {onKapat && <button onClick={onKapat} className="bg-slate-100 text-slate-500 font-black py-3 rounded-xl text-sm px-4">Kapat</button>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* Öğrenci paneli için sarmalayıcı: kendi kendine keşif */
+const KendiniKesfet = ({ db, ogrenciler, ben, teslimler }) => {
+  const [acik, setAcik] = useState(false);
+  if(!ben) return null;
+  const kaydet = async (dna) => {
+    const liste = ogrenciler.map(o=> o.id===ben.id ? { ...o, dna } : o);
+    const ok = await okulYaz(db, "k12_ogrenciler", { liste });
+    if(ok){ toast('🧬 Öğrenme DNA’n kaydedildi! Öğretmenin ve velin de görebilir.','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} setAcik(false); }
+  };
+  if(!acik){
+    return (
+      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl p-5 text-white shadow-lg flex items-center gap-4">
+        <div className="text-4xl">🧬</div>
+        <div className="flex-1">
+          <p className="font-black text-lg leading-tight">Kendini Keşfet!</p>
+          <p className="text-xs text-indigo-100">Nasıl daha iyi öğrendiğini gösteren eğlenceli test. {ben.dna&&ben.dna.tamam?'(Tamamlandı ✓ — yeniden yapabilirsin)':''}</p>
+        </div>
+        <button onClick={()=>setAcik(true)} className="bg-white text-indigo-700 font-black px-4 py-2 rounded-xl text-sm whitespace-nowrap">Başla</button>
+      </div>
+    );
+  }
+  return <DnaDegerlendirme ad={ben.ad} grade={ben.sinif} apiKey={''} modelName={''} onKaydet={kaydet} onKapat={()=>setAcik(false)} />;
+};
+
+/* ============================================================================
+   KİTAP OKUMA TAKİBİ (öğrenci) · SINIF KARNESİ (öğretmen, PDF) · QR KATILIM
+   ============================================================================ */
+const KitapTakip = ({ db, ogrenciler, ben }) => {
+  const [ad, setAd] = useState('');
+  const [sayfa, setSayfa] = useState('');
+  if(!ben) return null;
+  const kitaplar = (ben.kitaplar||[]);
+  const toplamSayfa = kitaplar.reduce((t,k)=>t+(Number(k.sayfa)||0),0);
+  const n = kitaplar.length;
+  const rozet = n>=20?{i:'🏆',ad:'Kitap Kurdu'}:n>=10?{i:'🥇',ad:'Altın Okur'}:n>=5?{i:'🥈',ad:'Gümüş Okur'}:n>=1?{i:'🥉',ad:'Bronz Okur'}:{i:'📖',ad:'Yeni Başladın'};
+
+  const ekle = async () => {
+    if(!ad.trim()) return alert('Kitap adını yaz.');
+    const yeni = { ad:ad.trim(), sayfa:Number(sayfa)||0, tarih:Date.now() };
+    const liste = ogrenciler.map(o=> o.id===ben.id ? { ...o, kitaplar:[...(o.kitaplar||[]), yeni], puan:(o.puan||0)+5 } : o);
+    const ok = await okulYaz(db, "k12_ogrenciler", { liste });
+    if(ok){ setAd(''); setSayfa(''); toast('📚 Kitap eklendi! +5 D-Coin','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
+  };
+  const sil = async (idx) => {
+    const liste = ogrenciler.map(o=> o.id===ben.id ? { ...o, kitaplar:(o.kitaplar||[]).filter((_,i)=>i!==idx) } : o);
+    await okulYaz(db, "k12_ogrenciler", { liste });
+  };
+
+  return (
+    <div className="bg-white border-4 border-teal-200 rounded-[2rem] p-6 shadow-lg">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xl font-black text-teal-800 flex items-center"><i className="fa-solid fa-book-bookmark text-teal-500 mr-2"></i>Kitap Okuma</h3>
+        <div className="text-right"><div className="text-2xl">{rozet.i}</div><div className="text-[10px] font-black text-teal-600">{rozet.ad}</div></div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="bg-teal-50 rounded-xl p-3 text-center"><div className="text-2xl font-black text-teal-700">{n}</div><div className="text-[11px] font-bold text-teal-500">kitap</div></div>
+        <div className="bg-cyan-50 rounded-xl p-3 text-center"><div className="text-2xl font-black text-cyan-700">{toplamSayfa}</div><div className="text-[11px] font-bold text-cyan-500">sayfa</div></div>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-2 mb-3">
+        <input value={ad} onChange={e=>setAd(e.target.value)} placeholder="Okuduğun kitabın adı" className="flex-1 px-3 py-2 rounded-lg border-2 border-teal-200 text-sm outline-none focus:border-teal-400" />
+        <input value={sayfa} onChange={e=>setSayfa(e.target.value)} type="number" placeholder="sayfa" className="w-full sm:w-24 px-3 py-2 rounded-lg border-2 border-teal-200 text-sm outline-none focus:border-teal-400" />
+        <button onClick={ekle} className="bg-teal-500 text-white font-black px-5 py-2 rounded-lg text-sm hover:bg-teal-600 transition whitespace-nowrap"><i className="fa-solid fa-plus mr-1"></i>Ekle (+5)</button>
+      </div>
+      {n===0 ? <p className="text-center text-slate-400 text-sm py-2">Henüz kitap eklemedin. İlk kitabını ekle, rozet kazan! 📚</p> : (
+        <div className="space-y-1.5 max-h-56 overflow-auto">
+          {kitaplar.slice().reverse().map((k,ri)=>{ const idx=n-1-ri; return (
+            <div key={idx} className="flex items-center gap-2 bg-slate-50 rounded-lg p-2">
+              <i className="fa-solid fa-book text-teal-400"></i>
+              <span className="flex-1 text-sm font-bold text-slate-700">{k.ad}</span>
+              {k.sayfa>0 && <span className="text-[11px] text-slate-400 font-bold">{k.sayfa} sf</span>}
+              <button onClick={()=>sil(idx)} className="text-slate-300 hover:text-rose-500 text-xs px-1"><i className="fa-solid fa-xmark"></i></button>
+            </div>
+          );})}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const SinifKarnesi = ({ ogrenciler, odevler, teslimler }) => {
+  const [sinif, setSinif] = useState(OKUL_SINIFLAR[0]);
+  const list = ogrenciler.filter(o=>o.sinif===sinif);
+  const satir = (st) => {
+    const atanan = odevler.filter(o=> (o.tur!=='birey' && o.sinif===sinif) || (o.tur==='birey' && o.ogrenciId===st.id)).length;
+    const yapilan = teslimler.filter(t=> t.ogrenciId===st.id).length;
+    const dna = st.dna && st.dna.tamam ? 'Tamam' : (st.dna ? 'Kısmi' : '—');
+    const kitap = (st.kitaplar||[]).length;
+    return { ad:st.ad, atanan, yapilan:Math.min(yapilan,atanan||yapilan), puan:st.puan||0, dna, kitap };
+  };
+  const veri = list.map(satir).sort((a,b)=>b.puan-a.puan);
+  const okulAdi = (()=>{ try{ return localStorage.getItem('okul_adi')||'Okulumuz'; }catch(e){ return 'Okulumuz'; } })();
+
+  const yazdir = () => {
+    const bugun = new Date().toLocaleDateString('tr-TR');
+    const rows = veri.map((v,i)=>`<tr><td>${i+1}</td><td style="text-align:left;font-weight:600">${v.ad}</td><td>${v.yapilan}/${v.atanan}</td><td>${v.puan}</td><td>${v.dna}</td><td>${v.kitap}</td></tr>`).join('');
+    const html = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>${sinif} Sınıf Karnesi</title>
+      <style>body{font-family:system-ui,Arial;padding:28px;color:#0f172a}h1{margin:0 0 2px;font-size:22px}.alt{color:#64748b;font-size:13px;margin-bottom:16px}
+      table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #e2e8f0;padding:8px;text-align:center}th{background:#4f46e5;color:#fff}tr:nth-child(even) td{background:#f8fafc}
+      .ozet{display:flex;gap:14px;margin:14px 0}.k{background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:10px 14px}.k b{font-size:18px;color:#4338ca;display:block}
+      .imza{margin-top:26px;color:#94a3b8;font-size:12px}@media print{.no{display:none}}</style></head>
+      <body><h1>${okulAdi} — ${sinif} Sınıf Karnesi</h1><div class="alt">Oluşturulma: ${bugun}</div>
+      <div class="ozet"><div class="k"><b>${veri.length}</b>öğrenci</div><div class="k"><b>${veri.reduce((t,v)=>t+v.puan,0)}</b>toplam D-Coin</div><div class="k"><b>${veri.reduce((t,v)=>t+v.kitap,0)}</b>okunan kitap</div><div class="k"><b>${veri.filter(v=>v.dna==='Tamam').length}</b>DNA tamam</div></div>
+      <table><thead><tr><th>#</th><th>Öğrenci</th><th>Ödev (yapılan/atanan)</th><th>D-Coin</th><th>Öğrenme DNA</th><th>Kitap</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="imza">${okulAdi} · Dijital Eğitim Ekosistemi ile oluşturuldu.</div>
+      <button class="no" onclick="window.print()" style="margin-top:18px;padding:10px 18px;border:0;background:#4f46e5;color:#fff;border-radius:8px;font-weight:700;cursor:pointer">🖨️ Yazdır / PDF Kaydet</button>
+      </body></html>`;
+    const w = window.open('', '_blank');
+    if(!w){ alert('Yazdırma penceresi açılamadı (açılır pencereye izin verin).'); return; }
+    w.document.open(); w.document.write(html); w.document.close();
+  };
+
+  return (
+    <div>
+      <div className="flex flex-col sm:flex-row gap-2 mb-3">
+        <select value={sinif} onChange={e=>setSinif(e.target.value)} className="flex-1 px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none">
+          {OKUL_SINIFLAR.map(s=><option key={s} value={s}>{s}</option>)}
+        </select>
+        <button onClick={yazdir} disabled={!veri.length} className="bg-indigo-600 text-white font-black px-4 py-2.5 rounded-lg text-sm hover:bg-indigo-700 transition disabled:opacity-50 whitespace-nowrap"><i className="fa-solid fa-print mr-1"></i>Yazdır / PDF</button>
+      </div>
+      {!veri.length ? <p className="text-center text-slate-400 py-6 text-sm">Bu sınıfta kayıtlı öğrenci yok.</p> : (
+        <div className="overflow-auto rounded-xl border border-slate-200">
+          <table className="w-full text-sm">
+            <thead><tr className="bg-indigo-50 text-indigo-800 text-[11px] uppercase"><th className="p-2 text-left">Öğrenci</th><th className="p-2">Ödev</th><th className="p-2">D-Coin</th><th className="p-2">DNA</th><th className="p-2">Kitap</th></tr></thead>
+            <tbody>
+              {veri.map((v,i)=>(
+                <tr key={i} className="border-t border-slate-100">
+                  <td className="p-2 font-bold text-slate-700">{i+1}. {v.ad}</td>
+                  <td className="p-2 text-center text-slate-600">{v.yapilan}/{v.atanan}</td>
+                  <td className="p-2 text-center font-black text-amber-600">{v.puan}</td>
+                  <td className="p-2 text-center text-[12px]">{v.dna==='Tamam'?<span className="text-emerald-600 font-bold">✓</span>:v.dna==='Kısmi'?<span className="text-amber-500">~</span>:'—'}</td>
+                  <td className="p-2 text-center text-teal-600 font-bold">{v.kitap}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="text-[11px] text-slate-400 text-center mt-2">Karneyi PDF olarak kaydedip veli toplantısında paylaşabilirsiniz.</p>
+    </div>
+  );
+};
+
+const SinifQR = () => {
+  const [sinif, setSinif] = useState('');
+  let lis = null;
+  try{ lis = JSON.parse(localStorage.getItem('zirve_lisans')||'null'); }catch(e){}
+  const okulAdi = (lis && lis.okulAdi) || (()=>{ try{return localStorage.getItem('okul_adi')||'';}catch(e){return '';} })();
+  const kod = lis && lis.kod;
+  const taban = location.origin + location.pathname;
+  const url = (okulAdi && kod) ? `${taban}?okul=${encodeURIComponent(okulAdi)}&kod=${encodeURIComponent(kod)}` : '';
+  const qr = url ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(url)}` : '';
+
+  return (
+    <div className="text-center">
+      {!url ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-700 text-sm font-bold">
+          QR üretmek için cihazın okul adı + onay koduyla açılmış olması gerekir. (Sol alttaki 🔑 → yönetici → okulu aç)
+        </div>
+      ) : (
+        <div className="bg-white border-2 border-indigo-200 rounded-2xl p-5 inline-block max-w-sm w-full">
+          <h4 className="font-black text-indigo-800 mb-1"><i className="fa-solid fa-qrcode mr-1"></i>Hızlı Katılım QR</h4>
+          <p className="text-xs text-slate-500 mb-3">Öğrenci/veli bu kodu telefonuyla okutunca uygulama <b>otomatik açılır</b> (kod sormaz). Sınıfını girişte seçer.</p>
+          <img src={qr} alt="QR" className="mx-auto rounded-xl border border-slate-200 mb-3" width="240" height="240" />
+          <div className="text-[11px] text-slate-500 break-all bg-slate-50 rounded-lg p-2 mb-3">{url}</div>
+          <div className="flex gap-2">
+            <button onClick={()=>{ try{navigator.clipboard.writeText(url);toast('📋 Bağlantı kopyalandı','green');}catch(e){alert(url);} }} className="flex-1 bg-slate-200 text-slate-700 font-black py-2 rounded-lg text-sm"><i className="fa-solid fa-copy mr-1"></i>Bağlantıyı Kopyala</button>
+            <a href={`https://wa.me/?text=${encodeURIComponent(okulAdi+' dijital platformuna katıl: '+url)}`} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green-500 text-white font-black py-2 rounded-lg text-sm text-center"><i className="fa-brands fa-whatsapp mr-1"></i>Paylaş</a>
+          </div>
         </div>
       )}
     </div>
@@ -7822,7 +8292,7 @@ notes.map(n => (
       + '<li><b>Öğrenme DNA’sı:</b> Her öğrencinin güçlü yönlerini keşfet, kişiye özel öner.</li>'
       + '<li><b>Konu çalış:</b> Maarif müfredatına uygun renkli özet ve etkinlikler, sesli okuma.</li>'
       + '<li><b>Rozet & D-Coin:</b> Oyunlaştırma ile motivasyon; veliyle kolay iletişim.</li>'
-      + '<li><b>DKT içerikleri:</b> Dil-konuşma ve özel eğitim materyalleri hazır.</li>'
+      + '<li><b>Sınava hazırlık:</b> LGS, TYT-AYT ve okul denemeleri; konu anlatımı, soru bankası ve analiz.</li>'
       + '</ul>'
       + '<p class="zl-imza">Barış Öğretmen tarafından geliştirildi · Türkiye’de bir ilk 🇹🇷</p>'
       + '</div>';
@@ -7839,6 +8309,99 @@ notes.map(n => (
 
   if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", baslat);
   else baslat();
+})();
+</script>
+<!-- ════════════════════════════════════════════════════════════════════
+     ZİRVE UX KATMANI  ·  bağımsız (React'e dokunmaz)
+     · Yapay zeka uyarı banner'ı (kapatılabilir)
+     · Çevrimiçi/çevrimdışı bildirimi
+     · Ekran/cihaz otomatik ölçekleme (telefon/tablet/dizüstü/akıllı tahta)
+     ════════════════════════════════════════════════════════════════════ -->
+<style>@media print{html{zoom:1 !important}}
+#zu-toast{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);z-index:2147483500;background:#0f172a;color:#fff;padding:9px 16px;border-radius:999px;font:600 13px system-ui;box-shadow:0 8px 24px rgba(0,0,0,.3);opacity:0;transition:opacity .3s;pointer-events:none}
+#zu-toast.g{opacity:1}
+#zu-ai{position:fixed;right:10px;bottom:10px;z-index:2147482500;max-width:300px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:12px;padding:10px 12px;font:500 11.5px/1.4 system-ui;box-shadow:0 8px 24px rgba(0,0,0,.14)}
+#zu-ai b{color:#b45309}
+#zu-ai .x{position:absolute;top:4px;right:7px;cursor:pointer;color:#b45309;font-weight:900;font-size:14px}
+#zu-mod{position:fixed;right:10px;bottom:10px;z-index:2147482400;background:rgba(15,23,42,.4);color:#fff;border:0;border-radius:999px;padding:5px 10px;font:700 11px system-ui;cursor:pointer;opacity:.5;transition:.2s}
+#zu-mod:hover{opacity:1}
+#zu-mod .x{margin-left:7px;opacity:.7}</style>
+<script>
+(function(){
+  "use strict";
+  var LS=window.localStorage;
+
+  /* ---- toast ---- */
+  var tEl;
+  function toastZ(msg){
+    if(!tEl){ tEl=document.createElement("div"); tEl.id="zu-toast"; document.body.appendChild(tEl); }
+    tEl.textContent=msg; tEl.classList.add("g");
+    clearTimeout(tEl._t); tEl._t=setTimeout(function(){ tEl.classList.remove("g"); },2600);
+  }
+  window.addEventListener("online", function(){ toastZ("🟢 İnternet bağlantısı geri geldi"); });
+  window.addEventListener("offline", function(){ toastZ("🔴 Çevrimdışısın — kayıtların bağlantı gelince eşitlenir"); });
+
+  /* ---- AI uyarı banner'ı ---- */
+  function aiBanner(){
+    try{ if(LS.getItem("zu_ai_kapat")==="1") return; }catch(e){}
+    if(document.getElementById("zu-ai")) return;
+    var d=document.createElement("div"); d.id="zu-ai";
+    d.innerHTML='<span class="x" title="Kapat">×</span><b>ℹ️ Yapay zeka içeriği</b><br>Bu yanıtlar yapay zeka ile üretilir, %100 doğru olmayabilir. Önemli konularda kaynaktan teyit edin.';
+    document.body.appendChild(d);
+    d.querySelector(".x").onclick=function(){ try{LS.setItem("zu_ai_kapat","1");}catch(e){} d.remove(); yerlestir(); };
+  }
+
+  /* ---- Ekran/cihaz otomatik ölçekleme ---- */
+  var MODLAR=[
+    {ad:"Oto",   zoom:null},
+    {ad:"Tablet",zoom:1.12},
+    {ad:"Akıllı Tahta",zoom:1.35},
+    {ad:"Büyük Tahta",zoom:1.6}
+  ];
+  function otoZoom(){
+    var w=window.innerWidth, touch=('ontouchstart' in window)||navigator.maxTouchPoints>0, dpr=window.devicePixelRatio||1;
+    if(w>=2500) return 1.6;
+    if(w>=1600 && touch && dpr<=1.6) return 1.35;
+    return 1;
+  }
+  function uygula(){
+    var mi=0; try{ mi=parseInt(LS.getItem("zu_mod")||"0",10)||0; }catch(e){}
+    var z = MODLAR[mi] && MODLAR[mi].zoom!=null ? MODLAR[mi].zoom : otoZoom();
+    try{ document.documentElement.style.zoom = z; }catch(e){}
+    var m=document.getElementById("zu-mod");
+    if(m){ m.firstChild.nodeValue="📺 "+(MODLAR[mi]?MODLAR[mi].ad:"Oto"); }
+  }
+  window.ZIRVE_ekranReset=function(){ try{document.documentElement.style.zoom=1;}catch(e){} };
+  window.ZIRVE_ekranGeri=function(){ uygula(); };
+
+  function modPill(){
+    try{ if(LS.getItem("zu_mod_gizle")==="1") return; }catch(e){}
+    if(document.getElementById("zu-mod")) return;
+    var b=document.createElement("button"); b.id="zu-mod";
+    b.appendChild(document.createTextNode("📺 Oto"));
+    var x=document.createElement("span"); x.className="x"; x.textContent="×"; x.title="Gizle";
+    b.appendChild(x);
+    b.onclick=function(e){
+      if(e.target===x){ try{LS.setItem("zu_mod_gizle","1");}catch(e2){} b.remove(); yerlestir(); return; }
+      var mi=0; try{ mi=parseInt(LS.getItem("zu_mod")||"0",10)||0; }catch(e2){}
+      mi=(mi+1)%MODLAR.length; try{LS.setItem("zu_mod",String(mi));}catch(e2){}
+      uygula(); toastZ("Ekran modu: "+MODLAR[mi].ad);
+    };
+    document.body.appendChild(b);
+  }
+  var rt; window.addEventListener("resize", function(){ clearTimeout(rt); rt=setTimeout(function(){ var mi=0; try{mi=parseInt(LS.getItem("zu_mod")||"0",10)||0;}catch(e){} if(mi===0) uygula(); },250); });
+  window.addEventListener("beforeprint", function(){ window.ZIRVE_ekranReset(); });
+  window.addEventListener("afterprint", function(){ window.ZIRVE_ekranGeri(); });
+
+  /* alt köşe elemanlarını üst üste binmeyecek şekilde yerleştir */
+  function yerlestir(){
+    var ai=document.getElementById("zu-ai"), mod=document.getElementById("zu-mod");
+    if(ai){ if(mod) mod.style.bottom="10px", ai.style.bottom="52px"; else ai.style.bottom="10px"; }
+    else if(mod){ mod.style.bottom="10px"; }
+  }
+
+  function baslat(){ modPill(); uygula(); aiBanner(); yerlestir(); }
+  if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", baslat); else baslat();
 })();
 </script>
 </body>
