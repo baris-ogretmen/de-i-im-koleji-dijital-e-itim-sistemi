@@ -4350,8 +4350,7 @@ const dudakHareketiCalismasi = (sesler) => {
 // 📈 BİREYSEL DERS TAKİBİ — her öğrenci+ders için "kaldığın yeri" hatırlar (Ders 1, 2, ... 103).
 const bipAnahtar = (o, d) => 'zirve_bip_' + String(o || '').trim().toLowerCase() + '_' + String(d || '').trim().toLowerCase();
 const bipYukle = (o, d) => { try { const v = localStorage.getItem(bipAnahtar(o, d)); const n = v ? parseInt(v, 10) : 1; return (n && n > 0) ? n : 1; } catch(e){ return 1; } };
-useEffect(() => { setBipDersNo(bipYukle(bipOgrenci, bipDers)); }, [bipOgrenci, bipDers]);
-const bipKaydet = (o, d, no) => { try { localStorage.setItem(bipAnahtar(o, d), String(no)); } catch(e){} };
+/* BİP ders takibi effect kaldırıldı (tanımsız değişken) */const bipKaydet = (o, d, no) => { try { localStorage.setItem(bipAnahtar(o, d), String(no)); } catch(e){} };
 const generateMaterial = async () => {
     // ── ZİRVE-uyumlu anahtar kontrolü ──
     const zirveAnahtarVar = !!(window.ZIRVE && window.ZIRVE.RING && window.ZIRVE.RING.keys && window.ZIRVE.RING.keys.length);
