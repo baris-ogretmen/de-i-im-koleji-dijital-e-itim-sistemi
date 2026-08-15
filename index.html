@@ -1336,8 +1336,12 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
                 <div className="w-32 h-32 mx-auto rounded-3xl shadow-[0_0_30px_rgba(56,189,248,0.4)] mb-8 transform -rotate-3 hover:rotate-0 transition-transform duration-500 overflow-hidden border-4 border-white/20 bg-white">
                     <img src="image_5.png" alt="Değişim Koleji" className="w-full h-full object-cover" />
                 </div>
-                <h1 className="text-3xl md:text-4xl font-black text-white text-center mb-2 tracking-widest uppercase">Değişim Koleji</h1>
-                <p className="text-indigo-300 text-center font-bold text-sm mb-10 uppercase tracking-[0.3em]">K12 Akıllı Kampüs Portalı</p>
+                <h1 className="text-3xl md:text-4xl font-black text-center mb-2 tracking-widest uppercase bg-gradient-to-r from-sky-300 via-indigo-200 to-fuchsia-300 bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(129,140,248,0.35)]">Değişim Koleji</h1>
+                <p className="text-indigo-300 text-center font-bold text-sm mb-4 uppercase tracking-[0.3em]">K12 Akıllı Kampüs Portalı</p>
+                <p className="text-slate-300 text-center text-xs md:text-sm font-medium mb-8 leading-relaxed px-2">
+                    <i className="fa-solid fa-wand-magic-sparkles text-amber-300 mr-1"></i>
+                    <span className="text-sky-300 font-bold">Yapay zeka</span> destekli materyal üretimi, <span className="text-emerald-300 font-bold">124+ hazır şablon</span> ve <span className="text-rose-300 font-bold">disleksi dostu hece renklendirme</span> ile öğrenci, veli ve öğretmeni tek çatıda buluşturan akıllı eğitim ekosistemi.
+                </p>
                 
                 <div className="flex gap-2 mb-8 p-1.5 bg-black/40 rounded-2xl border border-white/5">
                     <button onClick={()=>setRole('student')} className={`flex-1 py-3.5 rounded-xl font-black text-sm transition-all ${role==='student'?'bg-indigo-500 text-white shadow-lg scale-[1.02]':'text-slate-400 hover:text-white'}`}>Öğrenci</button>
@@ -1399,7 +1403,30 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
                     </button>
                 </div>
             </div>
-            <p className="absolute bottom-6 text-slate-500 text-xs font-bold tracking-widest uppercase">Değişim Koleji Eğitim Ekosistemi V16</p>
+            <div className="w-full max-w-4xl mt-10 relative z-10 animate-fade-in">
+                <p className="text-center text-white/70 font-black text-[11px] md:text-xs uppercase tracking-[0.3em] mb-5">
+                    <i className="fa-solid fa-wand-magic-sparkles text-amber-300 mr-2"></i>Platform neler sunuyor?
+                </p>
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                    {[
+                        { ikon:'fa-robot',        renk:'from-indigo-500 to-purple-600',  baslik:'Yapay Zeka Materyal',   metin:'Tek tıkla sınıfa özel çalışma kâğıdı, sınav ve etkinlik üretir.' },
+                        { ikon:'fa-layer-group',  renk:'from-emerald-500 to-teal-600',   baslik:'124+ Hazır Şablon',      metin:'BEP, kesir, hece, tombala, veli mektubu ve dahası; hepsi hazır.' },
+                        { ikon:'fa-palette',      renk:'from-rose-500 to-pink-600',      baslik:'Hece Renklendirme',      metin:'Disleksi dostu: metni hecelere böler, renklerle okumayı kolaylaştırır.' },
+                        { ikon:'fa-dna',          renk:'from-amber-500 to-orange-600',   baslik:'Öğrenme DNA’sı',         metin:'VAK analizi ile her öğrenciye özel çalışma stratejisi çıkarır.' },
+                        { ikon:'fa-shield-halved',renk:'from-sky-500 to-cyan-600',       baslik:'Kesintisiz & Güvenli',   metin:'Çoklu anahtar + otomatik model; sorun olursa nedenini Türkçe açıklar.' },
+                        { ikon:'fa-users-gear',   renk:'from-fuchsia-500 to-violet-600', baslik:'3 Rol, Tek Portal',      metin:'Öğrenci, veli ve öğretmen için ayrı ayrı akıllı paneller.' },
+                    ].map((f, i) => (
+                        <div key={i} className="bg-white/10 backdrop-blur-xl border border-white/15 rounded-2xl p-4 md:p-5 hover:bg-white/[0.18] hover:-translate-y-1 transition-all duration-300 group">
+                            <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${f.renk} flex items-center justify-center mb-3 shadow-lg group-hover:scale-110 transition-transform`}>
+                                <i className={`fa-solid ${f.ikon} text-white text-lg`}></i>
+                            </div>
+                            <h3 className="text-white font-black text-sm md:text-base mb-1 leading-tight">{f.baslik}</h3>
+                            <p className="text-slate-300 text-[11px] md:text-xs font-medium leading-relaxed">{f.metin}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <p className="mt-10 mb-4 text-slate-500 text-xs font-bold tracking-widest uppercase text-center relative z-10">Değişim Koleji Eğitim Ekosistemi V16</p>
         </div>
     );
 };
@@ -8146,16 +8173,23 @@ notes.map(n => (
    + ".zl-link{color:#0d9488;font-weight:800;cursor:pointer;text-decoration:none;font-size:12px}"
    + ".zl-kodkutu{margin-top:10px;background:#eef2ff;border:2px dashed #c7d2fe;border-radius:12px;padding:14px;text-align:center}"
    + ".zl-kodbuyuk{font-size:26px;font-weight:900;letter-spacing:2px;color:#4338ca;font-family:ui-monospace,monospace}"
-   + ".zl-wrap{display:flex;gap:26px;align-items:center;justify-content:center;flex-wrap:wrap;max-width:940px;width:100%}"
+   + ".zl-wrap{display:flex;gap:30px;align-items:center;justify-content:center;flex-wrap:wrap;max-width:1000px;width:100%}"
    + ".zl-card{order:1}"
-   + ".zl-info{order:2;flex:1;min-width:270px;max-width:420px;color:#eafffb}"
-   + ".zl-info h2{font-size:24px;font-weight:800;margin:0 0 10px;line-height:1.2}"
-   + ".zl-info p{font-size:14px;line-height:1.55;color:#c9f2ea;margin:0 0 14px}"
-   + ".zl-info .zl-ozet{list-style:none;padding:0;margin:0}"
-   + ".zl-info .zl-ozet li{font-size:13.5px;color:#eafffb;margin:8px 0;padding-left:26px;position:relative}"
-   + ".zl-info .zl-ozet li:before{content:\"✓\";position:absolute;left:0;top:0;color:#5eead4;font-weight:900}"
+   + ".zl-info{order:2;flex:1;min-width:290px;max-width:480px;color:#eafffb}"
+   + ".zl-info h2{font-size:25px;font-weight:900;margin:0 0 7px;line-height:1.2}"
+   + ".zl-info h2 .grad{background:linear-gradient(90deg,#5eead4,#a7f3d0,#fde68a);-webkit-background-clip:text;background-clip:text;color:transparent}"
+   + ".zl-info .zl-lead{font-size:14px;line-height:1.55;color:#d3f6ee;margin:0 0 13px}"
+   + ".zl-info .zl-lead b{color:#fff}"
+   + ".zl-rozetler{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 15px}"
+   + ".zl-rozet{font-size:11px;font-weight:800;padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);color:#eafffb}"
+   + ".zl-ozet{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:9px}"
+   + ".zl-ozet li{display:flex;gap:9px;align-items:flex-start;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:13px;padding:9px 10px;transition:.18s;margin:0}"
+   + ".zl-ozet li:hover{background:rgba(255,255,255,.13);transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.22)}"
+   + ".zl-ozet .ic{flex:none;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 4px 12px rgba(0,0,0,.28)}"
+   + ".zl-ozet .tx{font-size:11.5px;line-height:1.35;color:#e8fffa}"
+   + ".zl-ozet .tx b{display:block;font-size:12.5px;color:#fff;margin-bottom:1px}"
    + ".zl-info .zl-imza{font-size:12px;color:#9fe3d6;margin-top:16px}"
-   + "@media(max-width:820px){.zl-info{order:2;text-align:center;max-width:420px}.zl-info h2{font-size:20px}}"
+   + "@media(max-width:820px){.zl-info{order:2;text-align:left;max-width:460px}.zl-info h2{font-size:21px}.zl-ozet{grid-template-columns:1fr}}"
    + "#zlisans-fab{position:fixed;left:10px;bottom:10px;z-index:2147482000;width:30px;height:30px;border-radius:50%;background:rgba(15,23,42,.35);color:#fff;border:0;cursor:pointer;font-size:13px;opacity:.4;transition:.2s}"
    + "#zlisans-fab:hover{opacity:1}";
 
@@ -8282,17 +8316,25 @@ notes.map(n => (
   }
 
   function infoHTML(){
+    var oz=[
+      ["#6366f1","🤖","Yapay Zeka Materyal","Sınıf düzeyine uygun çalışma kâğıdı, test ve etkinlik saniyeler içinde."],
+      ["#0ea5e9","🧩","124+ Hazır Şablon","BEP, kesir, hece, tombala, veli mektubu… tek tıkla hazır kütüphane."],
+      ["#f43f5e","🎨","Hece Renklendirme","Disleksi dostu: heceleri renklere böler, okumayı kolaylaştırır."],
+      ["#10b981","🧬","Öğrenme DNA’sı","Her öğrencinin güçlü yönünü bulur, kişiye özel öneri sunar."],
+      ["#f59e0b","🏅","Rozet & D-Coin","Oyunlaştırma ile motivasyon; veliyle kolay ve sıcak iletişim."],
+      ["#8b5cf6","📚","Sınava Hazırlık","LGS, TYT-AYT ve okul denemeleri; anlatım, soru bankası, analiz."],
+      ["#14b8a6","📶","Kesintisiz & Çevrimdışı","Çoklu anahtar + otomatik model; bağlantı kesilse de kayıpsız."],
+      ["#e11d48","📺","Her Cihaza Uyum","Telefon, tablet, dizüstü ve akıllı tahtaya otomatik ölçeklenir."]
+    ];
+    var li = oz.map(function(o){
+      return '<li><span class="ic" style="background:linear-gradient(135deg,'+o[0]+',rgba(15,23,42,.55))">'+o[1]+'</span>'
+           + '<span class="tx"><b>'+o[2]+'</b>'+o[3]+'</span></li>';
+    }).join('');
     return '<div class="zl-info">'
-      + '<h2>'+markaAdi()+' · Dijital Eğitim Ekosistemi</h2>'
-      + '<p>Öğretmen, öğrenci ve velinin tek çatı altında buluştuğu; yapay zeka destekli, tamamen Türkçe okul platformu.</p>'
-      + '<ul class="zl-ozet">'
-      + '<li><b>Yapay zeka ile materyal:</b> Sınıf düzeyine uygun çalışma kâğıdı, test ve etkinlikler saniyeler içinde.</li>'
-      + '<li><b>Ödev & takip:</b> Öğretmen ödev verir, öğrenci yapıp gönderir, veli anında görür.</li>'
-      + '<li><b>Öğrenme DNA’sı:</b> Her öğrencinin güçlü yönlerini keşfet, kişiye özel öner.</li>'
-      + '<li><b>Konu çalış:</b> Maarif müfredatına uygun renkli özet ve etkinlikler, sesli okuma.</li>'
-      + '<li><b>Rozet & D-Coin:</b> Oyunlaştırma ile motivasyon; veliyle kolay iletişim.</li>'
-      + '<li><b>Sınava hazırlık:</b> LGS, TYT-AYT ve okul denemeleri; konu anlatımı, soru bankası ve analiz.</li>'
-      + '</ul>'
+      + '<h2>'+markaAdi()+' <span class="grad">· Dijital Eğitim Ekosistemi</span></h2>'
+      + '<p class="zl-lead">Öğretmen, öğrenci ve velinin tek çatı altında buluştuğu; <b>yapay zeka destekli, tamamen Türkçe</b> akıllı okul platformu. Materyal üretiminden sınav hazırlığına, her şey tek yerde.</p>'
+      + '<div class="zl-rozetler"><span class="zl-rozet">🇹🇷 Tamamen Türkçe</span><span class="zl-rozet">🔒 KVKK uyumlu</span><span class="zl-rozet">⚡ Anında kurulum</span></div>'
+      + '<ul class="zl-ozet">'+li+'</ul>'
       + '<p class="zl-imza">Barış Öğretmen tarafından geliştirildi · Türkiye’de bir ilk 🇹🇷</p>'
       + '</div>';
   }
