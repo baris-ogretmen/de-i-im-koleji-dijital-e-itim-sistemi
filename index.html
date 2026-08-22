@@ -1336,12 +1336,8 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
                 <div className="w-32 h-32 mx-auto rounded-3xl shadow-[0_0_30px_rgba(56,189,248,0.4)] mb-8 transform -rotate-3 hover:rotate-0 transition-transform duration-500 overflow-hidden border-4 border-white/20 bg-white">
                     <img src="image_5.png" alt="Değişim Koleji" className="w-full h-full object-cover" />
                 </div>
-                <h1 className="text-3xl md:text-4xl font-black text-center mb-2 tracking-widest uppercase bg-gradient-to-r from-sky-300 via-indigo-200 to-fuchsia-300 bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(129,140,248,0.35)]">Değişim Koleji</h1>
-                <p className="text-indigo-300 text-center font-bold text-sm mb-4 uppercase tracking-[0.3em]">K12 Akıllı Kampüs Portalı</p>
-                <p className="text-slate-300 text-center text-xs md:text-sm font-medium mb-8 leading-relaxed px-2">
-                    <i className="fa-solid fa-wand-magic-sparkles text-amber-300 mr-1"></i>
-                    <span className="text-sky-300 font-bold">Yapay zeka</span> destekli materyal üretimi, <span className="text-emerald-300 font-bold">124+ hazır şablon</span> ve <span className="text-rose-300 font-bold">disleksi dostu hece renklendirme</span> ile öğrenci, veli ve öğretmeni tek çatıda buluşturan akıllı eğitim ekosistemi.
-                </p>
+                <h1 className="text-3xl md:text-4xl font-black text-white text-center mb-2 tracking-widest uppercase">Değişim Koleji</h1>
+                <p className="text-indigo-300 text-center font-bold text-sm mb-10 uppercase tracking-[0.3em]">K12 Akıllı Kampüs Portalı</p>
                 
                 <div className="flex gap-2 mb-8 p-1.5 bg-black/40 rounded-2xl border border-white/5">
                     <button onClick={()=>setRole('student')} className={`flex-1 py-3.5 rounded-xl font-black text-sm transition-all ${role==='student'?'bg-indigo-500 text-white shadow-lg scale-[1.02]':'text-slate-400 hover:text-white'}`}>Öğrenci</button>
@@ -1403,30 +1399,7 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
                     </button>
                 </div>
             </div>
-            <div className="w-full max-w-4xl mt-10 relative z-10 animate-fade-in">
-                <p className="text-center text-white/70 font-black text-[11px] md:text-xs uppercase tracking-[0.3em] mb-5">
-                    <i className="fa-solid fa-wand-magic-sparkles text-amber-300 mr-2"></i>Platform neler sunuyor?
-                </p>
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                    {[
-                        { ikon:'fa-robot',        renk:'from-indigo-500 to-purple-600',  baslik:'Yapay Zeka Materyal',   metin:'Tek tıkla sınıfa özel çalışma kâğıdı, sınav ve etkinlik üretir.' },
-                        { ikon:'fa-layer-group',  renk:'from-emerald-500 to-teal-600',   baslik:'124+ Hazır Şablon',      metin:'BEP, kesir, hece, tombala, veli mektubu ve dahası; hepsi hazır.' },
-                        { ikon:'fa-palette',      renk:'from-rose-500 to-pink-600',      baslik:'Hece Renklendirme',      metin:'Disleksi dostu: metni hecelere böler, renklerle okumayı kolaylaştırır.' },
-                        { ikon:'fa-dna',          renk:'from-amber-500 to-orange-600',   baslik:'Öğrenme DNA’sı',         metin:'VAK analizi ile her öğrenciye özel çalışma stratejisi çıkarır.' },
-                        { ikon:'fa-shield-halved',renk:'from-sky-500 to-cyan-600',       baslik:'Kesintisiz & Güvenli',   metin:'Çoklu anahtar + otomatik model; sorun olursa nedenini Türkçe açıklar.' },
-                        { ikon:'fa-users-gear',   renk:'from-fuchsia-500 to-violet-600', baslik:'3 Rol, Tek Portal',      metin:'Öğrenci, veli ve öğretmen için ayrı ayrı akıllı paneller.' },
-                    ].map((f, i) => (
-                        <div key={i} className="bg-white/10 backdrop-blur-xl border border-white/15 rounded-2xl p-4 md:p-5 hover:bg-white/[0.18] hover:-translate-y-1 transition-all duration-300 group">
-                            <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${f.renk} flex items-center justify-center mb-3 shadow-lg group-hover:scale-110 transition-transform`}>
-                                <i className={`fa-solid ${f.ikon} text-white text-lg`}></i>
-                            </div>
-                            <h3 className="text-white font-black text-sm md:text-base mb-1 leading-tight">{f.baslik}</h3>
-                            <p className="text-slate-300 text-[11px] md:text-xs font-medium leading-relaxed">{f.metin}</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-            <p className="mt-10 mb-4 text-slate-500 text-xs font-bold tracking-widest uppercase text-center relative z-10">Değişim Koleji Eğitim Ekosistemi V16</p>
+            <p className="absolute bottom-6 text-slate-500 text-xs font-bold tracking-widest uppercase">Değişim Koleji Eğitim Ekosistemi V16</p>
         </div>
     );
 };
@@ -1835,6 +1808,7 @@ const ParentPortal = ({ user, logout, globalConfig, db }) => {
                 </div>
             </div>
             <VeliMerkezi db={db} user={user} />
+                    <RandevuVeli db={db} user={user} />
             <div className="max-w-5xl mx-auto w-full mt-12 text-center"><button onClick={logout} className="bg-slate-200 text-slate-600 font-black hover:bg-red-500 hover:text-white px-8 py-4 rounded-full transition-all shadow-md uppercase tracking-widest text-sm"><i className="fa-solid fa-sign-out-alt inline mb-1 mr-2 text-lg"></i> Güvenli Çıkış</button></div>
         </div>
     );
@@ -1981,6 +1955,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
     { k:'veli',    ad:'Veli İletişim', ikon:'fa-comments' },
     { k:'karne',   ad:'Sınıf Karnesi', ikon:'fa-file-lines' },
     { k:'qr',      ad:'QR Katılım', ikon:'fa-qrcode' },
+    { k:'randevu', ad:'Randevu',    ikon:'fa-calendar-check' },
     { k:'duyuru',  ad:'Duyuru',     ikon:'fa-bullhorn' },
   ];
 
@@ -2013,7 +1988,8 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='veli'    && <VeliIletisim ogrenciler={ogrenciler} apiKey={apiKey} modelName={modelName} />}
         {!yukleniyor && sekme==='karne'   && <SinifKarnesi ogrenciler={ogrenciler} odevler={odevler} teslimler={teslimler} />}
         {!yukleniyor && sekme==='qr'      && <SinifQR />}
-        {!yukleniyor && sekme==='duyuru'  && <DuyuruYonetim db={db} user={user} duyurular={duyurular} />}
+        {!yukleniyor && sekme==='randevu' && <RandevuOgretmen db={db} user={user} />}
+    {!yukleniyor && sekme==='duyuru'  && <DuyuruYonetim db={db} user={user} duyurular={duyurular} />}
       </div>
     </div>
   );
@@ -3415,6 +3391,139 @@ const SinifQR = () => {
           <div className="flex gap-2">
             <button onClick={()=>{ try{navigator.clipboard.writeText(url);toast('📋 Bağlantı kopyalandı','green');}catch(e){alert(url);} }} className="flex-1 bg-slate-200 text-slate-700 font-black py-2 rounded-lg text-sm"><i className="fa-solid fa-copy mr-1"></i>Bağlantıyı Kopyala</button>
             <a href={`https://wa.me/?text=${encodeURIComponent(okulAdi+' dijital platformuna katıl: '+url)}`} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green-500 text-white font-black py-2 rounded-lg text-sm text-center"><i className="fa-brands fa-whatsapp mr-1"></i>Paylaş</a>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+/* ============================================================================
+   RANDEVU SİSTEMİ (MEB yönergesi) · öğretmen saat açar, veli randevu alır
+   Firestore: maas_config/k12_randevu {liste:[...]}
+   ============================================================================ */
+const _randevuGun = (t) => { try{ return new Date(t+'T00:00:00').toLocaleDateString('tr-TR',{weekday:'long',day:'2-digit',month:'long'}); }catch(e){ return t; } };
+
+const RandevuOgretmen = ({ db, user }) => {
+  const doc = useOkulDoc(db, "k12_randevu");
+  const liste = (doc && doc.liste) || [];
+  const [tarih, setTarih] = useState('');
+  const [saat, setSaat] = useState('');
+  const [ders, setDers] = useState(OKUL_DERSLER[0]);
+  const [yer, setYer] = useState('');
+  const benim = liste.filter(r=> okulNorm(r.ogretmenAd)===okulNorm(user && user.name)).sort((a,b)=>(a.tarih+a.saat).localeCompare(b.tarih+b.saat));
+
+  const ekle = async () => {
+    if(!tarih || !saat) return alert('Lütfen tarih ve saat seçin.');
+    if(benim.some(r=>r.tarih===tarih && r.saat===saat)) return alert('Bu tarih-saatte zaten bir randevu saatiniz var.');
+    const yeni = { id:yeniId(), ogretmenAd:(user&&user.name)||'Öğretmen', ders, tarih, saat, yer:yer.trim(), durum:'bos', ts:Date.now() };
+    const ok = await okulYaz(db, "k12_randevu", { liste:[...liste, yeni] });
+    if(ok){ setSaat(''); setYer(''); toast('📅 Randevu saati açıldı.','green'); }
+  };
+  const sil = async (id) => { if(!confirm('Bu randevu saati silinsin mi?')) return; await okulYaz(db, "k12_randevu", { liste: liste.filter(r=>r.id!==id) }); };
+  const durumDegis = async (id, d) => { await okulYaz(db, "k12_randevu", { liste: liste.map(r=>r.id===id?{...r,durum:d}:r) }); };
+
+  const rozet = { bos:{r:'bg-emerald-100 text-emerald-700',t:'Boş'}, dolu:{r:'bg-amber-100 text-amber-700',t:'Dolu'}, tamam:{r:'bg-slate-200 text-slate-500',t:'Tamamlandı'} };
+  return (
+    <div>
+      <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
+        <h4 className="font-black text-indigo-800 text-sm mb-3"><i className="fa-solid fa-calendar-plus mr-1"></i>Veli Görüşme Saati Aç</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+          <input type="date" value={tarih} onChange={e=>setTarih(e.target.value)} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none" />
+          <input type="time" value={saat} onChange={e=>setSaat(e.target.value)} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none" />
+          <select value={ders} onChange={e=>setDers(e.target.value)} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none">{OKUL_DERSLER.map(d=><option key={d}>{d}</option>)}</select>
+          <input value={yer} onChange={e=>setYer(e.target.value)} placeholder="Yer (ör. A-Blok Görüşme Odası)" className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none" />
+        </div>
+        <button onClick={ekle} className="w-full bg-indigo-600 text-white font-black py-2.5 rounded-lg text-sm hover:bg-indigo-700 transition"><i className="fa-solid fa-plus mr-1"></i>Randevu Saatini Aç</button>
+      </div>
+      <h4 className="font-black text-slate-700 text-sm mb-2">Randevu Saatlerim ({benim.length})</h4>
+      {benim.length===0 ? <p className="text-center text-slate-400 py-6 text-sm">Henüz randevu saati açmadınız.</p> : (
+        <div className="space-y-2">
+          {benim.map(r=>{ const d=rozet[r.durum]||rozet.bos; return (
+            <div key={r.id} className="bg-white border border-slate-200 rounded-xl p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <i className="fa-solid fa-clock text-indigo-400"></i>
+                <span className="font-black text-slate-700 text-sm">{_randevuGun(r.tarih)} · {r.saat}</span>
+                <span className={`ml-auto text-[10px] font-black px-2 py-0.5 rounded-full ${d.r}`}>{d.t}</span>
+              </div>
+              <div className="text-[12px] text-slate-500 ml-6">{r.ders}{r.yer?` · ${r.yer}`:''}</div>
+              {r.durum!=='bos' && <div className="ml-6 mt-1.5 bg-amber-50 border border-amber-100 rounded-lg p-2 text-[12px] text-slate-700"><b>{r.veliAd}</b> ({r.ogrenciAd}){r.not?<span className="italic text-slate-500"> — “{r.not}”</span>:''}</div>}
+              <div className="flex gap-2 mt-2 ml-6">
+                {r.durum==='dolu' && <button onClick={()=>durumDegis(r.id,'tamam')} className="text-[11px] font-black text-emerald-600 hover:underline">Tamamlandı işaretle</button>}
+                {r.durum==='tamam' && <button onClick={()=>durumDegis(r.id,'dolu')} className="text-[11px] font-black text-amber-600 hover:underline">Geri al</button>}
+                <button onClick={()=>sil(r.id)} className="text-[11px] font-black text-rose-500 hover:underline ml-auto">Sil</button>
+              </div>
+            </div>
+          );})}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const RandevuVeli = ({ db, user }) => {
+  const doc = useOkulDoc(db, "k12_randevu");
+  const liste = (doc && doc.liste) || [];
+  const ogrDoc = useOkulDoc(db, "k12_ogrenciler");
+  const ogrenciler = (ogrDoc && ogrDoc.liste) || [];
+  const [cocukId, setCocukId] = useState('');
+  const [not, setNot] = useState('');
+  const cocuk = ogrenciler.find(o=>o.id===cocukId);
+  const bugun = new Date().toISOString().slice(0,10);
+  const bos = liste.filter(r=>r.durum==='bos' && r.tarih>=bugun).sort((a,b)=>(a.tarih+a.saat).localeCompare(b.tarih+b.saat));
+  const benim = liste.filter(r=> r.durum!=='bos' && ((cocuk && r.ogrenciId===cocuk.id) || okulNorm(r.veliAd)===okulNorm(user && user.name)));
+
+  const al = async (r) => {
+    if(!cocuk) return alert('Önce çocuğunuzu seçin.');
+    const ok = await okulYaz(db, "k12_randevu", { liste: liste.map(x=>x.id===r.id?{...x,durum:'dolu',veliAd:(user&&user.name)||'Veli',ogrenciAd:cocuk.ad,ogrenciId:cocuk.id,not:not.trim()}:x) });
+    if(ok){ setNot(''); toast('✅ Randevunuz alındı!','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
+  };
+  const iptal = async (r) => { if(!confirm('Randevu iptal edilsin mi?')) return; await okulYaz(db, "k12_randevu", { liste: liste.map(x=>x.id===r.id?{...x,durum:'bos',veliAd:'',ogrenciAd:'',ogrenciId:'',not:''}:x) }); };
+
+  return (
+    <div className="bg-white border-4 border-purple-200 rounded-[2rem] p-6 shadow-lg mt-6">
+      <h3 className="text-xl font-black text-purple-800 mb-1 flex items-center"><i className="fa-solid fa-calendar-check text-purple-500 mr-2"></i>Öğretmen Randevusu</h3>
+      <p className="text-sm text-slate-500 mb-4">Öğretmenlerin açtığı görüşme saatlerinden randevu alın.</p>
+      <select value={cocukId} onChange={e=>setCocukId(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none mb-3">
+        <option value="">— Çocuğunuzu seçin —</option>
+        {ogrenciler.map(o=><option key={o.id} value={o.id}>{o.ad} · {o.sinif}</option>)}
+      </select>
+
+      {benim.length>0 && (
+        <div className="mb-4">
+          <h4 className="font-black text-slate-700 text-sm mb-2">Randevularınız</h4>
+          <div className="space-y-2">
+            {benim.map(r=>(
+              <div key={r.id} className="bg-purple-50 border border-purple-200 rounded-xl p-3">
+                <div className="flex items-center gap-2">
+                  <i className="fa-solid fa-circle-check text-purple-500"></i>
+                  <span className="font-black text-slate-700 text-sm">{_randevuGun(r.tarih)} · {r.saat}</span>
+                  {r.durum==='tamam' && <span className="text-[10px] font-black bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full ml-auto">Tamamlandı</span>}
+                </div>
+                <div className="text-[12px] text-slate-500 ml-6">{r.ogretmenAd} · {r.ders}{r.yer?` · ${r.yer}`:''}</div>
+                {r.durum==='dolu' && <button onClick={()=>iptal(r)} className="text-[11px] font-black text-rose-500 hover:underline ml-6 mt-1">İptal et</button>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <h4 className="font-black text-slate-700 text-sm mb-2">Uygun Saatler ({bos.length})</h4>
+      {!cocuk ? <p className="text-center text-slate-400 py-4 text-sm">Randevu almak için önce çocuğunuzu seçin.</p> :
+        bos.length===0 ? <p className="text-center text-slate-400 py-4 text-sm">Şu an açık randevu saati yok.</p> : (
+        <div>
+          <input value={not} onChange={e=>setNot(e.target.value)} placeholder="Görüşmek istediğiniz konu (opsiyonel)" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none mb-2" />
+          <div className="space-y-2 max-h-72 overflow-auto">
+            {bos.map(r=>(
+              <div key={r.id} className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl p-3">
+                <div className="flex-1">
+                  <div className="font-black text-slate-700 text-sm">{_randevuGun(r.tarih)} · {r.saat}</div>
+                  <div className="text-[12px] text-slate-500">{r.ogretmenAd} · {r.ders}{r.yer?` · ${r.yer}`:''}</div>
+                </div>
+                <button onClick={()=>al(r)} className="bg-purple-600 text-white font-black px-4 py-2 rounded-lg text-xs hover:bg-purple-700 transition whitespace-nowrap">Randevu Al</button>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -5194,9 +5303,11 @@ const renderSharedUI = () => (
 
         {globalConfig?.news && !haberGizli && (
             <div className="fixed top-0 left-0 right-0 bg-slate-900 text-amber-400 text-xs py-2 font-bold z-[9990] border-b border-amber-500/30 overflow-hidden shadow-lg no-print flex items-center">
-                <div className="flex w-[200%] animate-marquee flex-1">
-                    <div className="whitespace-nowrap px-4 w-1/2 flex justify-around"><span className="inline-flex items-center"><i className="fa-solid fa-bullhorn text-white mr-2"></i> {globalConfig.news}</span></div>
-                    <div className="whitespace-nowrap px-4 w-1/2 flex justify-around"><span className="inline-flex items-center"><i className="fa-solid fa-bullhorn text-white mr-2"></i> {globalConfig.news}</span></div>
+                <div className="overflow-hidden flex-1">
+                    <div className="animate-marquee inline-flex whitespace-nowrap" style={{willChange:'transform'}}>
+                        <span className="inline-flex items-center px-10"><i className="fa-solid fa-bullhorn text-white mr-2"></i>{globalConfig.news}</span>
+                        <span className="inline-flex items-center px-10"><i className="fa-solid fa-bullhorn text-white mr-2"></i>{globalConfig.news}</span>
+                    </div>
                 </div>
                 <button onClick={() => setHaberGizli(true)} className="shrink-0 bg-slate-700 hover:bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center mr-2 transition text-xs" title="Kapat"><i className="fa-solid fa-times"></i></button>
             </div>
@@ -8138,6 +8249,7 @@ notes.map(n => (
       var raw = LS.getItem("zirve_lisans"); if(!raw) return false;
       var o = JSON.parse(raw);
       if(o && o.master === true) return true;
+      if(o && o.demo === true) return true;
       if(o && o.okulAdi && o.kod && kodNorm(o.kod) === kodNorm(lisansKodu(o.okulAdi))) return true;
     }catch(e){}
     return false;
@@ -8173,23 +8285,16 @@ notes.map(n => (
    + ".zl-link{color:#0d9488;font-weight:800;cursor:pointer;text-decoration:none;font-size:12px}"
    + ".zl-kodkutu{margin-top:10px;background:#eef2ff;border:2px dashed #c7d2fe;border-radius:12px;padding:14px;text-align:center}"
    + ".zl-kodbuyuk{font-size:26px;font-weight:900;letter-spacing:2px;color:#4338ca;font-family:ui-monospace,monospace}"
-   + ".zl-wrap{display:flex;gap:30px;align-items:center;justify-content:center;flex-wrap:wrap;max-width:1000px;width:100%}"
+   + ".zl-wrap{display:flex;gap:26px;align-items:center;justify-content:center;flex-wrap:wrap;max-width:940px;width:100%}"
    + ".zl-card{order:1}"
-   + ".zl-info{order:2;flex:1;min-width:290px;max-width:480px;color:#eafffb}"
-   + ".zl-info h2{font-size:25px;font-weight:900;margin:0 0 7px;line-height:1.2}"
-   + ".zl-info h2 .grad{background:linear-gradient(90deg,#5eead4,#a7f3d0,#fde68a);-webkit-background-clip:text;background-clip:text;color:transparent}"
-   + ".zl-info .zl-lead{font-size:14px;line-height:1.55;color:#d3f6ee;margin:0 0 13px}"
-   + ".zl-info .zl-lead b{color:#fff}"
-   + ".zl-rozetler{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 15px}"
-   + ".zl-rozet{font-size:11px;font-weight:800;padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);color:#eafffb}"
-   + ".zl-ozet{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:9px}"
-   + ".zl-ozet li{display:flex;gap:9px;align-items:flex-start;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:13px;padding:9px 10px;transition:.18s;margin:0}"
-   + ".zl-ozet li:hover{background:rgba(255,255,255,.13);transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.22)}"
-   + ".zl-ozet .ic{flex:none;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 4px 12px rgba(0,0,0,.28)}"
-   + ".zl-ozet .tx{font-size:11.5px;line-height:1.35;color:#e8fffa}"
-   + ".zl-ozet .tx b{display:block;font-size:12.5px;color:#fff;margin-bottom:1px}"
+   + ".zl-info{order:2;flex:1;min-width:270px;max-width:420px;color:#eafffb}"
+   + ".zl-info h2{font-size:24px;font-weight:800;margin:0 0 10px;line-height:1.2}"
+   + ".zl-info p{font-size:14px;line-height:1.55;color:#c9f2ea;margin:0 0 14px}"
+   + ".zl-info .zl-ozet{list-style:none;padding:0;margin:0}"
+   + ".zl-info .zl-ozet li{font-size:13.5px;color:#eafffb;margin:8px 0;padding-left:26px;position:relative}"
+   + ".zl-info .zl-ozet li:before{content:\"✓\";position:absolute;left:0;top:0;color:#5eead4;font-weight:900}"
    + ".zl-info .zl-imza{font-size:12px;color:#9fe3d6;margin-top:16px}"
-   + "@media(max-width:820px){.zl-info{order:2;text-align:left;max-width:460px}.zl-info h2{font-size:21px}.zl-ozet{grid-template-columns:1fr}}"
+   + "@media(max-width:820px){.zl-info{order:2;text-align:center;max-width:420px}.zl-info h2{font-size:20px}}"
    + "#zlisans-fab{position:fixed;left:10px;bottom:10px;z-index:2147482000;width:30px;height:30px;border-radius:50%;background:rgba(15,23,42,.35);color:#fff;border:0;cursor:pointer;font-size:13px;opacity:.4;transition:.2s}"
    + "#zlisans-fab:hover{opacity:1}";
 
@@ -8248,6 +8353,7 @@ notes.map(n => (
     + '<input id="zl-kod" class="zl-inp" placeholder="ör. A7K-3PQ-9ZM" autocomplete="off" style="text-transform:uppercase;font-family:ui-monospace,monospace">'
     + '<div id="zl-err" class="zl-err"></div>'
     + '<button id="zl-ac" class="zl-btn">Etkinleştir ve Gir</button>'
+    + '<button id="zl-demo" class="zl-btn gri" style="margin-top:10px">🎬 Demo İncele (kod gerekmez)</button>'
     + '<p class="zl-mini">Kodun yok mu? Kurum yöneticinizden isteyin.<br><span class="zl-link" id="zl-yonetici">🔑 Yönetici girişi</span></p>';
 
     function dene(){
@@ -8263,6 +8369,7 @@ notes.map(n => (
     }
     kart.querySelector("#zl-ac").onclick = dene;
     kart.querySelector("#zl-kod").addEventListener("keydown", function(e){ if(e.key==="Enter") dene(); });
+    var _demo = kart.querySelector("#zl-demo"); if(_demo) _demo.onclick = function(){ try{ LS.setItem("zirve_lisans", JSON.stringify({demo:true, okulAdi:"Demo Okulu", ts:Date.now()})); LS.setItem("okul_adi","Demo Okulu"); }catch(e){} location.reload(); };
     kart.querySelector("#zl-yonetici").onclick = function(){
       var p = window.prompt("Yönetici ana parolası:");
       if(p === null) return;
@@ -8316,33 +8423,35 @@ notes.map(n => (
   }
 
   function infoHTML(){
-    var oz=[
-      ["#6366f1","🤖","Yapay Zeka Materyal","Sınıf düzeyine uygun çalışma kâğıdı, test ve etkinlik saniyeler içinde."],
-      ["#0ea5e9","🧩","124+ Hazır Şablon","BEP, kesir, hece, tombala, veli mektubu… tek tıkla hazır kütüphane."],
-      ["#f43f5e","🎨","Hece Renklendirme","Disleksi dostu: heceleri renklere böler, okumayı kolaylaştırır."],
-      ["#10b981","🧬","Öğrenme DNA’sı","Her öğrencinin güçlü yönünü bulur, kişiye özel öneri sunar."],
-      ["#f59e0b","🏅","Rozet & D-Coin","Oyunlaştırma ile motivasyon; veliyle kolay ve sıcak iletişim."],
-      ["#8b5cf6","📚","Sınava Hazırlık","LGS, TYT-AYT ve okul denemeleri; anlatım, soru bankası, analiz."],
-      ["#14b8a6","📶","Kesintisiz & Çevrimdışı","Çoklu anahtar + otomatik model; bağlantı kesilse de kayıpsız."],
-      ["#e11d48","📺","Her Cihaza Uyum","Telefon, tablet, dizüstü ve akıllı tahtaya otomatik ölçeklenir."]
-    ];
-    var li = oz.map(function(o){
-      return '<li><span class="ic" style="background:linear-gradient(135deg,'+o[0]+',rgba(15,23,42,.55))">'+o[1]+'</span>'
-           + '<span class="tx"><b>'+o[2]+'</b>'+o[3]+'</span></li>';
-    }).join('');
     return '<div class="zl-info">'
-      + '<h2>'+markaAdi()+' <span class="grad">· Dijital Eğitim Ekosistemi</span></h2>'
-      + '<p class="zl-lead">Öğretmen, öğrenci ve velinin tek çatı altında buluştuğu; <b>yapay zeka destekli, tamamen Türkçe</b> akıllı okul platformu. Materyal üretiminden sınav hazırlığına, her şey tek yerde.</p>'
-      + '<div class="zl-rozetler"><span class="zl-rozet">🇹🇷 Tamamen Türkçe</span><span class="zl-rozet">🔒 KVKK uyumlu</span><span class="zl-rozet">⚡ Anında kurulum</span></div>'
-      + '<ul class="zl-ozet">'+li+'</ul>'
+      + '<h2>'+markaAdi()+' · Dijital Eğitim Ekosistemi</h2>'
+      + '<p>Öğretmen, öğrenci ve velinin tek çatı altında buluştuğu; yapay zeka destekli, tamamen Türkçe okul platformu.</p>'
+      + '<ul class="zl-ozet">'
+      + '<li><b>Yapay zeka ile materyal:</b> Sınıf düzeyine uygun çalışma kâğıdı, test ve etkinlikler saniyeler içinde.</li>'
+      + '<li><b>Ödev & takip:</b> Öğretmen ödev verir, öğrenci yapıp gönderir, veli anında görür.</li>'
+      + '<li><b>Öğrenme DNA’sı:</b> Her öğrencinin güçlü yönlerini keşfet, kişiye özel öner.</li>'
+      + '<li><b>Konu çalış:</b> Maarif müfredatına uygun renkli özet ve etkinlikler, sesli okuma.</li>'
+      + '<li><b>Rozet & D-Coin:</b> Oyunlaştırma ile motivasyon; veliyle kolay iletişim.</li>'
+      + '<li><b>Sınava hazırlık:</b> LGS, TYT-AYT ve okul denemeleri; konu anlatımı, soru bankası ve analiz.</li>'
+      + '</ul>'
       + '<p class="zl-imza">Barış Öğretmen tarafından geliştirildi · Türkiye’de bir ilk 🇹🇷</p>'
       + '</div>';
+  }
+
+  function demoBant(){
+    try{ var L=JSON.parse(LS.getItem("zirve_lisans")||"null"); if(!L || !L.demo) return; }catch(e){ return; }
+    if(document.getElementById("zl-demo-bant")) return;
+    var b=document.createElement("div"); b.id="zl-demo-bant";
+    b.style.cssText="position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:2147483400;background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;padding:6px 14px;border-radius:999px;font:800 12px system-ui;box-shadow:0 6px 20px rgba(234,88,12,.4);display:flex;align-items:center;gap:8px";
+    b.innerHTML='🎬 DEMO MODU <span id="zl-demo-cik" style="background:rgba(255,255,255,.25);padding:2px 8px;border-radius:999px;cursor:pointer">Çıkış</span>';
+    document.body.appendChild(b);
+    b.querySelector("#zl-demo-cik").onclick=function(){ try{ LS.removeItem("zirve_lisans"); }catch(e){} location.reload(); };
   }
 
   function baslat(){
     style(); fabEkle();
     if(paramGiris()){ try{ history.replaceState(null,"",location.pathname); }catch(e){} }
-    if(lisansGecerli()) return;                 // lisans var → uygulama açık
+    if(lisansGecerli()){ demoBant(); return; }   // lisans/demo var → uygulama açık
     var kapi = el('<div id="zlisans-kapi"><div class="zl-wrap"><div class="zl-card"></div>'+infoHTML()+'</div></div>');
     document.body.appendChild(kapi);
     kilitEkran(kapi.querySelector(".zl-card"));
@@ -8408,7 +8517,7 @@ notes.map(n => (
   function uygula(){
     var mi=0; try{ mi=parseInt(LS.getItem("zu_mod")||"0",10)||0; }catch(e){}
     var z = MODLAR[mi] && MODLAR[mi].zoom!=null ? MODLAR[mi].zoom : otoZoom();
-    try{ document.documentElement.style.zoom = z; }catch(e){}
+    try{ if(z && z!==1){ document.documentElement.style.zoom = z; } else { document.documentElement.style.zoom = ''; } }catch(e){}
     var m=document.getElementById("zu-mod");
     if(m){ m.firstChild.nodeValue="📺 "+(MODLAR[mi]?MODLAR[mi].ad:"Oto"); }
   }
