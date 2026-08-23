@@ -991,7 +991,8 @@ function panelKur(){
     <div style="font-size:11px;font-weight:600;opacity:.7;margin-bottom:11px">Birden fazla anahtar ekle; biri dolunca diğerine, gerekirse başka modele otomatik geçilir.</div>
     <label style="font-weight:800;font-size:12px">Anahtarların — her satıra bir tane</label>
     <textarea id="zirve-keys" rows="4" placeholder="AIza...&#10;AIza...&#10;AIza..." style="width:100%;margin:5px 0 6px;padding:9px;border:2px solid #e2e8f0;border-radius:10px;font:600 12px ui-monospace,monospace;resize:vertical;background:#fff"></textarea>
-    <button id="zirve-keys-kopyala" style="width:100%;margin-bottom:8px;background:#059669;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;cursor:pointer;font-size:12px">📋 Tüm Anahtarları Kopyala (başka çalışmaya yapıştır)</button>
+    <button id="zirve-keys-kopyala" style="width:100%;margin-bottom:6px;background:#059669;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;cursor:pointer;font-size:12px">📋 Tüm Anahtarları Kopyala (başka çalışmaya yapıştır)</button>
+    <button id="zirve-keys-yapistir" style="width:100%;margin-bottom:8px;background:#2563eb;color:#fff;border:none;border-radius:10px;padding:9px;font-weight:800;cursor:pointer;font-size:12px">📥 Panodan Yapıştır (herkesin anahtarını topla → birleştir)</button>
     <div style="background:linear-gradient(135deg,#f0f9ff,#eef2ff);border:2px solid #bae6fd;border-radius:12px;padding:12px;margin-bottom:11px">
       <div style="font-size:12px;font-weight:800;color:#0369a1;margin-bottom:6px">🔑 API Anahtarı Nasıl Alınır? (Ücretsiz)</div>
       <div style="font-size:11px;color:#334155;line-height:1.7;font-weight:600">
@@ -1032,6 +1033,22 @@ function panelKur(){
       else kopyaFallback(metin);
     }catch(e){ kopyaFallback(metin); }
     function kopyaFallback(t){ var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); toast('📋 Anahtarlar kopyalandı!','green'); }
+  };
+  var yapBtn=document.getElementById('zirve-keys-yapistir');
+  if(yapBtn) yapBtn.onclick=function(){
+    function isle(metin){
+      var mevcut=(document.getElementById('zirve-keys').value||'');
+      var parcalar=(mevcut+'\n'+(metin||'')).split(/[\s,;]+/);
+      var tekil=[]; parcalar.forEach(function(x){ x=String(x||'').trim(); if(x.length>8 && tekil.indexOf(x)<0) tekil.push(x); });
+      document.getElementById('zirve-keys').value=tekil.join('\n');
+      try{ ringSet(tekil); ringSave(); }catch(e){}
+      toast('📥 '+tekil.length+' anahtar birleştirildi ve kaydedildi.','green');
+      try{ panelYenile(); }catch(e){}
+    }
+    try{
+      if(navigator.clipboard && navigator.clipboard.readText){ navigator.clipboard.readText().then(isle, function(){ var v=window.prompt('Anahtarları yapıştırın (her satıra bir tane):'); if(v!=null) isle(v); }); }
+      else { var v=window.prompt('Anahtarları yapıştırın (her satıra bir tane):'); if(v!=null) isle(v); }
+    }catch(e){ var v2=window.prompt('Anahtarları yapıştırın:'); if(v2!=null) isle(v2); }
   };
   document.getElementById('zirve-model').onchange=(e)=>{ MODEL=e.target.value.trim()||'gemini-2.5-flash'; localStorage.setItem(LS.model,MODEL); panelYenile(); };
   panelYenile();
@@ -1207,7 +1224,7 @@ const ScreenTimeLock = () => (
 
 const TEACHER_NAMES = [];
 const ALL_GRADES = ["Anaokulu", "1. Sınıf", "2. Sınıf", "3. Sınıf", "4. Sınıf", "5. Sınıf", "6. Sınıf", "7. Sınıf", "8. Sınıf"];
-const ALL_SUBJECTS = ["Sınıf Öğretmenliği (Genel)", "Türkçe / Edebiyat", "Matematik", "Fen Bilimleri", "Sosyal Bilgiler", "İngilizce", "Bilişim & Robotik", "Din Kültürü", "Görsel Sanatlar", "Müzik", "Beden Eğitimi"];
+const ALL_SUBJECTS = ["Sınıf Öğretmenliği (Genel)", "Türkçe / Edebiyat", "Matematik", "Fen Bilimleri", "Sosyal Bilgiler", "İngilizce", "Bilişim & Robotik", "Yapay Zeka", "Kodlama", "Satranç", "Akıl ve Zeka Oyunları", "Din Kültürü", "Görsel Sanatlar", "Müzik", "Beden Eğitimi"];
 
 const DraggableRobot = ({ apiKey, modelName }) => {
     const [pos, setPos] = useState({ x: window.innerWidth > 768 ? window.innerWidth - 100 : 20, y: window.innerHeight - 150 });
@@ -1824,7 +1841,7 @@ const ParentPortal = ({ user, logout, globalConfig, db }) => {
    ============================================================================ */
 
 const OKUL_SINIFLAR = ["Anaokulu","1. Sınıf","2. Sınıf","3. Sınıf","4. Sınıf","5. Sınıf","6. Sınıf","7. Sınıf","8. Sınıf"];
-const OKUL_DERSLER = ["Sınıf Öğretmenliği (Genel)","Türkçe","Matematik","Fen Bilimleri","Sosyal Bilgiler","İngilizce","Din Kültürü","Bilişim & Robotik","Görsel Sanatlar","Müzik","Beden Eğitimi","Rehberlik"];
+const OKUL_DERSLER = ["Sınıf Öğretmenliği (Genel)","Türkçe","Matematik","Fen Bilimleri","Sosyal Bilgiler","İngilizce","Bilişim & Robotik","Yapay Zeka","Kodlama","Satranç","Akıl ve Zeka Oyunları","Din Kültürü","Görsel Sanatlar","Müzik","Beden Eğitimi","Rehberlik"];
 
 function _fbSDK(){ return (typeof window!=='undefined' && window.FirebaseSDK) ? window.FirebaseSDK : null; }
 function okulRef(db, id){ return _fbSDK().doc(db, "maas_config", id); }
@@ -8582,7 +8599,20 @@ notes.map(n => (
     ov.querySelector('#zs-kop').onclick=function(){ var t='SISTEM SAGLIK RAPORU — '+new Date().toLocaleString('tr-TR')+String.fromCharCode(10)+ozet+String.fromCharCode(10)+C.map(function(x){return ikon[x.d]+' '+x.ad;}).join(String.fromCharCode(10)); try{navigator.clipboard.writeText(t);this.textContent='✓ Kopyalandı';}catch(e){alert(t);} };
   };
 
-  function baslat(){ modPill(); uygula(); aiBanner(); yerlestir(); }
+  function zuSurukle(el){
+    if(!el || el.dataset.zsurukle) return; el.dataset.zsurukle='1';
+    try{ var kyt=localStorage.getItem('zu_pos_'+el.id); if(kyt){ var p=JSON.parse(kyt); el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.right='auto'; el.style.bottom='auto'; } }catch(e){}
+    var sx,sy,ox,oy,drag=false,moved=false;
+    function down(e){ var t=e.touches?e.touches[0]:e; sx=t.clientX; sy=t.clientY; var r=el.getBoundingClientRect(); ox=r.left; oy=r.top; drag=true; moved=false; }
+    function move(e){ if(!drag)return; var t=e.touches?e.touches[0]:e; var dx=t.clientX-sx, dy=t.clientY-sy; if(Math.abs(dx)+Math.abs(dy)>4){ moved=true; el.style.left=Math.max(2,Math.min(window.innerWidth-42,ox+dx))+'px'; el.style.top=Math.max(2,Math.min(window.innerHeight-42,oy+dy))+'px'; el.style.right='auto'; el.style.bottom='auto'; if(e.cancelable)e.preventDefault(); } }
+    function up(){ if(drag&&moved){ try{ var r=el.getBoundingClientRect(); localStorage.setItem('zu_pos_'+el.id, JSON.stringify({x:Math.round(r.left),y:Math.round(r.top)})); }catch(e){} } drag=false; }
+    el.addEventListener('mousedown',down); window.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
+    el.addEventListener('touchstart',down,{passive:false}); window.addEventListener('touchmove',move,{passive:false}); window.addEventListener('touchend',up);
+    el.addEventListener('click',function(e){ if(moved){ e.stopPropagation(); e.preventDefault(); moved=false; } }, true);
+  }
+  function surukleAta(){ ['zlisans-fab','zu-mod','zu-ai'].forEach(function(id){ var el=document.getElementById(id); if(el) zuSurukle(el); }); }
+
+  function baslat(){ modPill(); uygula(); aiBanner(); yerlestir(); surukleAta(); setTimeout(surukleAta,900); setTimeout(surukleAta,2200); }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", baslat); else baslat();
 })();
 </script>
