@@ -1285,7 +1285,7 @@ const DraggableRobot = ({ apiKey, modelName }) => {
     return (
         <div className="fixed z-[99999]" style={{ left: pos.x + 'px', top: pos.y + 'px' }}>
             {robotGizli ? (
-                <button onClick={() => { setRobotGizli(false); localStorage.setItem('robot_gizli', '0'); }} className="fixed bottom-20 right-3 z-[99999] bg-sky-500 hover:bg-sky-600 text-white rounded-full w-12 h-12 shadow-lg flex items-center justify-center text-xl no-drag" title="Yardımcıyı göster">🤖</button>
+                <button onMouseDown={onMouseDown} onTouchStart={onTouchStart} onClick={() => { if (dragDistance > 5) return; setRobotGizli(false); localStorage.setItem('robot_gizli', '0'); }} className="z-[99999] bg-sky-500 hover:bg-sky-600 text-white rounded-full w-12 h-12 shadow-lg flex items-center justify-center text-xl cursor-move" title="Sürükle ile taşı / dokun ile aç">🤖</button>
             ) : (
             <div className="relative">
                 <button onClick={(e) => { e.stopPropagation(); setChatOpen(false); setRobotGizli(true); localStorage.setItem('robot_gizli', '1'); }} className="absolute -top-1 -right-1 z-[100000] bg-slate-700 hover:bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-md no-drag" title="Gizle">✕</button>
@@ -1967,6 +1967,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
     { k:'ogrenci', ad:'Öğrenciler', ikon:'fa-user-graduate' },
     { k:'odev',    ad:'Ödev Ata',   ikon:'fa-paper-plane' },
     { k:'teslim',  ad:'Teslimler',  ikon:'fa-clipboard-check' },
+    { k:'yoklama', ad:'Yoklama', ikon:'fa-clipboard-user' },
     { k:'dna',     ad:'Öğrenme DNA', ikon:'fa-dna' },
     { k:'rozet',   ad:'Rozet & Sıralama', ikon:'fa-trophy' },
     { k:'veli',    ad:'Veli İletişim', ikon:'fa-comments' },
@@ -2005,6 +2006,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='veli'    && <VeliIletisim ogrenciler={ogrenciler} apiKey={apiKey} modelName={modelName} />}
         {!yukleniyor && sekme==='karne'   && <SinifKarnesi ogrenciler={ogrenciler} odevler={odevler} teslimler={teslimler} />}
         {!yukleniyor && sekme==='qr'      && <SinifQR />}
+        {!yukleniyor && sekme==='yoklama' && <YoklamaOgretmen db={db} user={user} />}
         {!yukleniyor && sekme==='randevu' && <RandevuOgretmen db={db} user={user} />}
     {!yukleniyor && sekme==='duyuru'  && <DuyuruYonetim db={db} user={user} duyurular={duyurular} />}
       </div>
@@ -2678,6 +2680,7 @@ const VeliMerkezi = ({ db, user }) => {
 
       {cocuk && (
         <>
+          <YoklamaVeli db={db} ogrenciler={ogrenciler} cocuk={cocuk} />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl p-5 text-white shadow text-center"><i className="fa-solid fa-coins text-2xl mb-1"></i><p className="text-3xl font-black">{cocuk.puan||0}</p><p className="text-xs font-bold">D-Coin</p></div>
             <div className="bg-gradient-to-br from-emerald-400 to-teal-500 rounded-3xl p-5 text-white shadow text-center"><i className="fa-solid fa-clipboard-check text-2xl mb-1"></i><p className="text-3xl font-black">{teslimler.filter(t=>t.ogrenciId===cocuk.id).length}</p><p className="text-xs font-bold">Tamamlanan</p></div>
@@ -3548,6 +3551,127 @@ const RandevuVeli = ({ db, user }) => {
   );
 };
 
+
+/* ============================================================================
+   AKILLI YOKLAMA PANOSU · Firestore: maas_config/k12_yoklama {liste:[...]}
+   Öğretmen işaretler → tüm okul canlı görür → sonraki ders güncelle → veli görür
+   ============================================================================ */
+const YOKLAMA_DERSLER = ['1. Ders','2. Ders','3. Ders','4. Ders','5. Ders','6. Ders','7. Ders','8. Ders'];
+const YOK_RENK = { geldi:'bg-emerald-500', gelmedi:'bg-rose-500', gec:'bg-amber-500' };
+const YOK_AD = { geldi:'Geldi', gelmedi:'Gelmedi', gec:'Geç' };
+
+const YoklamaOgretmen = ({ db, user }) => {
+  const doc = useOkulDoc(db, "k12_yoklama");
+  const liste = (doc && doc.liste) || [];
+  const ogrDoc = useOkulDoc(db, "k12_ogrenciler");
+  const ogrenciler = (ogrDoc && ogrDoc.liste) || [];
+  const bugun = new Date().toISOString().slice(0,10);
+  const [sinif, setSinif] = useState(OKUL_SINIFLAR[0]);
+  const [ders, setDers] = useState('1. Ders');
+  const [nedenTaslak, setNedenTaslak] = useState({});
+
+  const bugunku = liste.filter(r=>r.tarih===bugun);
+  const kayit = (id) => bugunku.find(r=>r.ogrenciId===id);
+  const sinifOgr = ogrenciler.filter(o=>o.sinif===sinif);
+  const gelmeyenler = bugunku.filter(r=>r.durum==='gelmedi'||r.durum==='gec').sort((a,b)=>String(a.sinif||'').localeCompare(String(b.sinif||'')));
+
+  const isaretle = async (ogr, durum) => {
+    const neden = (nedenTaslak[ogr.id]!==undefined ? nedenTaslak[ogr.id] : ((kayit(ogr.id)||{}).neden||'')).trim();
+    const mevcut = kayit(ogr.id);
+    let yeni;
+    if(mevcut){ yeni = liste.map(r=> r.id===mevcut.id ? {...r, durum, neden, ders, ogretmen:(user&&user.name)||'Öğretmen', ts:Date.now()} : r); }
+    else { yeni = [...liste, {id:yeniId(), tarih:bugun, ogrenciId:ogr.id, ogrenciAd:ogr.ad, sinif:ogr.sinif, durum, neden, ders, ogretmen:(user&&user.name)||'Öğretmen', ts:Date.now()}]; }
+    await okulYaz(db, "k12_yoklama", { liste: yeni });
+  };
+  const nedenKaydet = async (ogr) => {
+    const mevcut = kayit(ogr.id); if(!mevcut) return;
+    const neden=(nedenTaslak[ogr.id]||'').trim();
+    const ok = await okulYaz(db,"k12_yoklama",{ liste: liste.map(r=>r.id===mevcut.id?{...r,neden}:r) });
+    if(ok) toast('Neden kaydedildi, veli görebilir.','green');
+  };
+  const hizliDurum = async (rec, durum) => { await okulYaz(db,"k12_yoklama",{ liste: liste.map(r=>r.id===rec.id?{...r,durum,ogretmen:(user&&user.name)||r.ogretmen,ts:Date.now()}:r) }); };
+
+  return (
+    <div>
+      {/* TÜM OKUL — bugün gelmeyenler panosu */}
+      <div className="bg-rose-50 border-2 border-rose-200 rounded-2xl p-4 mb-4">
+        <h4 className="font-black text-rose-800 text-sm mb-2"><i className="fa-solid fa-triangle-exclamation mr-1"></i>Bugün Gelmeyenler — Tüm Okul ({gelmeyenler.length})</h4>
+        {gelmeyenler.length===0 ? <p className="text-slate-400 text-sm text-center py-2">Bugün işaretlenmiş gelmeyen öğrenci yok. 🎉</p> : (
+          <div className="space-y-1.5 max-h-56 overflow-auto">
+            {gelmeyenler.map(r=>(
+              <div key={r.id} className="bg-white rounded-lg p-2 border border-rose-100 flex items-center gap-2 flex-wrap">
+                <span className={`text-[10px] font-black text-white px-2 py-0.5 rounded-full ${YOK_RENK[r.durum]}`}>{YOK_AD[r.durum]}</span>
+                <span className="font-bold text-slate-700 text-sm">{r.ogrenciAd}</span>
+                <span className="text-[11px] text-slate-400">{r.sinif}</span>
+                {r.neden && <span className="text-[11px] text-slate-500 italic">— {r.neden}</span>}
+                <span className="text-[10px] text-slate-300 ml-auto mr-1">{r.ders} · {r.ogretmen}</span>
+                <button onClick={()=>hizliDurum(r,'geldi')} className="text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full hover:bg-emerald-200" title="Sonradan geldi">Geldi</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Sınıf yoklaması */}
+      <div className="flex flex-col sm:flex-row gap-2 mb-3">
+        <select value={sinif} onChange={e=>setSinif(e.target.value)} className="flex-1 px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none">{OKUL_SINIFLAR.map(s=><option key={s}>{s}</option>)}</select>
+        <select value={ders} onChange={e=>setDers(e.target.value)} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none">{YOKLAMA_DERSLER.map(d=><option key={d}>{d}</option>)}</select>
+      </div>
+      <p className="text-[11px] text-slate-400 mb-2">{sinif} · {ders} yoklaması — öğrenciyi işaretle:</p>
+      {sinifOgr.length===0 ? <p className="text-center text-slate-400 py-4 text-sm">Bu sınıfta kayıtlı öğrenci yok.</p> : (
+        <div className="space-y-2">
+          {sinifOgr.map(o=>{ const k=kayit(o.id); return (
+            <div key={o.id} className="bg-white border border-slate-200 rounded-xl p-2.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-bold text-slate-700 text-sm flex-1">{o.ad}</span>
+                {['geldi','gelmedi','gec'].map(d=>(
+                  <button key={d} onClick={()=>isaretle(o,d)} className={`text-[11px] font-black px-2.5 py-1 rounded-lg transition ${k&&k.durum===d?YOK_RENK[d]+' text-white shadow':'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>{YOK_AD[d]}</button>
+                ))}
+              </div>
+              {k && (k.durum==='gelmedi'||k.durum==='gec') && (
+                <div className="flex gap-2 mt-2">
+                  <input value={nedenTaslak[o.id]!==undefined?nedenTaslak[o.id]:(k.neden||'')} onChange={e=>setNedenTaslak({...nedenTaslak,[o.id]:e.target.value})} placeholder="Gelmeme / geç kalma nedeni (veli görecek)" className="flex-1 px-2 py-1.5 rounded-lg border border-gray-200 text-[13px] outline-none" />
+                  <button onClick={()=>nedenKaydet(o)} className="bg-slate-200 text-slate-600 font-black px-3 rounded-lg text-xs whitespace-nowrap">Nedeni Kaydet</button>
+                </div>
+              )}
+            </div>
+          );})}
+        </div>
+      )}
+      <p className="text-[11px] text-slate-400 text-center mt-3">İlk derse giren öğretmen gelmeyenleri işaretler; sonraki derse giren güncelleyebilir. Yazılan neden veliye de yansır.</p>
+    </div>
+  );
+};
+
+const YoklamaVeli = ({ db, ogrenciler, cocuk }) => {
+  const doc = useOkulDoc(db, "k12_yoklama");
+  const liste = (doc && doc.liste) || [];
+  if(!cocuk) return null;
+  const bugun = new Date().toISOString().slice(0,10);
+  const k = liste.find(r=>r.tarih===bugun && r.ogrenciId===cocuk.id);
+  const dAd={geldi:'Geldi ✅', gelmedi:'Gelmedi ❌', gec:'Geç geldi ⏰'};
+  const dBg={geldi:'from-emerald-500 to-teal-500', gelmedi:'from-rose-500 to-red-500', gec:'from-amber-500 to-orange-500'};
+  const gecmis = liste.filter(r=>r.ogrenciId===cocuk.id && (r.durum==='gelmedi'||r.durum==='gec')).sort((a,b)=>String(b.tarih).localeCompare(String(a.tarih))).slice(0,5);
+  return (
+    <div className={`rounded-3xl p-5 text-white shadow-lg mt-6 bg-gradient-to-r ${k?dBg[k.durum]:'from-slate-400 to-slate-500'}`}>
+      <h3 className="font-black text-lg mb-1"><i className="fa-solid fa-clipboard-user mr-2"></i>Bugünkü Yoklama</h3>
+      {!k ? <p className="text-white/90 text-sm">Bugün için henüz yoklama girilmedi.</p> : (
+        <div>
+          <p className="text-2xl font-black">{dAd[k.durum]||k.durum}</p>
+          {k.neden && <p className="text-white/95 text-sm mt-1">📝 {k.neden}</p>}
+          <p className="text-white/70 text-[11px] mt-1">{k.ders} · {k.ogretmen}</p>
+        </div>
+      )}
+      {gecmis.length>0 && (
+        <div className="mt-3 bg-white/15 rounded-xl p-2">
+          <p className="text-[11px] font-black text-white/80 mb-1">Son devamsızlıklar</p>
+          {gecmis.map(r=><p key={r.id} className="text-[12px] text-white/90">{trTarih ? '' : ''}{r.tarih} · {YOK_AD[r.durum]}{r.neden?` — ${r.neden}`:''}</p>)}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const App = () => {
 
 // K12 SİSTEM STATELERİ VE EKRAN SÜRESİ
@@ -3827,6 +3951,7 @@ onAuthStateChanged(auth, async (u) => {
         }
         setIsApiValid(true);
         setSystemRole('admin');
+        try{ window.ZIRVE_admin = true; }catch(e){}
         setK12User({ name: 'Yönetici', role: 'admin', grade: '' });
     }
     setUser(u); 
@@ -8267,13 +8392,13 @@ notes.map(n => (
       var o = JSON.parse(raw);
       if(o && o.master === true) return true;
       if(o && o.demo === true) return true;
-      if(o && o.okulAdi && o.kod && kodNorm(o.kod) === kodNorm(lisansKodu(o.okulAdi))) return true;
+      if(o && o.okulAdi && o.kod && kodNorm(o.kod) === kodNorm(lisansKodu(o.okulAdi))){ if(o.expires && Date.now() > o.expires) return false; return true; }
     }catch(e){}
     return false;
   }
   function lisansKaydet(okulAdi, kod, master){
     try{
-      LS.setItem("zirve_lisans", JSON.stringify({okulAdi:okulAdi||"", kod:kod||"", master:!!master, ts:Date.now()}));
+      LS.setItem("zirve_lisans", JSON.stringify({okulAdi:okulAdi||"", kod:kod||"", master:!!master, ts:Date.now(), expires: Date.now()+365*24*3600*1000}));
       if(okulAdi) LS.setItem("okul_adi", okulAdi);   // ← beyaz etiket: marka bu isme döner
     }catch(e){}
   }
@@ -8373,7 +8498,7 @@ notes.map(n => (
     + '<div id="zl-err" class="zl-err"></div>'
     + '<button id="zl-ac" class="zl-btn">Etkinleştir ve Gir</button>'
     + '<button id="zl-demo" class="zl-btn gri" style="margin-top:10px">🎬 Demo İncele (kod gerekmez)</button>'
-    + '<p class="zl-mini">Kodun yok mu? Kurum yöneticinizden isteyin.<br><span class="zl-link" id="zl-yonetici">🔑 Yönetici girişi</span></p>';
+    + '<p class="zl-mini">Kodun yok mu? Kurum yöneticinizden isteyin.</p>';
 
     function dene(){
       var ad = kart.querySelector("#zl-ad").value.trim();
@@ -8389,23 +8514,18 @@ notes.map(n => (
     kart.querySelector("#zl-ac").onclick = dene;
     kart.querySelector("#zl-kod").addEventListener("keydown", function(e){ if(e.key==="Enter") dene(); });
     var _demo = kart.querySelector("#zl-demo"); if(_demo) _demo.onclick = function(){ try{ LS.setItem("zirve_lisans", JSON.stringify({demo:true, okulAdi:"Demo Okulu", ts:Date.now()})); LS.setItem("okul_adi","Demo Okulu"); }catch(e){} location.reload(); };
-    kart.querySelector("#zl-yonetici").onclick = function(){
-      var p = window.prompt("Yönetici ana parolası:");
-      if(p === null) return;
-      if(p === USTA_SIFRE){ yoneticiEkran(kart); }
-      else { var err=kart.querySelector("#zl-err"); err.textContent="Yönetici parolası hatalı."; err.style.display="block"; }
-    };
+    /* Yönetici girişi ana ekrandan kaldırıldı — kod üretimi Firebase yönetici girişinden sonra 🔑 ile */
   }
 
   // ————— Küçük yönetici düğmesi (her zaman görünür) —————
   function fabEkle(){
-    if(document.getElementById("zlisans-fab")) return;
+    var admin=false; try{ admin=(window.ZIRVE_admin===true); }catch(e){}
+    var mevcut=document.getElementById("zlisans-fab");
+    if(!admin){ if(mevcut) mevcut.remove(); return; }   // yalnızca Firebase yönetici girişinden sonra
+    if(mevcut) return;
     var b = document.createElement("button");
-    b.id="zlisans-fab"; b.textContent="🔑"; b.title="Yönetici / Onay Kodu";
+    b.id="zlisans-fab"; b.textContent="🔑"; b.title="Yönetici / Onay Kodu Üret";
     b.onclick = function(){
-      var p = window.prompt("Yönetici ana parolası:");
-      if(p === null) return;
-      if(p !== USTA_SIFRE){ alert("Parola hatalı."); return; }
       style();
       var kapi = document.getElementById("zlisans-kapi");
       if(!kapi){ kapi = el('<div id="zlisans-kapi"><div class="zl-card"></div></div>'); document.body.appendChild(kapi); }
@@ -8468,7 +8588,7 @@ notes.map(n => (
   }
 
   function baslat(){
-    style(); fabEkle();
+    style(); fabEkle(); setInterval(fabEkle,1500);
     if(paramGiris()){ try{ history.replaceState(null,"",location.pathname); }catch(e){} }
     if(lisansGecerli()){ demoBant(); return; }   // lisans/demo var → uygulama açık
     var kapi = el('<div id="zlisans-kapi"><div class="zl-wrap"><div class="zl-card"></div>'+infoHTML()+'</div></div>');
@@ -8612,7 +8732,7 @@ notes.map(n => (
   }
   function surukleAta(){ ['zlisans-fab','zu-mod','zu-ai'].forEach(function(id){ var el=document.getElementById(id); if(el) zuSurukle(el); }); }
 
-  function baslat(){ modPill(); uygula(); aiBanner(); yerlestir(); surukleAta(); setTimeout(surukleAta,900); setTimeout(surukleAta,2200); }
+  function baslat(){ modPill(); uygula(); aiBanner(); yerlestir(); surukleAta(); setTimeout(surukleAta,900); setTimeout(surukleAta,2200); setInterval(surukleAta,3000); }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", baslat); else baslat();
 })();
 </script>
