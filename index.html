@@ -2566,7 +2566,7 @@ const OgrenciMerkezi = ({ db, user }) => {
                     {o.tur==='birey' ? <span className="text-[10px] bg-violet-500 text-white font-black px-2 py-0.5 rounded-full">SANA ÖZEL</span> : <span className="text-[10px] bg-rose-500 text-white font-black px-2 py-0.5 rounded-full">SINIF</span>}
                     <span className="text-xs font-black text-slate-600">{o.ders}{o.konu?` · ${o.konu}`:''}</span>
                     {o.ekleyen && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full"><i className="fa-solid fa-user-pen mr-1"></i>{o.ekleyen}</span>}
-                    {o.sonTeslim && <span className="text-[10px] text-red-500 font-bold ml-auto"><i className="fa-solid fa-clock mr-1"></i>{o.sonTeslim}</span>}
+                    {o.sonTeslim && (()=>{ const gecti = o.sonTeslim < new Date().toISOString().slice(0,10); return <span className={`text-[10px] font-bold ml-auto ${gecti?'text-emerald-600':'text-red-500'}`}><i className="fa-solid fa-clock mr-1"></i>{gecti?'Süre doldu · yine de yapabilirsin':('Son: '+o.sonTeslim)}</span>; })()}
                   </div>
                   <p className="text-slate-800 font-medium whitespace-pre-wrap leading-relaxed text-sm">{o.detay}</p>
                   {ben && !yapildi && (() => {
@@ -8314,6 +8314,7 @@ notes.map(n => (
     + '<div id="zl-uret-aksiyon" style="display:none;gap:8px;margin-top:8px"><button id="zl-uret-kopya" class="zl-btn gri" style="margin-top:8px">📋 Kopyala</button><a id="zl-uret-wa" class="zl-btn" style="margin-top:8px;display:block;text-align:center;text-decoration:none" target="_blank">📲 WhatsApp ile Gönder</a></div>'
     + '<button id="zl-uret-ac" class="zl-btn gri" style="margin-top:14px">Bu cihazı bu okul adıyla AÇ (demo/kendi kullanımın)</button>'
     + '<button id="zl-uret-sifirla" class="zl-btn gri" style="margin-top:8px;color:#dc2626">Bu cihazın lisansını sıfırla</button>'
+    + '<button id="zl-saglik" class="zl-btn gri" style="margin-top:8px">🩺 Sistem Sağlık Kontrolü</button>'
     + '<p class="zl-mini"><span class="zl-link" id="zl-geri">← Geri</span></p>';
 
     var ad = kart.querySelector("#zl-uret-ad");
@@ -8338,6 +8339,7 @@ notes.map(n => (
     kart.querySelector("#zl-uret-sifirla").onclick = function(){
       if(window.confirm("Bu cihazdaki lisans silinsin mi? (Uygulama tekrar kilitlenir)")){ try{LS.removeItem("zirve_lisans");}catch(e){} location.reload(); }
     };
+    var _sg=kart.querySelector("#zl-saglik"); if(_sg) _sg.onclick=function(){ try{ window.ZIRVE_saglik&&window.ZIRVE_saglik(); }catch(e){} };
     kart.querySelector("#zl-geri").onclick = function(){ kilitEkran(kart); };
   }
 
@@ -8549,6 +8551,36 @@ notes.map(n => (
     if(ai){ if(mod) mod.style.bottom="10px", ai.style.bottom="52px"; else ai.style.bottom="10px"; }
     else if(mod){ mod.style.bottom="10px"; }
   }
+
+  window.ZIRVE_saglik = function(){
+    var C=[], ikon={ok:'✅',warn:'⚠️',err:'❌'};
+    function chk(ad, durum, detay){ C.push({ad:ad, d: durum===true?'ok':(durum==='warn'?'warn':'err'), n:detay||''}); }
+    var root=document.getElementById('root');
+    chk('Uygulama arayüzü yüklendi', !!(root && root.children && root.children.length>0));
+    chk('Firebase veri bağlantısı hazır', !!window.FirebaseSDK);
+    chk('Yerel depolama çalışıyor', (function(){try{localStorage.setItem('_zt','1');localStorage.removeItem('_zt');return true;}catch(e){return false;}})());
+    chk('ZİRVE çekirdeği (anahtar halkası)', !!window.ZIRVE);
+    chk('Kutlama/animasyon motoru', typeof window.ZKUTLA==='function');
+    chk('Ekran/akıllı tahta ölçekleme', typeof window.ZIRVE_ekranReset==='function');
+    chk('Erişim/lisans kaydı', (function(){try{return !!localStorage.getItem('zirve_lisans');}catch(e){return false;}})());
+    chk('Yapay zeka anahtarı (bu cihaz)', (function(){try{var k=localStorage.getItem('gemini_api_key');return (k&&k.length>10)?true:'warn';}catch(e){return 'warn';}})(), 'Yoksa AI özellikleri çalışmaz — Ayarlar’dan girin.');
+    chk('İnternet bağlantısı', navigator.onLine?true:'warn');
+    var kotu=C.filter(function(x){return x.d==='err';}).length, uyari=C.filter(function(x){return x.d==='warn';}).length;
+    var ozet = kotu>0 ? ('❌ '+kotu+' sorun, '+uyari+' uyarı') : (uyari>0 ? ('⚠️ '+uyari+' uyarı, kritik sorun yok') : '✅ Her şey yolunda!');
+    var satir=C.map(function(x){return '<div style="display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #f1f5f9"><span>'+ikon[x.d]+'</span><div><div style="font-weight:700;font-size:13px;color:#0f172a">'+x.ad+'</div>'+(x.n?'<div style="font-size:11px;color:#64748b">'+x.n+'</div>':'')+'</div></div>';}).join('');
+    var ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;z-index:2147483550;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;padding:16px;font-family:system-ui';
+    ov.innerHTML='<div style="background:#fff;border-radius:20px;max-width:400px;width:100%;padding:22px;max-height:85vh;overflow:auto">'
+      +'<div style="font-size:19px;font-weight:800;color:#0f172a">🩺 Sistem Sağlık Kontrolü</div>'
+      +'<div style="font-size:13px;font-weight:700;margin:6px 0 12px;color:'+(kotu>0?'#dc2626':(uyari>0?'#d97706':'#16a34a'))+'">'+ozet+'</div>'
+      +satir
+      +'<div style="display:flex;gap:8px;margin-top:16px"><button id="zs-kop" style="flex:1;padding:10px;border:0;border-radius:10px;background:#e2e8f0;color:#475569;font-weight:700;cursor:pointer">📋 Kopyala</button><button id="zs-kap" style="flex:1;padding:10px;border:0;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;cursor:pointer">Kapat</button></div>'
+      +'</div>';
+    document.body.appendChild(ov);
+    ov.querySelector('#zs-kap').onclick=function(){ov.remove();};
+    ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+    ov.querySelector('#zs-kop').onclick=function(){ var t='SISTEM SAGLIK RAPORU — '+new Date().toLocaleString('tr-TR')+String.fromCharCode(10)+ozet+String.fromCharCode(10)+C.map(function(x){return ikon[x.d]+' '+x.ad;}).join(String.fromCharCode(10)); try{navigator.clipboard.writeText(t);this.textContent='✓ Kopyalandı';}catch(e){alert(t);} };
+  };
 
   function baslat(){ modPill(); uygula(); aiBanner(); yerlestir(); }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", baslat); else baslat();
