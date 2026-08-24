@@ -1840,7 +1840,8 @@ const ParentPortal = ({ user, logout, globalConfig, db }) => {
    tüm cihazlarda canlı senkron olur. Mevcut sistem hiç bozulmadan EKLEMELİ çalışır.
    ============================================================================ */
 
-const OKUL_SINIFLAR = ["Anaokulu","1. Sınıf","2. Sınıf","3. Sınıf","4. Sınıf","5. Sınıf","6. Sınıf","7. Sınıf","8. Sınıf"];
+const OKUL_SINIFLAR_TEMEL = ["Anaokulu","1. Sınıf","2. Sınıf","3. Sınıf","4. Sınıf","5. Sınıf","6. Sınıf","7. Sınıf","8. Sınıf"];
+const OKUL_SINIFLAR = (function(){ try{ var ek=JSON.parse(localStorage.getItem("ozel_siniflar")||"[]"); if(!Array.isArray(ek)) ek=[]; return OKUL_SINIFLAR_TEMEL.concat(ek.filter(function(x){return x && OKUL_SINIFLAR_TEMEL.indexOf(x)<0;})); }catch(e){ return OKUL_SINIFLAR_TEMEL; } })();
 const OKUL_DERSLER = ["Sınıf Öğretmenliği (Genel)","Türkçe","Matematik","Fen Bilimleri","Sosyal Bilgiler","İngilizce","Bilişim & Robotik","Yapay Zeka","Kodlama","Satranç","Akıl ve Zeka Oyunları","Din Kültürü","Görsel Sanatlar","Müzik","Beden Eğitimi","Rehberlik"];
 
 function _fbSDK(){ return (typeof window!=='undefined' && window.FirebaseSDK) ? window.FirebaseSDK : null; }
@@ -1959,6 +1960,9 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
   const odevler = (odevDoc && odevDoc.liste) ? odevDoc.liste : [];
   const teslimler = (teslimDoc && teslimDoc.liste) ? teslimDoc.liste : [];
   const duyurular = (duyuruDoc && duyuruDoc.liste) ? duyuruDoc.liste : [];
+  const mesajDoc = useOkulDoc(db, "k12_mesajlar");
+  const mesajlar = (mesajDoc && mesajDoc.liste) ? mesajDoc.liste : [];
+  const okunmamisMesaj = mesajlar.filter(function(m){return m.gonderen==='veli' && !m.okOgretmen;}).length;
 
   const [sekme, setSekme] = useState('ogrenci');
   const yukleniyor = (ogrDoc===null || odevDoc===null);
@@ -1968,9 +1972,11 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
     { k:'odev',    ad:'Ödev Ata',   ikon:'fa-paper-plane' },
     { k:'teslim',  ad:'Teslimler',  ikon:'fa-clipboard-check' },
     { k:'yoklama', ad:'Yoklama', ikon:'fa-clipboard-user' },
+    { k:'devamsizlik', ad:'Devamsızlık', ikon:'fa-calendar-xmark' },
     { k:'dna',     ad:'Öğrenme DNA', ikon:'fa-dna' },
     { k:'rozet',   ad:'Rozet & Sıralama', ikon:'fa-trophy' },
     { k:'veli',    ad:'Veli İletişim', ikon:'fa-comments' },
+    { k:'mesaj',   ad:'Mesajlar', ikon:'fa-inbox' },
     { k:'karne',   ad:'Sınıf Karnesi', ikon:'fa-file-lines' },
     { k:'qr',      ad:'QR Katılım', ikon:'fa-qrcode' },
     { k:'randevu', ad:'Randevu',    ikon:'fa-calendar-check' },
@@ -1985,6 +1991,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
           <h3 className="font-black text-lg leading-tight">Okul Yönetim Merkezi</h3>
           <p className="text-indigo-200 text-xs font-medium">Kalıcı kayıt · Sınıf ve bireysel ödev · DNA · Rozet — tüm cihazlarda senkron</p>
         </div>
+        <button onClick={()=>{ var ad=window.prompt("Yeni sınıf adı ekle (ör. Anaokulu Papatya, 5-A):"); if(ad&&ad.trim()){ try{ var ek=JSON.parse(localStorage.getItem("ozel_siniflar")||"[]"); if(!Array.isArray(ek))ek=[]; if(ek.indexOf(ad.trim())<0){ ek.push(ad.trim()); localStorage.setItem("ozel_siniflar",JSON.stringify(ek)); alert("Sınıf eklendi. Sayfa yenilenecek."); location.reload(); } else { alert("Bu sınıf zaten var."); } }catch(e){} } }} className="ml-auto bg-white/20 hover:bg-white/30 text-white text-xs font-black px-3 py-2 rounded-lg whitespace-nowrap"><i className="fa-solid fa-plus mr-1"></i>Sınıf Ekle</button>
       </div>
 
       <div className="flex flex-wrap gap-1 p-2 bg-slate-50 border-b border-gray-200">
@@ -1992,6 +1999,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
           <button key={s.k} onClick={()=>setSekme(s.k)}
             className={`px-3 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 ${sekme===s.k ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:bg-slate-200'}`}>
             <i className={`fa-solid ${s.ikon}`}></i> {s.ad}
+            {s.k==='mesaj' && okunmamisMesaj>0 && <span className="ml-1 bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{okunmamisMesaj}</span>}
           </button>
         ))}
       </div>
@@ -2008,7 +2016,9 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='qr'      && <SinifQR />}
         {!yukleniyor && sekme==='yoklama' && <YoklamaOgretmen db={db} user={user} />}
         {!yukleniyor && sekme==='randevu' && <RandevuOgretmen db={db} user={user} />}
-    {!yukleniyor && sekme==='duyuru'  && <DuyuruYonetim db={db} user={user} duyurular={duyurular} />}
+    {!yukleniyor && sekme==='mesaj'   && <MesajOgretmen db={db} user={user} mesajlar={mesajlar} ogrenciler={ogrenciler} />}
+        {!yukleniyor && sekme==='devamsizlik' && <DevamsizlikOzeti db={db} ogrenciler={ogrenciler} />}
+        {!yukleniyor && sekme==='duyuru'  && <DuyuruYonetim db={db} user={user} duyurular={duyurular} />}
       </div>
     </div>
   );
@@ -2681,6 +2691,7 @@ const VeliMerkezi = ({ db, user }) => {
       {cocuk && (
         <>
           <YoklamaVeli db={db} ogrenciler={ogrenciler} cocuk={cocuk} />
+          <MesajVeli db={db} cocuk={cocuk} user={user} />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl p-5 text-white shadow text-center"><i className="fa-solid fa-coins text-2xl mb-1"></i><p className="text-3xl font-black">{cocuk.puan||0}</p><p className="text-xs font-bold">D-Coin</p></div>
             <div className="bg-gradient-to-br from-emerald-400 to-teal-500 rounded-3xl p-5 text-white shadow text-center"><i className="fa-solid fa-clipboard-check text-2xl mb-1"></i><p className="text-3xl font-black">{teslimler.filter(t=>t.ogrenciId===cocuk.id).length}</p><p className="text-xs font-bold">Tamamlanan</p></div>
@@ -3668,6 +3679,136 @@ const YoklamaVeli = ({ db, ogrenciler, cocuk }) => {
           {gecmis.map(r=><p key={r.id} className="text-[12px] text-white/90">{trTarih ? '' : ''}{r.tarih} · {YOK_AD[r.durum]}{r.neden?` — ${r.neden}`:''}</p>)}
         </div>
       )}
+    </div>
+  );
+};
+
+
+/* ============================================================================
+   MESAJLAŞMA (veli ↔ öğretmen) + okunmadı bildirimi · k12_mesajlar
+   DEVAMSIZLIK ÖZETİ (kim kaç gün gelmedi) · k12_yoklama üzerinden
+   ============================================================================ */
+const MesajOgretmen = ({ db, user, mesajlar, ogrenciler }) => {
+  const [seciliId, setSeciliId] = useState('');
+  const [metin, setMetin] = useState('');
+  useEffect(()=>{ try{ var u=(mesajlar||[]).filter(function(m){return m.gonderen==='veli'&&!m.okOgretmen;}).length; if(u>0) toast('📬 '+u+' yeni veli mesajı var','#2563eb'); }catch(e){} }, []);
+  const grup = {};
+  (mesajlar||[]).forEach(m=>{ if(!grup[m.ogrenciId]) grup[m.ogrenciId]={ad:m.ogrenciAd, sinif:m.sinif, list:[], unread:0}; grup[m.ogrenciId].list.push(m); if(m.gonderen==='veli'&&!m.okOgretmen) grup[m.ogrenciId].unread++; });
+  const konusmalar = Object.keys(grup).map(id=>{ const g=grup[id]; const son=g.list.slice().sort((a,b)=>b.ts-a.ts)[0]; return {id, ad:g.ad, sinif:g.sinif, unread:g.unread, son}; }).sort((a,b)=>(b.son?b.son.ts:0)-(a.son?a.son.ts:0));
+  const acik = seciliId && grup[seciliId];
+  const thread = acik ? grup[seciliId].list.slice().sort((a,b)=>a.ts-b.ts) : [];
+  const ac = async (id) => { setSeciliId(id); const yeni=(mesajlar||[]).map(m=> (m.ogrenciId===id && m.gonderen==='veli' && !m.okOgretmen) ? {...m, okOgretmen:true} : m); if(JSON.stringify(yeni)!==JSON.stringify(mesajlar)) await okulYaz(db,"k12_mesajlar",{liste:yeni}); };
+  const gonder = async () => { if(!metin.trim()||!acik) return; const g=grup[seciliId]; const yeni=[...(mesajlar||[]), {id:yeniId(), ts:Date.now(), ogrenciId:seciliId, ogrenciAd:g.ad, sinif:g.sinif, gonderen:'ogretmen', ad:(user&&user.name)||'Öğretmen', metin:metin.trim(), okOgretmen:true, okVeli:false}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ setMetin(''); toast('Cevap gönderildi, veliye iletildi.','green'); } };
+
+  if(acik){
+    return (
+      <div>
+        <button onClick={()=>setSeciliId('')} className="text-xs font-black text-indigo-600 mb-2"><i className="fa-solid fa-arrow-left mr-1"></i>Tüm mesajlar</button>
+        <div className="bg-slate-50 rounded-xl p-3 mb-2 max-h-72 overflow-auto">
+          <p className="text-sm font-black text-slate-700 mb-2">{grup[seciliId].ad} · {grup[seciliId].sinif}</p>
+          {thread.map(m=>(
+            <div key={m.id} className={`mb-2 flex ${m.gonderen==='ogretmen'?'justify-end':'justify-start'}`}>
+              <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-[13px] ${m.gonderen==='ogretmen'?'bg-indigo-600 text-white':'bg-white border border-slate-200 text-slate-700'}`}>
+                <div className="text-[10px] opacity-70 mb-0.5">{m.ad}</div>{m.metin}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input value={metin} onChange={e=>setMetin(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')gonder();}} placeholder="Cevap yaz…" className="flex-1 px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none" />
+          <button onClick={gonder} className="bg-indigo-600 text-white font-black px-4 rounded-lg text-sm">Gönder</button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <h4 className="font-black text-slate-700 text-sm mb-2"><i className="fa-solid fa-inbox mr-1"></i>Veli Mesajları</h4>
+      {konusmalar.length===0 ? <p className="text-center text-slate-400 py-6 text-sm">Henüz mesaj yok. Veliler size buradan yazınca görünür.</p> : (
+        <div className="space-y-1.5">
+          {konusmalar.map(k=>(
+            <button key={k.id} onClick={()=>ac(k.id)} className="w-full text-left bg-white border border-slate-200 rounded-xl p-3 hover:bg-slate-50 flex items-center gap-2">
+              <div className="flex-1">
+                <div className="font-bold text-slate-700 text-sm">{k.ad} <span className="text-[11px] text-slate-400">· {k.sinif}</span></div>
+                {k.son && <div className="text-[12px] text-slate-500 truncate">{k.son.gonderen==='ogretmen'?'Siz: ':''}{k.son.metin}</div>}
+              </div>
+              {k.unread>0 && <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">{k.unread} yeni</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const MesajVeli = ({ db, cocuk, user }) => {
+  const doc = useOkulDoc(db, "k12_mesajlar");
+  const mesajlar = (doc && doc.liste) || [];
+  const [metin, setMetin] = useState('');
+  const thread = cocuk ? mesajlar.filter(m=>m.ogrenciId===cocuk.id).sort((a,b)=>a.ts-b.ts) : [];
+  const unread = thread.filter(m=>m.gonderen==='ogretmen' && !m.okVeli).length;
+  useEffect(()=>{ if(cocuk && unread>0){ const yeni=mesajlar.map(m=>(m.ogrenciId===cocuk.id && m.gonderen==='ogretmen' && !m.okVeli)?{...m,okVeli:true}:m); okulYaz(db,"k12_mesajlar",{liste:yeni}); } }, [cocuk?cocuk.id:'', unread]);
+  if(!cocuk) return null;
+  const gonder = async () => { if(!metin.trim()) return; const yeni=[...mesajlar, {id:yeniId(), ts:Date.now(), ogrenciId:cocuk.id, ogrenciAd:cocuk.ad, sinif:cocuk.sinif, gonderen:'veli', ad:(user&&user.name)||'Veli', metin:metin.trim(), okOgretmen:false, okVeli:true}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ setMetin(''); toast('Mesajınız öğretmene iletildi.','green'); } };
+  return (
+    <div className="bg-white border-4 border-sky-200 rounded-[2rem] p-6 shadow-lg mt-6">
+      <h3 className="text-xl font-black text-sky-800 mb-1 flex items-center"><i className="fa-solid fa-comments text-sky-500 mr-2"></i>Öğretmenle Mesajlaşma</h3>
+      <p className="text-sm text-slate-500 mb-3">{cocuk.ad} hakkında öğretmene yazın; cevap gelince burada görürsünüz.</p>
+      <div className="bg-slate-50 rounded-xl p-3 mb-2 max-h-64 overflow-auto">
+        {thread.length===0 ? <p className="text-center text-slate-400 text-sm py-3">Henüz mesaj yok. İlk mesajı siz yazın.</p> : thread.map(m=>(
+          <div key={m.id} className={`mb-2 flex ${m.gonderen==='veli'?'justify-end':'justify-start'}`}>
+            <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-[13px] ${m.gonderen==='veli'?'bg-sky-600 text-white':'bg-white border border-slate-200 text-slate-700'}`}>
+              <div className="text-[10px] opacity-70 mb-0.5">{m.gonderen==='veli'?'Siz':m.ad}</div>{m.metin}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input value={metin} onChange={e=>setMetin(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')gonder();}} placeholder="Öğretmene mesaj yaz…" className="flex-1 px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none" />
+        <button onClick={gonder} className="bg-sky-600 text-white font-black px-4 rounded-lg text-sm">Gönder</button>
+      </div>
+    </div>
+  );
+};
+
+const DevamsizlikOzeti = ({ db, ogrenciler }) => {
+  const doc = useOkulDoc(db, "k12_yoklama");
+  const liste = (doc && doc.liste) || [];
+  const [sinif, setSinif] = useState('hepsi');
+  const say = {};
+  liste.forEach(r=>{ if(r.durum==='gelmedi'||r.durum==='gec'){ if(!say[r.ogrenciId]) say[r.ogrenciId]={gelmedi:0, gec:0, son:''}; if(r.durum==='gelmedi') say[r.ogrenciId].gelmedi++; else say[r.ogrenciId].gec++; if(r.tarih>say[r.ogrenciId].son) say[r.ogrenciId].son=r.tarih; } });
+  let satir = ogrenciler.map(o=>({o, s: say[o.id]||{gelmedi:0,gec:0,son:''}}));
+  if(sinif!=='hepsi') satir = satir.filter(x=>x.o.sinif===sinif);
+  satir = satir.filter(x=>(x.s.gelmedi+x.s.gec)>0).sort((a,b)=>(b.s.gelmedi+b.s.gec)-(a.s.gelmedi+a.s.gec));
+  const toplamGun = satir.reduce((t,x)=>t+x.s.gelmedi,0);
+  return (
+    <div>
+      <div className="flex flex-col sm:flex-row gap-2 mb-3 items-center">
+        <select value={sinif} onChange={e=>setSinif(e.target.value)} className="flex-1 px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none">
+          <option value="hepsi">Tüm Sınıflar</option>
+          {OKUL_SINIFLAR.map(s=><option key={s} value={s}>{s}</option>)}
+        </select>
+        <span className="text-xs font-black text-slate-500 whitespace-nowrap">Toplam {toplamGun} devamsızlık günü</span>
+      </div>
+      {satir.length===0 ? <p className="text-center text-slate-400 py-6 text-sm">Devamsızlık kaydı yok. 🎉</p> : (
+        <div className="overflow-auto rounded-xl border border-slate-200">
+          <table className="w-full text-sm">
+            <thead><tr className="bg-rose-50 text-rose-800 text-[11px] uppercase"><th className="p-2 text-left">Öğrenci</th><th className="p-2">Sınıf</th><th className="p-2">Gelmedi</th><th className="p-2">Geç</th><th className="p-2">Son</th></tr></thead>
+            <tbody>
+              {satir.map(x=>(
+                <tr key={x.o.id} className="border-t border-slate-100">
+                  <td className="p-2 font-bold text-slate-700">{x.o.ad}</td>
+                  <td className="p-2 text-center text-slate-500 text-[12px]">{x.o.sinif}</td>
+                  <td className="p-2 text-center font-black text-rose-600">{x.s.gelmedi} gün</td>
+                  <td className="p-2 text-center font-black text-amber-600">{x.s.gec}</td>
+                  <td className="p-2 text-center text-[11px] text-slate-400">{x.s.son||'—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="text-[11px] text-slate-400 text-center mt-2">Yoklama sekmesinde işaretlenen tüm günler burada birikir. En çok devamsızlık yapan üstte.</p>
     </div>
   );
 };
