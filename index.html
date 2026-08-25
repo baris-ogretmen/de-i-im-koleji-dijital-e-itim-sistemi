@@ -2578,6 +2578,8 @@ const OgrenciMerkezi = ({ db, user }) => {
 
       {ben && <KitapTakip db={db} ogrenciler={ogrenciler} ben={ben} />}
 
+      <EkranSuresiVeli />
+
       <KonuCalisma grade={sinifim} />
 
       {/* Ödevlerim */}
@@ -3813,6 +3815,22 @@ const DevamsizlikOzeti = ({ db, ogrenciler }) => {
   );
 };
 
+const EkranSuresiVeli = () => {
+  const [dk, setDk] = useState(function(){ try{ return Number(localStorage.getItem('ekran_limit_dk'))||0; }catch(e){ return 0; } });
+  const kaydet = function(){ try{ localStorage.setItem('ekran_limit_dk', String(Number(dk)||0)); }catch(e){} alert((Number(dk)>0)?('Ekran süresi '+dk+' dakika olarak ayarlandı.'):'Ekran süresi sınırı kaldırıldı (sınırsız).'); location.reload(); };
+  return (
+    <div className="bg-white border-4 border-slate-200 rounded-[2rem] p-5 shadow-lg">
+      <h3 className="text-lg font-black text-slate-700 mb-1 flex items-center"><i className="fa-solid fa-hourglass-half text-slate-500 mr-2"></i>Ekran Süresi · Veli Kontrolü</h3>
+      <p className="text-xs text-slate-500 mb-3">Bu cihazda öğrencinin uygulama süresini veli belirler. <b>0 = sınırsız</b> (ödevler her zaman görünür, hiç kaybolmaz).</p>
+      <div className="flex gap-2 items-center">
+        <input type="number" min="0" value={dk} onChange={function(e){setDk(e.target.value);}} className="w-24 px-3 py-2 rounded-lg border-2 border-slate-200 text-sm outline-none" />
+        <span className="text-sm font-bold text-slate-500">dakika</span>
+        <button onClick={kaydet} className="ml-auto bg-slate-700 text-white font-black px-4 py-2 rounded-lg text-sm">Uygula</button>
+      </div>
+    </div>
+  );
+};
+
 const App = () => {
 
 // K12 SİSTEM STATELERİ VE EKRAN SÜRESİ
@@ -3998,12 +4016,11 @@ useEffect(() => {
 const handleLogin = (data) => {
     setSystemRole(data.role);
     setK12User(data);
+    try{ localStorage.setItem('k12_oturum', JSON.stringify(data)); }catch(e){}
     if(data.role === 'teacher') setActiveTab('tools');
     if(data.role === 'student') {
-        let seconds = 1800;
-        if(data.grade === 'anaokulu') seconds = 1200;
-        else if(data.grade === 'ortaokul') seconds = 2700;
-        setScreenTimeLeft(seconds);
+        let dk = Number(localStorage.getItem('ekran_limit_dk'))||0;
+        setScreenTimeLeft(dk*60);
     }
     showToast(`${data.role === 'teacher' ? 'Öğretmen' : data.name} girişi başarılı!`);
     
@@ -4015,11 +4032,19 @@ const handleLogin = (data) => {
 
 const handleLogout = () => {
     if(confirm("Çıkış yapmak istediğinize emin misiniz?")) {
+        try{ localStorage.removeItem('k12_oturum'); }catch(e){}
         setSystemRole(null);
         setK12User(null);
         setScreenTimeLeft(0);
     }
 };
+
+useEffect(() => {
+  try {
+    const kayit = localStorage.getItem('k12_oturum');
+    if (kayit) { const d = JSON.parse(kayit); if (d && d.role) { setSystemRole(d.role); setK12User(d); if(d.role==='student'){ let dk=Number(localStorage.getItem('ekran_limit_dk'))||0; setScreenTimeLeft(dk*60); } if(d.role==='teacher') setActiveTab('tools'); } }
+  } catch(e) {}
+}, []);
 
 useEffect(() => {
 if (apiKey) localStorage.setItem('gemini_api_key', apiKey);
@@ -5653,7 +5678,7 @@ const renderSharedUI = () => (
                                             </div>
                                            <div>
                                                 <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Öğretmen İsimleri (Virgülle Ayırın)</label>
-                                                <input type="text" value={globalConfig?.teachers || "Barış Hocam, Sınıf Öğretmeni, İngilizce Öğretmeni"} onChange={(e)=>setGlobalConfig({...globalConfig, teachers: e.target.value})} placeholder="Örn: Ayşe Hoca, Ali Bey..." className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 font-medium transition-all text-sm" />
+                                                <input type="text" value={globalConfig?.teachers || "Sınıf Öğretmeni, Branş Öğretmeni"} onChange={(e)=>setGlobalConfig({...globalConfig, teachers: e.target.value})} placeholder="Örn: Ayşe Hoca, Ali Bey..." className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 font-medium transition-all text-sm" />
                                             </div>
                                             <div>
                                                 <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Kurum Giriş Kodu (Şifre)</label>
@@ -5687,7 +5712,7 @@ const renderSharedUI = () => (
                                         const firestore = getFirestore();
                                         const confRef = doc(firestore, "maas_config", "k12_global");
                                         await setDoc(confRef, { 
-                                            teachers: globalConfig?.teachers || "Barış Hocam, Sınıf Öğretmeni, İngilizce Öğretmeni",
+                                            teachers: globalConfig?.teachers || "Sınıf Öğretmeni, Branş Öğretmeni",
                                             news: adminInputNews, 
                                             popup: adminInputPopup, 
                                             kurumKodu: adminInputKurumKodu,
@@ -5719,7 +5744,7 @@ const renderSharedUI = () => (
     </>
 );
 
-if (systemRole === 'student' && screenTimeLeft <= 0) return <><ScreenTimeLock /></>;
+if (systemRole === 'student' && (Number(localStorage.getItem('ekran_limit_dk'))||0) > 0 && screenTimeLeft <= 0) return <><ScreenTimeLock /></>;
 if (!systemRole) return <>{renderSharedUI()}<LoginScreen onLogin={handleLogin} openSettings={()=>setShowSettings(true)} globalConfig={globalConfig} /></>;
 if (systemRole === 'student') return <>{renderSharedUI()}<StudentPortal user={k12User} logout={handleLogout} timeLeft={screenTimeLeft} globalConfig={globalConfig} db={db} /></>;
 if (systemRole === 'parent') return <>{renderSharedUI()}<ParentPortal user={k12User} logout={handleLogout} globalConfig={globalConfig} db={db} /></>;
