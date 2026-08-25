@@ -1367,7 +1367,7 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
                         <div>
                             <input 
                                 type="text" 
-                                placeholder="Öğrenci / Veli Adı Soyadı" 
+                                placeholder={role==='parent'?"Çocuğunuzun Adı Soyadı":"Öğrenci Adı Soyadı"} 
                                 value={name} 
                                 onChange={e=>setName(e.target.value)} 
                                 className="w-full bg-black/30 border border-white/10 text-white px-6 py-4 rounded-2xl outline-none focus:border-indigo-400 focus:bg-black/50 transition font-bold text-center text-sm md:text-base placeholder-gray-400"
@@ -1382,7 +1382,7 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
                     {role !== 'teacher' && (
                         <div className="relative">
                             <select value={grade} onChange={e=>setGrade(e.target.value)} className="w-full bg-black/30 border border-white/10 text-white px-6 py-4 rounded-2xl outline-none focus:border-indigo-400 appearance-none font-bold text-sm md:text-base cursor-pointer text-center">
-                                {ALL_GRADES.map(g => <option key={g} value={g} className="text-black font-bold">{g}</option>)}
+                                {OKUL_SINIFLAR.map(g => <option key={g} value={g} className="text-black font-bold">{g}</option>)}
                             </select>
                             <i className="fa-solid fa-chevron-down absolute right-5 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none text-xl"></i>
                         </div>
@@ -1978,8 +1978,12 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
     { k:'veli',    ad:'Veli İletişim', ikon:'fa-comments' },
     { k:'mesaj',   ad:'Mesajlar', ikon:'fa-inbox' },
     { k:'karne',   ad:'Sınıf Karnesi', ikon:'fa-file-lines' },
+    { k:'bulten',  ad:'Haftalık Bülten', ikon:'fa-newspaper' },
+    { k:'gelisim', ad:'Gelişim Karnesi', ikon:'fa-chart-line' },
+    { k:'lig',     ad:'Lig', ikon:'fa-trophy' },
     { k:'qr',      ad:'QR Katılım', ikon:'fa-qrcode' },
     { k:'randevu', ad:'Randevu',    ikon:'fa-calendar-check' },
+    { k:'takvim',  ad:'Okul Takvimi', ikon:'fa-calendar-days' },
     { k:'duyuru',  ad:'Duyuru',     ikon:'fa-bullhorn' },
   ];
 
@@ -2018,6 +2022,10 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='randevu' && <RandevuOgretmen db={db} user={user} />}
     {!yukleniyor && sekme==='mesaj'   && <MesajOgretmen db={db} user={user} mesajlar={mesajlar} ogrenciler={ogrenciler} />}
         {!yukleniyor && sekme==='devamsizlik' && <DevamsizlikOzeti db={db} ogrenciler={ogrenciler} />}
+        {!yukleniyor && sekme==='bulten'  && <HaftalikBulten db={db} user={user} ogrenciler={ogrenciler} />}
+        {!yukleniyor && sekme==='gelisim' && <GelisimOgretmen db={db} ogrenciler={ogrenciler} />}
+        {!yukleniyor && sekme==='lig'     && <SinifLigi db={db} />}
+        {!yukleniyor && sekme==='takvim'  && <OkulTakvimi db={db} duzenlenebilir={true} user={user} />}
         {!yukleniyor && sekme==='duyuru'  && <DuyuruYonetim db={db} user={user} duyurular={duyurular} />}
       </div>
     </div>
@@ -2574,6 +2582,12 @@ const OgrenciMerkezi = ({ db, user }) => {
 
       <GununSozu />
 
+      <OkulTakvimi db={db} duzenlenebilir={false} />
+
+      {ben && <GelisimKarnesi db={db} ogrenci={ben} saltOkunur={true} />}
+
+      <div className="bg-white border-4 border-amber-200 rounded-[2rem] p-5 shadow-lg"><SinifLigi db={db} /></div>
+
       {ben && <KendiniKesfet db={db} ogrenciler={ogrenciler} ben={ben} teslimler={teslimler} />}
 
       {ben && <KitapTakip db={db} ogrenciler={ogrenciler} ben={ben} />}
@@ -2694,6 +2708,8 @@ const VeliMerkezi = ({ db, user }) => {
         <>
           <YoklamaVeli db={db} ogrenciler={ogrenciler} cocuk={cocuk} />
           <MesajVeli db={db} cocuk={cocuk} user={user} />
+          <GelisimKarnesi db={db} ogrenci={cocuk} saltOkunur={true} />
+          <OkulTakvimi db={db} duzenlenebilir={false} />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl p-5 text-white shadow text-center"><i className="fa-solid fa-coins text-2xl mb-1"></i><p className="text-3xl font-black">{cocuk.puan||0}</p><p className="text-xs font-bold">D-Coin</p></div>
             <div className="bg-gradient-to-br from-emerald-400 to-teal-500 rounded-3xl p-5 text-white shadow text-center"><i className="fa-solid fa-clipboard-check text-2xl mb-1"></i><p className="text-3xl font-black">{teslimler.filter(t=>t.ogrenciId===cocuk.id).length}</p><p className="text-xs font-bold">Tamamlanan</p></div>
@@ -3831,6 +3847,276 @@ const EkranSuresiVeli = () => {
   );
 };
 
+
+/* ============================================================================
+   HAFTALIK BÜLTEN + AI DEĞERLENDİRME  ·  OKUL TAKVİMİ (koordinasyon)
+   ============================================================================ */
+const HaftalikBulten = ({ db, user, ogrenciler }) => {
+  const odevDoc = useOkulDoc(db, "k12_odevler"); const odevler = (odevDoc && odevDoc.liste) || [];
+  const yokDoc = useOkulDoc(db, "k12_yoklama"); const yoklama = (yokDoc && yokDoc.liste) || [];
+  const [sinif, setSinif] = useState(OKUL_SINIFLAR[0]);
+  const [aiYuk, setAiYuk] = useState(false); const [aiMetin, setAiMetin] = useState('');
+  const now = new Date(); const gun = (now.getDay()+6)%7;
+  const pt = new Date(now); pt.setHours(0,0,0,0); pt.setDate(now.getDate()-gun);
+  const ptTs = pt.getTime(); const sonraki = ptTs + 7*24*3600*1000;
+  const haftaOdev = odevler.filter(o => o.sinif===sinif && o.tarih>=ptTs && o.tarih<sonraki);
+  const ptStr = pt.toISOString().slice(0,10); const sonStr = new Date(sonraki).toISOString().slice(0,10);
+  const haftaYok = yoklama.filter(r => r.sinif===sinif && r.tarih>=ptStr && r.tarih<sonStr && (r.durum==='gelmedi'||r.durum==='gec'));
+  const haftaBaslik = pt.toLocaleDateString('tr-TR') + ' – ' + new Date(sonraki-86400000).toLocaleDateString('tr-TR');
+  const okulAdi = (()=>{ try{ return localStorage.getItem('okul_adi')||'Okulumuz'; }catch(e){ return 'Okulumuz'; } })();
+
+  const yazdir = () => {
+    const odevRows = haftaOdev.length ? haftaOdev.map(o=>`<li><b>${o.ders||''}${o.konu?' · '+o.konu:''}:</b> ${(o.detay||o.konu||'').replace(/</g,'&lt;')} <span style="color:#94a3b8">(${new Date(o.tarih).toLocaleDateString('tr-TR')})</span></li>`).join('') : '<li>Bu hafta ödev girilmemiş.</li>';
+    const yokRows = haftaYok.length ? haftaYok.map(r=>`<li>${r.ogrenciAd} — ${r.durum==='gec'?'Geç':'Gelmedi'} (${r.tarih})${r.neden?' · '+r.neden:''}</li>`).join('') : '<li>Bu hafta devamsızlık kaydı yok. 🎉</li>';
+    const html = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>${sinif} Haftalık Bülten</title>
+      <style>body{font-family:system-ui,Arial;padding:28px;color:#0f172a;max-width:800px;margin:auto}h1{margin:0;font-size:22px;color:#4f46e5}.alt{color:#64748b;font-size:13px;margin:2px 0 18px}h2{font-size:15px;margin:18px 0 6px;border-bottom:2px solid #e2e8f0;padding-bottom:4px}ul{margin:6px 0;padding-left:20px;font-size:13px;line-height:1.7}.imza{margin-top:26px;color:#94a3b8;font-size:12px}button{margin-top:18px;padding:10px 18px;border:0;background:#4f46e5;color:#fff;border-radius:8px;font-weight:700;cursor:pointer}@media print{button{display:none}}</style></head>
+      <body><h1>${okulAdi} — Haftalık Bülten</h1><div class="alt">${sinif} · ${haftaBaslik}</div>
+      <h2>📚 Bu Haftanın Ödev ve Çalışmaları</h2><ul>${odevRows}</ul>
+      <h2>📋 Devamsızlık Özeti</h2><ul>${yokRows}</ul>
+      ${aiMetin?('<h2>📝 Haftanın Değerlendirme Çalışması</h2><div style="font-size:13px;line-height:1.7">'+aiMetin+'</div>'):''}
+      <div class="imza">${okulAdi} · Dijital Eğitim Ekosistemi ile hazırlandı.</div>
+      <button onclick="window.print()">🖨️ Yazdır / PDF Kaydet</button></body></html>`;
+    const w = window.open('', '_blank'); if(!w){ alert('Açılır pencereye izin verin.'); return; } w.document.open(); w.document.write(html); w.document.close();
+  };
+
+  const aiUret = async () => {
+    const anahtar = (typeof cozKey==='function'?cozKey():'');
+    if(!anahtar) return alert('AI için Ayarlardan Gemini anahtarı girin.');
+    if(!haftaOdev.length) return alert('Bu hafta için ödev yok; önce ödev girin.');
+    setAiYuk(true);
+    try{
+      const konular = haftaOdev.map(o=>`${o.ders||''}: ${o.konu||o.detay||''}`).join(' | ');
+      const p = `${sinif} düzeyine uygun, bu haftanın konularından (${konular}) kısa bir DEĞERLENDİRME çalışması hazırla: 5 soru (çoktan seçmeli veya boşluk doldurma, yaşa uygun), sonunda "✅ Cevaplar". Renkli HTML döndür (başlık, kalın, emoji), kod bloğu kullanma, sadece HTML gövdesi.`;
+      let t = await geminiMetin(anahtar, (typeof cozModel==='function'?cozModel():'gemini-2.5-flash'), p);
+      setAiMetin((t||'').replace(/```html|```/g,'').trim());
+    }catch(e){ alert('Üretilemedi, tekrar deneyin.'); }
+    setAiYuk(false);
+  };
+
+  return (
+    <div>
+      <div className="flex flex-col sm:flex-row gap-2 mb-3">
+        <select value={sinif} onChange={e=>{setSinif(e.target.value); setAiMetin('');}} className="flex-1 px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none">{OKUL_SINIFLAR.map(s=><option key={s}>{s}</option>)}</select>
+        <button onClick={yazdir} className="bg-indigo-600 text-white font-black px-4 py-2.5 rounded-lg text-sm hover:bg-indigo-700 whitespace-nowrap"><i className="fa-solid fa-print mr-1"></i>PDF / Yazdır</button>
+      </div>
+      <p className="text-xs text-slate-400 mb-3">Hafta: {haftaBaslik}</p>
+      <div className="bg-white border border-slate-200 rounded-xl p-4 mb-3">
+        <h4 className="font-black text-slate-700 text-sm mb-2"><i className="fa-solid fa-book text-indigo-500 mr-1"></i>Bu Haftanın Ödevleri ({haftaOdev.length})</h4>
+        {haftaOdev.length===0 ? <p className="text-slate-400 text-sm">Bu hafta ödev girilmemiş.</p> : (
+          <ul className="space-y-1">{haftaOdev.map(o=><li key={o.id} className="text-[13px] text-slate-600"><b className="text-slate-700">{o.ders}{o.konu?` · ${o.konu}`:''}:</b> {o.detay||o.konu} <span className="text-slate-300">({new Date(o.tarih).toLocaleDateString('tr-TR')})</span></li>)}</ul>
+        )}
+      </div>
+      <div className="bg-white border border-slate-200 rounded-xl p-4 mb-3">
+        <h4 className="font-black text-slate-700 text-sm mb-2"><i className="fa-solid fa-clipboard-user text-rose-500 mr-1"></i>Devamsızlık ({haftaYok.length})</h4>
+        {haftaYok.length===0 ? <p className="text-slate-400 text-sm">Kayıt yok. 🎉</p> : <ul className="space-y-1">{haftaYok.map(r=><li key={r.id} className="text-[13px] text-slate-600">{r.ogrenciAd} — {r.durum==='gec'?'Geç':'Gelmedi'} ({r.tarih}){r.neden?` · ${r.neden}`:''}</li>)}</ul>}
+      </div>
+      <button onClick={aiUret} disabled={aiYuk} className="w-full bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white font-black py-2.5 rounded-xl text-sm hover:brightness-110 disabled:opacity-60">{aiYuk?<i className="fa-solid fa-spinner fa-spin mr-1"></i>:<i className="fa-solid fa-wand-magic-sparkles mr-1"></i>}Bu Haftadan AI Değerlendirme Testi Üret</button>
+      {aiMetin && <div className="mt-3 bg-indigo-50 border border-indigo-200 rounded-xl p-4 text-sm text-slate-800 leading-relaxed" dangerouslySetInnerHTML={{__html:aiMetin}}></div>}
+      <p className="text-[11px] text-slate-400 text-center mt-3">Bülten + değerlendirmeyi "PDF / Yazdır" ile velilere gönderebilirsiniz.</p>
+    </div>
+  );
+};
+
+const OkulTakvimi = ({ db, duzenlenebilir, user }) => {
+  const doc = useOkulDoc(db, "k12_etkinlik"); const liste = (doc && doc.liste) || [];
+  const [tarih, setTarih] = useState(''); const [baslik, setBaslik] = useState(''); const [tur, setTur] = useState('Etkinlik'); const [aciklama, setAciklama] = useState('');
+  const bugun = new Date().toISOString().slice(0,10);
+  const yaklasan = liste.filter(e=>e.tarih>=bugun).sort((a,b)=>String(a.tarih).localeCompare(String(b.tarih)));
+  const turRenk = {'Veli Toplantısı':'#6366f1','Gezi':'#10b981','Sınav':'#ef4444','Tatil':'#f59e0b','Etkinlik':'#ec4899','Duyuru':'#0ea5e9'};
+  const turListe = Object.keys(turRenk);
+  const ekle = async () => { if(!tarih||!baslik.trim()) return alert('Tarih ve başlık gerekli.'); const yeni={id:yeniId(), tarih, baslik:baslik.trim(), tur, aciklama:aciklama.trim(), ekleyen:(user&&user.name)||'Yönetim', ts:Date.now()}; const ok=await okulYaz(db,"k12_etkinlik",{liste:[...liste,yeni]}); if(ok){ setBaslik(''); setAciklama(''); toast('📅 Etkinlik takvime eklendi.','green'); } };
+  const sil = async (id) => { if(!confirm('Silinsin mi?')) return; await okulYaz(db,"k12_etkinlik",{liste:liste.filter(e=>e.id!==id)}); };
+  const gun = (t)=>{ try{ return new Date(t+'T00:00:00').toLocaleDateString('tr-TR',{day:'2-digit',month:'long',weekday:'short'}); }catch(e){ return t; } };
+
+  const govde = (
+    <div className="space-y-2">
+      {yaklasan.length===0 ? <p className="text-center text-slate-400 py-4 text-sm">Yaklaşan etkinlik yok.</p> : yaklasan.map(e=>(
+        <div key={e.id} className="bg-white border border-slate-200 rounded-xl p-3 flex items-start gap-3">
+          <div className="text-center shrink-0 w-14">
+            <div className="text-[10px] font-black text-white rounded-lg py-1" style={{background:turRenk[e.tur]||'#64748b'}}>{gun(e.tarih)}</div>
+          </div>
+          <div className="flex-1">
+            <div className="font-black text-slate-700 text-sm">{e.baslik} <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{background:(turRenk[e.tur]||'#64748b')+'22', color:turRenk[e.tur]||'#64748b'}}>{e.tur}</span></div>
+            {e.aciklama && <div className="text-[12px] text-slate-500">{e.aciklama}</div>}
+          </div>
+          {duzenlenebilir && <button onClick={()=>sil(e.id)} className="text-slate-300 hover:text-rose-500 text-xs"><i className="fa-solid fa-xmark"></i></button>}
+        </div>
+      ))}
+    </div>
+  );
+
+  if(!duzenlenebilir){
+    return (
+      <div className="bg-white border-4 border-emerald-200 rounded-[2rem] p-5 shadow-lg mt-6">
+        <h3 className="text-lg font-black text-emerald-800 mb-3 flex items-center"><i className="fa-solid fa-calendar-days text-emerald-500 mr-2"></i>Okul Takvimi</h3>
+        {govde}
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-4">
+        <h4 className="font-black text-emerald-800 text-sm mb-2"><i className="fa-solid fa-calendar-plus mr-1"></i>Etkinlik Ekle (herkes görür)</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+          <input type="date" value={tarih} onChange={e=>setTarih(e.target.value)} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none" />
+          <select value={tur} onChange={e=>setTur(e.target.value)} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none">{turListe.map(t=><option key={t}>{t}</option>)}</select>
+        </div>
+        <input value={baslik} onChange={e=>setBaslik(e.target.value)} placeholder="Başlık (ör. 1. Dönem Veli Toplantısı)" className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none mb-2" />
+        <input value={aciklama} onChange={e=>setAciklama(e.target.value)} placeholder="Açıklama (opsiyonel)" className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none mb-2" />
+        <button onClick={ekle} className="w-full bg-emerald-600 text-white font-black py-2.5 rounded-lg text-sm hover:bg-emerald-700"><i className="fa-solid fa-plus mr-1"></i>Takvime Ekle</button>
+      </div>
+      <h4 className="font-black text-slate-700 text-sm mb-2">Yaklaşan Etkinlikler ({yaklasan.length})</h4>
+      {govde}
+    </div>
+  );
+};
+
+
+/* ============================================================================
+   GELİŞİM KARNESİ (AI) + YIL SONU DEĞERLENDİRME/YOL HARİTASI · SINIF LİGİ
+   ============================================================================ */
+const GelisimKarnesi = ({ db, ogrenci, ogrenciler, saltOkunur }) => {
+  const odevDoc = useOkulDoc(db,"k12_odevler"); const odevler=(odevDoc&&odevDoc.liste)||[];
+  const tesDoc = useOkulDoc(db,"k12_teslim"); const teslimler=(tesDoc&&tesDoc.liste)||[];
+  const yokDoc = useOkulDoc(db,"k12_yoklama"); const yoklama=(yokDoc&&yokDoc.liste)||[];
+  const [aiYuk,setAiYuk]=useState(false); const [aiMetin,setAiMetin]=useState(''); const [mod,setMod]=useState('');
+  if(!ogrenci) return null;
+  const atanan = odevler.filter(o=>(o.tur!=='birey'&&o.sinif===ogrenci.sinif)||(o.tur==='birey'&&o.ogrenciId===ogrenci.id)).length;
+  const yapilan = Math.min(teslimler.filter(t=>t.ogrenciId===ogrenci.id).length, atanan||9999);
+  const oran = atanan?Math.round(yapilan/atanan*100):0;
+  const gelmedi = yoklama.filter(r=>r.ogrenciId===ogrenci.id&&r.durum==='gelmedi').length;
+  const gec = yoklama.filter(r=>r.ogrenciId===ogrenci.id&&r.durum==='gec').length;
+  const kitap = (ogrenci.kitaplar||[]).length; const puan = ogrenci.puan||0;
+  const dnaOzet = (ogrenci.dna&&ogrenci.dna.detay)?Object.keys(ogrenci.dna.detay).sort((a,b)=>ogrenci.dna.detay[b]-ogrenci.dna.detay[a]).slice(0,3).join(', '):(ogrenci.dna&&ogrenci.dna.ozet?ogrenci.dna.ozet:'Henüz DNA yok');
+  const okulAdi=(()=>{try{return localStorage.getItem('okul_adi')||'Okulumuz';}catch(e){return 'Okulumuz';}})();
+  const StatKutu = (
+    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-3">
+      {[['Ödev',`${yapilan}/${atanan}`,'text-indigo-600'],['Tamamlama',`%${oran}`,'text-emerald-600'],['Devamsızlık',gelmedi,'text-rose-600'],['Kitap',kitap,'text-teal-600'],['D-Coin',puan,'text-amber-600']].map((k,i)=>(
+        <div key={i} className="bg-slate-50 rounded-xl p-2 text-center"><div className={`text-lg font-black ${k[2]}`}>{k[1]}</div><div className="text-[10px] font-bold text-slate-400">{k[0]}</div></div>
+      ))}
+    </div>
+  );
+
+  // ---- SALT OKUNUR (veli / öğrenci): yalnızca öğretmenin kaydettiği raporlar görünür ----
+  if(saltOkunur){
+    const g=ogrenci.gelisimRapor, y=ogrenci.yilSonuRapor;
+    return (
+      <div className="bg-white border-4 border-violet-200 rounded-[2rem] p-5 shadow-lg mt-6">
+        <h3 className="text-lg font-black text-violet-800 mb-3 flex items-center"><i className="fa-solid fa-chart-line text-violet-500 mr-2"></i>Gelişim & Değerlendirme</h3>
+        {StatKutu}
+        <div className="text-[12px] text-slate-500 mb-3">🧬 Güçlü yönler: {dnaOzet}</div>
+        {(!g && !y) ? <p className="text-center text-slate-400 py-4 text-sm">Öğretmeniniz henüz değerlendirme oluşturmadı. Oluşturulunca burada görünecek.</p> : (
+          <div className="space-y-3">
+            {g && <div className="bg-violet-50 border border-violet-200 rounded-xl p-4"><h4 className="font-black text-violet-700 text-sm mb-1">📈 Gelişim Raporu</h4><div className="text-sm text-slate-800 leading-relaxed" dangerouslySetInnerHTML={{__html:g}}></div></div>}
+            {y && <div className="bg-amber-50 border border-amber-200 rounded-xl p-4"><h4 className="font-black text-amber-700 text-sm mb-1">🏁 Yıl Sonu Değerlendirmesi ve Yol Haritası</h4><div className="text-sm text-slate-800 leading-relaxed" dangerouslySetInnerHTML={{__html:y}}></div></div>}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ---- ÖĞRETMEN: üret + KAYDET (veli/öğrenci görsün) ----
+  const uret = async (tip) => {
+    const anahtar=(typeof cozKey==='function'?cozKey():''); if(!anahtar) return alert('AI için Ayarlardan Gemini anahtarı girin.');
+    setAiYuk(true); setMod(tip);
+    try{
+      const veri=`Öğrenci: ${ogrenci.ad} (${ogrenci.sinif}). Ödev tamamlama: ${yapilan}/${atanan} (%${oran}). Devamsızlık: ${gelmedi} gün, geç: ${gec}. Okunan kitap: ${kitap}. D-Coin: ${puan}. Güçlü yönler (DNA): ${dnaOzet}.`;
+      const p = tip==='yilsonu'
+        ? `${veri}\nBir rehber öğretmen gibi, ${ogrenci.sinif} düzeyine uygun YIL SONU DEĞERLENDİRMESİ ve YOL HARİTASI yaz. Bölümler (renkli HTML, kod bloğu yok): <h3>Genel Değerlendirme</h3>, <h3>Güçlü Yönler</h3>, <h3>Gelişim Alanları</h3>, <h3>Yaz Dönemi Yol Haritası</h3> (4 somut madde). Sıcak, umut verici, damgalamayan dil.`
+        : `${veri}\nBir rehber öğretmen gibi veliye yönelik kısa GELİŞİM RAPORU yaz. Bölümler (renkli HTML, kod bloğu yok): <h3>Bu Dönem Nasıl Gidiyor?</h3> (2-3 cümle), <h3>Takdir Edilecekler</h3> (2 madde), <h3>Birlikte Destekleyelim</h3> (veli+öğretmen işbirliği için 3 öneri). Sıcak dil.`;
+      let t=await geminiMetin(anahtar,(typeof cozModel==='function'?cozModel():'gemini-2.5-flash'),p);
+      setAiMetin((t||'').replace(/```html|```/g,'').trim());
+    }catch(e){ alert('Üretilemedi, tekrar deneyin.'); }
+    setAiYuk(false);
+  };
+  const kaydet = async () => {
+    if(!aiMetin) return; const alan = mod==='yilsonu'?'yilSonuRapor':'gelisimRapor';
+    const liste=(ogrenciler||[]).map(o=>o.id===ogrenci.id?{...o,[alan]:aiMetin}:o);
+    const ok=await okulYaz(db,"k12_ogrenciler",{liste}); if(ok) toast('✅ Rapor kaydedildi — veli ve öğrenci ekranında görünecek.','green');
+  };
+  const yazdir = () => {
+    const html=`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>${ogrenci.ad} Gelişim Karnesi</title>
+      <style>body{font-family:system-ui,Arial;padding:28px;color:#0f172a;max-width:800px;margin:auto}h1{margin:0;font-size:22px;color:#7c3aed}.alt{color:#64748b;font-size:13px;margin:2px 0 16px}.g{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}.k{background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:10px 14px;font-size:13px}.k b{display:block;font-size:18px;color:#6d28d9}h3{color:#7c3aed;font-size:15px;margin:14px 0 4px}.imza{margin-top:24px;color:#94a3b8;font-size:12px}button{margin-top:18px;padding:10px 18px;border:0;background:#7c3aed;color:#fff;border-radius:8px;font-weight:700;cursor:pointer}@media print{button{display:none}}</style></head>
+      <body><h1>${okulAdi} — Gelişim Karnesi</h1><div class="alt">${ogrenci.ad} · ${ogrenci.sinif} · ${new Date().toLocaleDateString('tr-TR')}</div>
+      <div class="g"><div class="k"><b>${yapilan}/${atanan}</b>Ödev</div><div class="k"><b>%${oran}</b>Tamamlama</div><div class="k"><b>${gelmedi}</b>Devamsızlık</div><div class="k"><b>${kitap}</b>Kitap</div><div class="k"><b>${puan}</b>D-Coin</div></div>
+      <div style="font-size:13px;line-height:1.7">${aiMetin||'<i>AI raporu üretilmedi.</i>'}</div>
+      <div class="imza">${okulAdi} · Dijital Eğitim Ekosistemi</div><button onclick="window.print()">🖨️ Yazdır / PDF</button></body></html>`;
+    const w=window.open('','_blank'); if(!w){alert('Açılır pencereye izin verin.');return;} w.document.open(); w.document.write(html); w.document.close();
+  };
+  return (
+    <div className="bg-white border-4 border-violet-200 rounded-[2rem] p-5 shadow-lg mt-6">
+      <h3 className="text-lg font-black text-violet-800 mb-3 flex items-center"><i className="fa-solid fa-chart-line text-violet-500 mr-2"></i>Gelişim Karnesi · {ogrenci.ad}</h3>
+      {StatKutu}
+      <div className="text-[12px] text-slate-500 mb-3">🧬 Güçlü yönler: {dnaOzet}</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <button onClick={()=>uret('gelisim')} disabled={aiYuk} className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-black py-2.5 rounded-xl text-sm hover:brightness-110 disabled:opacity-60">{aiYuk&&mod==='gelisim'?<i className="fa-solid fa-spinner fa-spin mr-1"></i>:<i className="fa-solid fa-wand-magic-sparkles mr-1"></i>}Gelişim Raporu</button>
+        <button onClick={()=>uret('yilsonu')} disabled={aiYuk} className="bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black py-2.5 rounded-xl text-sm hover:brightness-110 disabled:opacity-60">{aiYuk&&mod==='yilsonu'?<i className="fa-solid fa-spinner fa-spin mr-1"></i>:<i className="fa-solid fa-flag-checkered mr-1"></i>}Yıl Sonu + Yol Haritası</button>
+      </div>
+      {aiMetin && <div className="mt-3 bg-violet-50 border border-violet-200 rounded-xl p-4 text-sm text-slate-800 leading-relaxed" dangerouslySetInnerHTML={{__html:aiMetin}}></div>}
+      {aiMetin && (
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <button onClick={kaydet} className="bg-emerald-600 text-white font-black py-2.5 rounded-lg text-sm hover:bg-emerald-700"><i className="fa-solid fa-floppy-disk mr-1"></i>Kaydet (veli/öğrenci görsün)</button>
+          <button onClick={yazdir} className="bg-slate-200 text-slate-700 font-black py-2.5 rounded-lg text-sm"><i className="fa-solid fa-print mr-1"></i>PDF / Yazdır</button>
+        </div>
+      )}
+      <p className="text-[11px] text-slate-400 text-center mt-2">Yıl sonu ve gelişim değerlendirmesini yalnızca öğretmen üretir; "Kaydet" ile veli ve öğrenci ekranında salt-okunur görünür.</p>
+    </div>
+  );
+};
+
+const GelisimOgretmen = ({ db, ogrenciler }) => {
+  const [id,setId]=useState('');
+  const ogr=ogrenciler.find(o=>o.id===id);
+  return (
+    <div>
+      <select value={id} onChange={e=>setId(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none mb-2">
+        <option value="">— Öğrenci seç —</option>
+        {OKUL_SINIFLAR.map(s=>{const g=ogrenciler.filter(o=>o.sinif===s); return g.length?<optgroup key={s} label={s}>{g.map(o=><option key={o.id} value={o.id}>{o.ad}</option>)}</optgroup>:null;})}
+      </select>
+      {!ogr ? <p className="text-center text-slate-400 py-6 text-sm">Gelişim karnesi için bir öğrenci seçin.</p> : <GelisimKarnesi db={db} ogrenci={ogr} ogrenciler={ogrenciler} />}
+    </div>
+  );
+};
+
+const SinifLigi = ({ db }) => {
+  const doc=useOkulDoc(db,"k12_ogrenciler"); const ogrenciler=(doc&&doc.liste)||[];
+  const sinifTop={};
+  ogrenciler.forEach(o=>{ if(!sinifTop[o.sinif]) sinifTop[o.sinif]={puan:0,sayi:0}; sinifTop[o.sinif].puan+=(o.puan||0); sinifTop[o.sinif].sayi++; });
+  const sinifSira=Object.keys(sinifTop).map(s=>({s, puan:sinifTop[s].puan, ort: sinifTop[s].sayi?Math.round(sinifTop[s].puan/sinifTop[s].sayi):0})).sort((a,b)=>b.puan-a.puan);
+  const ogrSira=ogrenciler.slice().sort((a,b)=>(b.puan||0)-(a.puan||0)).slice(0,10);
+  const madalya=['🥇','🥈','🥉'];
+  return (
+    <div>
+      <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-4 text-white mb-4">
+        <h3 className="font-black text-lg"><i className="fa-solid fa-trophy mr-2"></i>Sınıflar Arası Lig</h3>
+        <p className="text-white/80 text-xs">D-Coin toplamına göre sınıf sıralaması</p>
+      </div>
+      {sinifSira.length===0 ? <p className="text-center text-slate-400 py-6 text-sm">Henüz veri yok.</p> : (
+        <div className="space-y-2 mb-5">
+          {sinifSira.map((x,i)=>(
+            <div key={x.s} className={`flex items-center gap-3 rounded-xl p-3 ${i===0?'bg-amber-50 border-2 border-amber-300':'bg-white border border-slate-200'}`}>
+              <span className="text-xl w-8 text-center">{madalya[i]||(i+1)}</span>
+              <span className="flex-1 font-black text-slate-700">{x.s}</span>
+              <span className="text-[11px] text-slate-400">ort. {x.ort}</span>
+              <span className="font-black text-amber-600">{x.puan} 🪙</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <h4 className="font-black text-slate-700 text-sm mb-2"><i className="fa-solid fa-star text-amber-400 mr-1"></i>Okul Birincileri (İlk 10)</h4>
+      <div className="space-y-1.5">
+        {ogrSira.map((o,i)=>(
+          <div key={o.id} className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-2">
+            <span className="w-6 text-center font-black text-slate-400">{i+1}</span>
+            <span className="flex-1 font-bold text-slate-700 text-sm">{o.ad} <span className="text-[11px] text-slate-400">· {o.sinif}</span></span>
+            <span className="font-black text-amber-600 text-sm">{o.puan||0} 🪙</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const App = () => {
 
 // K12 SİSTEM STATELERİ VE EKRAN SÜRESİ
@@ -4013,7 +4299,14 @@ useEffect(() => {
     return () => clearInterval(interval);
 }, [systemRole]);
 
-const handleLogin = (data) => {
+const _regDoc = useOkulDoc(db, "k12_ogrenciler");
+  const kayitliOgrenciler = (_regDoc && _regDoc.liste) ? _regDoc.liste : [];
+  const handleLogin = (data) => {
+    if(data.role==='student' || data.role==='parent'){
+      const nrm = (typeof okulNorm==='function') ? okulNorm : function(x){return String(x||'').toLowerCase().trim();};
+      const eslesme = kayitliOgrenciler.some(function(o){ return nrm(o.ad)===nrm(data.name) && String(o.sinif)===String(data.grade); });
+      if(!eslesme){ alert(data.role==='parent' ? 'Çocuğunuz bu sınıfta kayıtlı görünmüyor. Öğretmenin kaydettiği ad-soyad ve sınıfı birebir girin. (Öğretmen henüz kaydetmediyse ona başvurun.)' : 'Adın bu sınıfta kayıtlı görünmüyor. Öğretmeninin kaydettiği ad-soyad ve sınıfı birebir gir. (Öğretmenin henüz kaydetmediyse ona söyle.)'); return; }
+    }
     setSystemRole(data.role);
     setK12User(data);
     try{ localStorage.setItem('k12_oturum', JSON.stringify(data)); }catch(e){}
@@ -5591,6 +5884,7 @@ setTimeout(() => setPickedStudent(null), 3000);
 const renderSharedUI = () => (
     <>
         <DraggableRobot apiKey={apiKey} modelName={modelName} />
+        {systemRole && systemRole!=='student' && <button id="zu-ayar" onClick={()=>setShowSettings(true)} title="Ayarlar" className="fixed left-3 bottom-16 z-[99990] w-10 h-10 rounded-full bg-slate-700/80 hover:bg-slate-800 text-white shadow-lg flex items-center justify-center no-print">⚙️</button>}
         {toastMessage && (
             <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl z-[99999] flex items-center space-x-2 animate-fade-in no-print font-medium text-sm w-max">
                 <i className="fa-solid fa-bell text-green-400"></i><span>{toastMessage}</span>
@@ -8896,7 +9190,7 @@ notes.map(n => (
     el.addEventListener('touchstart',down,{passive:false}); window.addEventListener('touchmove',move,{passive:false}); window.addEventListener('touchend',up);
     el.addEventListener('click',function(e){ if(moved){ e.stopPropagation(); e.preventDefault(); moved=false; } }, true);
   }
-  function surukleAta(){ ['zlisans-fab','zu-mod','zu-ai'].forEach(function(id){ var el=document.getElementById(id); if(el) zuSurukle(el); }); }
+  function surukleAta(){ ['zlisans-fab','zu-mod','zu-ai','zu-ayar'].forEach(function(id){ var el=document.getElementById(id); if(el) zuSurukle(el); }); }
 
   function baslat(){ modPill(); uygula(); aiBanner(); yerlestir(); surukleAta(); setTimeout(surukleAta,900); setTimeout(surukleAta,2200); setInterval(surukleAta,3000); }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", baslat); else baslat();
