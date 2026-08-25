@@ -4117,10 +4117,32 @@ const SinifLigi = ({ db }) => {
   );
 };
 
+const AdminOnizlemeBar = ({ current, ogrenciler, onRol }) => {
+  const [sec, setSec] = useState('');
+  const ogr = ogrenciler.find(o=>o.id===sec);
+  const B = ({r,label,u}) => (
+    <button onClick={()=>onRol(r,u)} className={`px-2.5 py-1 rounded-lg font-black transition ${current===r?'bg-white text-slate-900':'bg-white/15 text-white hover:bg-white/25'}`}>{label}</button>
+  );
+  return (
+    <div className="fixed top-0 left-0 right-0 z-[99998] bg-gradient-to-r from-indigo-900 to-slate-900 text-white px-3 py-1.5 flex items-center gap-1.5 flex-wrap no-print text-[11px] shadow-lg">
+      <span className="font-black mr-1">🛡️ Yönetici Önizleme:</span>
+      <B r="admin" label="Yönetim" u={{name:'Yönetici',role:'admin',grade:''}} />
+      <B r="teacher" label="Öğretmen" u={{name:'Yönetici',role:'teacher',grade:''}} />
+      <select value={sec} onChange={e=>setSec(e.target.value)} className="text-black rounded px-1 py-0.5 font-bold" style={{maxWidth:'140px'}}>
+        <option value="">Öğrenci seç…</option>
+        {ogrenciler.map(o=><option key={o.id} value={o.id}>{o.ad} · {o.sinif}</option>)}
+      </select>
+      <button disabled={!ogr} onClick={()=>ogr&&onRol('student',{name:ogr.ad,role:'student',grade:ogr.sinif})} className="px-2.5 py-1 rounded-lg font-black bg-white/15 hover:bg-white/25 disabled:opacity-40">Öğrenci gibi</button>
+      <button disabled={!ogr} onClick={()=>ogr&&onRol('parent',{name:ogr.ad,role:'parent',grade:ogr.sinif})} className="px-2.5 py-1 rounded-lg font-black bg-white/15 hover:bg-white/25 disabled:opacity-40">Veli gibi</button>
+    </div>
+  );
+};
+
 const App = () => {
 
 // K12 SİSTEM STATELERİ VE EKRAN SÜRESİ
 const [systemRole, setSystemRole] = useState(null);
+const [adminAsli, setAdminAsli] = useState(false);
 const [k12User, setK12User] = useState(null);
 const [screenTimeLeft, setScreenTimeLeft] = useState(0);
 const [showSettings, setShowSettings] = useState(false);
@@ -4326,6 +4348,7 @@ const _regDoc = useOkulDoc(db, "k12_ogrenciler");
 const handleLogout = () => {
     if(confirm("Çıkış yapmak istediğinize emin misiniz?")) {
         try{ localStorage.removeItem('k12_oturum'); }catch(e){}
+        setAdminAsli(false);
         setSystemRole(null);
         setK12User(null);
         setScreenTimeLeft(0);
@@ -4410,6 +4433,7 @@ onAuthStateChanged(auth, async (u) => {
         }
         setIsApiValid(true);
         setSystemRole('admin');
+        setAdminAsli(true);
         try{ window.ZIRVE_admin = true; }catch(e){}
         setK12User({ name: 'Yönetici', role: 'admin', grade: '' });
     }
@@ -5884,6 +5908,7 @@ setTimeout(() => setPickedStudent(null), 3000);
 const renderSharedUI = () => (
     <>
         <DraggableRobot apiKey={apiKey} modelName={modelName} />
+        {adminAsli && <AdminOnizlemeBar current={systemRole} ogrenciler={kayitliOgrenciler} onRol={(r,u)=>{ setSystemRole(r); setK12User(u); window.scrollTo(0,0); }} />}
         {systemRole && systemRole!=='student' && <button id="zu-ayar" onClick={()=>setShowSettings(true)} title="Ayarlar" className="fixed left-3 bottom-16 z-[99990] w-10 h-10 rounded-full bg-slate-700/80 hover:bg-slate-800 text-white shadow-lg flex items-center justify-center no-print">⚙️</button>}
         {toastMessage && (
             <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl z-[99999] flex items-center space-x-2 animate-fade-in no-print font-medium text-sm w-max">
