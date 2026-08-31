@@ -1323,7 +1323,7 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
     const dynamicTeachers = globalConfig?.teachers ? globalConfig.teachers.split(',').map(t=>t.trim()).filter(Boolean) : TEACHER_NAMES;
     const [role, setRole] = useState('student');
     const [name, setName] = useState('');
-    const [teacherName, setTeacherName] = useState(dynamicTeachers[0] || "");
+    const [teacherName, setTeacherName] = useState("");
     const [grade, setGrade] = useState(ALL_GRADES[0]);
     const [kurumKodu, setKurumKodu] = useState('');
 
@@ -2147,6 +2147,8 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
   const [sonTeslim, setSonTeslim] = useState('');
   const [aiYukleniyor, setAiYukleniyor] = useState(false);
   const [kaydediliyor, setKaydediliyor] = useState(false);
+  const [link, setLink] = useState('');
+  const [duzenle, setDuzenle] = useState(null);
 
   const sinifOgrencileri = ogrenciler.filter(o=>o.sinif===sinif);
 
@@ -2174,16 +2176,23 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
       ogrenciAd: hedef ? hedef.ad : '',
       ders, konu: konu.trim(), detay: detay.trim(),
       ekleyen: (user && user.name) || 'Öğretmen',
-      sonTeslim: sonTeslim || '', tarih: Date.now()
+      sonTeslim: sonTeslim || '', link: link.trim(), tarih: Date.now()
     };
     const ok = await okulYaz(db, "k12_odevler", { liste: [kayit, ...odevler] });
     setKaydediliyor(false);
-    if(ok){ setKonu(''); setDetay(''); setSonTeslim(''); toast(tur==='birey'?`🎯 Ödev ${hedef?hedef.ad:''} adlı öğrenciye gönderildi.`:`🚀 Ödev ${sinif} sınıfına gönderildi.`,'green'); }
+    if(ok){ setKonu(''); setDetay(''); setSonTeslim(''); setLink(''); toast(tur==='birey'?`🎯 Ödev ${hedef?hedef.ad:''} adlı öğrenciye gönderildi.`:`🚀 Ödev ${sinif} sınıfına gönderildi.`,'green'); }
   };
 
   const sil = async (id) => {
     if(!window.confirm("Bu ödev kaldırılsın mı?")) return;
     await okulYaz(db, "k12_odevler", { liste: odevler.filter(o=>o.id!==id) });
+  };
+
+  const guncelle = async () => {
+    if(!duzenle) return;
+    const liste = odevler.map(o=> o.id===duzenle.id ? {...o, konu:duzenle.konu, detay:duzenle.detay, sonTeslim:duzenle.sonTeslim||'', link:(duzenle.link||'').trim()} : o);
+    const ok = await okulYaz(db, "k12_odevler", { liste });
+    if(ok){ setDuzenle(null); toast('✅ Ödev güncellendi.','green'); }
   };
 
   const gecmis = odevler.slice(0, 12);
@@ -2228,6 +2237,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
           <label className="text-[11px] font-black text-rose-700 uppercase">Son Teslim:</label>
           <input type="date" value={sonTeslim} onChange={e=>setSonTeslim(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none" />
         </div>
+        <input value={link} onChange={e=>setLink(e.target.value)} placeholder="🔗 Video / görsel / dosya linki (opsiyonel — YouTube, Drive, resim linki)" className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none mb-3" />
         <button onClick={ata} disabled={kaydediliyor} className="w-full bg-rose-600 text-white font-black py-3 rounded-xl hover:bg-rose-700 transition flex items-center justify-center gap-2">
           {kaydediliyor ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-rocket"></i>}GÖREVİ GÖNDER
         </button>
@@ -2236,7 +2246,15 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
       <h4 className="font-black text-slate-700 text-sm mb-2 flex items-center gap-2"><i className="fa-solid fa-clock-rotate-left"></i>Son Atanan Ödevler</h4>
       {gecmis.length===0 ? <p className="text-center text-slate-400 py-4 text-sm">Henüz ödev atanmadı.</p> : (
         <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-          {gecmis.map(o=>(
+          {gecmis.map(o=> (duzenle && duzenle.id===o.id) ? (
+            <div key={o.id} className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3">
+              <input value={duzenle.konu} onChange={e=>setDuzenle({...duzenle,konu:e.target.value})} placeholder="Konu" className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-sm outline-none mb-1.5" />
+              <textarea value={duzenle.detay} onChange={e=>setDuzenle({...duzenle,detay:e.target.value})} rows="2" className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-sm outline-none mb-1.5 resize-y"></textarea>
+              <input value={duzenle.link||''} onChange={e=>setDuzenle({...duzenle,link:e.target.value})} placeholder="🔗 Link (opsiyonel)" className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-sm outline-none mb-1.5" />
+              <div className="flex items-center gap-2 mb-2"><label className="text-[11px] font-black text-amber-700 uppercase">Son teslim:</label><input type="date" value={duzenle.sonTeslim||''} onChange={e=>setDuzenle({...duzenle,sonTeslim:e.target.value})} className="px-2 py-1 rounded-lg border border-gray-200 text-sm outline-none" /></div>
+              <div className="flex gap-2"><button onClick={guncelle} className="flex-1 bg-emerald-600 text-white font-black py-2 rounded-lg text-xs"><i className="fa-solid fa-floppy-disk mr-1"></i>Kaydet</button><button onClick={()=>setDuzenle(null)} className="flex-1 bg-slate-200 text-slate-600 font-black py-2 rounded-lg text-xs">İptal</button></div>
+            </div>
+          ) : (
             <div key={o.id} className="bg-white border border-gray-200 rounded-xl p-3 flex items-start gap-2">
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-black text-slate-800">
@@ -2244,9 +2262,13 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
                   {' · '}{o.ders}{o.konu?` · ${o.konu}`:''}
                 </p>
                 <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{o.detay}</p>
+                {o.link && <a href={o.link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-sky-600 font-bold inline-block mt-0.5"><i className="fa-solid fa-paperclip mr-1"></i>Ek dosya/video</a>}
                 <p className="text-[10px] text-slate-400 mt-1">{trTarih(o.tarih)}{o.sonTeslim?` · son teslim: ${o.sonTeslim}`:''}</p>
               </div>
-              <button onClick={()=>sil(o.id)} className="text-slate-300 hover:text-red-500 p-1"><i className="fa-solid fa-trash-can"></i></button>
+              <div className="flex flex-col">
+                <button onClick={()=>setDuzenle({id:o.id,konu:o.konu||'',detay:o.detay||'',sonTeslim:o.sonTeslim||'',link:o.link||''})} className="text-slate-300 hover:text-amber-500 p-1" title="Düzenle"><i className="fa-solid fa-pen"></i></button>
+                <button onClick={()=>sil(o.id)} className="text-slate-300 hover:text-red-500 p-1" title="Sil"><i className="fa-solid fa-trash-can"></i></button>
+              </div>
             </div>
           ))}
         </div>
@@ -2626,6 +2648,7 @@ const OgrenciMerkezi = ({ db, user }) => {
                     {o.sonTeslim && (()=>{ const gecti = o.sonTeslim < new Date().toISOString().slice(0,10); return <span className={`text-[10px] font-bold ml-auto ${gecti?'text-emerald-600':'text-red-500'}`}><i className="fa-solid fa-clock mr-1"></i>{gecti?'Süre doldu · yine de yapabilirsin':('Son: '+o.sonTeslim)}</span>; })()}
                   </div>
                   <p className="text-slate-800 font-medium whitespace-pre-wrap leading-relaxed text-sm">{o.detay}</p>
+                  {o.link && <a href={o.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-2 bg-sky-50 border border-sky-200 text-sky-700 font-bold px-3 py-1.5 rounded-lg text-[13px]"><i className="fa-solid fa-paperclip"></i> Öğretmenin eklediği video/dosya</a>}
                   {ben && !yapildi && (() => {
                     const cevap = (mesajTaslak[o.id]||'');
                     const yeterli = cevap.trim().length >= 10;
