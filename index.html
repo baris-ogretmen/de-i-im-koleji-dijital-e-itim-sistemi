@@ -1941,10 +1941,31 @@ const DNAKarti = ({ dna, ad, kompakt }) => {
 
 /* Gemini yardımcı (öğretmen anahtarıyla) */
 async function geminiMetin(apiKey, modelName, prompt){
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName||'gemini-2.5-flash'}:generateContent?key=${apiKey}`;
-  const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ contents:[{ parts:[{ text: prompt }] }] }) });
-  const data = await res.json();
-  return (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+  // ZİRVE otomatik model bulma: erişilemeyen modelde sessizce çalışan bir sonrakine geç
+  let kesif = [];
+  try { if(window.ZIRVE && Array.isArray(window.ZIRVE.modeller)) kesif = window.ZIRVE.modeller.filter(Boolean); } catch(e){}
+  const yedek = ['gemini-2.5-flash','gemini-2.0-flash','gemini-flash-latest','gemini-1.5-flash'];
+  let zincir = kesif.slice();
+  yedek.forEach(function(m){ if(zincir.indexOf(m)<0) zincir.push(m); });
+  const istenen = modelName || kesif[0] || 'gemini-2.5-flash';
+  let ilk = istenen;
+  // Başlangıç guard: keşif listesi doluysa ve istenen model orada yoksa → en iyi çalışana çevir (boşa 404 denemesi olmaz)
+  if (kesif.length && kesif.indexOf(ilk) < 0) ilk = kesif[0];
+  const sira = [ilk].concat(zincir.filter(function(m){ return m!==ilk; }));
+  for (let i=0; i<sira.length; i++){
+    const m = sira[i];
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ contents:[{ parts:[{ text: prompt }] }] }) });
+      if (!res.ok) { continue; }  // 404/400/403 → sessizce sonraki çalışan modele geç
+      const data = await res.json();
+      const metin = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+      if (!metin) { continue; }
+      if (m !== istenen) { try{ if(typeof toast==='function') toast('⚡ Model otomatik seçildi: '+m,'green'); }catch(e){} }
+      return metin;
+    } catch(e){ continue; }
+  }
+  return '';
 }
 
 /* ============================================================================
@@ -2149,6 +2170,25 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
   const [kaydediliyor, setKaydediliyor] = useState(false);
   const [link, setLink] = useState('');
   const [duzenle, setDuzenle] = useState(null);
+  const [resim, setResim] = useState('');
+  const [resimTur, setResimTur] = useState('');
+  const dosyaSec = (e) => {
+    const f = e.target.files && e.target.files[0]; if(!f) return;
+    if(f.type.indexOf('image/')===0){
+      const r=new FileReader();
+      r.onload=ev=>{ const img=new Image(); img.onload=()=>{ const max=1000; let w=img.width,h=img.height; if(w>max||h>max){ if(w>h){h=Math.round(h*max/w);w=max;}else{w=Math.round(w*max/h);h=max;} } const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); setResim(c.toDataURL('image/jpeg',0.6)); setResimTur('image'); toast('📷 Fotoğraf hazır — göreve eklenecek.','green'); }; img.src=ev.target.result; };
+      r.readAsDataURL(f);
+    } else if(f.type==='application/pdf'){
+      const r=new FileReader();
+      r.onload=ev=>{ const b=ev.target.result; if(String(b).length>900000){ alert('PDF çok büyük (yaklaşık 700KB üstü). Lütfen Google Drive linkini kullanın.'); return; } setResim(b); setResimTur('pdf'); toast('📄 PDF hazır — göreve eklenecek.','green'); };
+      r.readAsDataURL(f);
+    } else if(f.type.indexOf('video/')===0){
+      const r=new FileReader();
+      r.onload=ev=>{ const b=ev.target.result; if(String(b).length>950000){ alert('Video çok büyük. Kısa bir video (birkaç saniye) doğrudan yükleyebilir; uzun videolar için YouTube/Drive linkini kullanabilirsiniz.'); return; } setResim(b); setResimTur('video'); toast('🎬 Video hazır — göreve eklenecek.','green'); };
+      r.readAsDataURL(f);
+    } else { alert('Fotoğraf, video veya PDF eklenebilir.'); }
+    e.target.value='';
+  };
 
   const sinifOgrencileri = ogrenciler.filter(o=>o.sinif===sinif);
 
@@ -2176,11 +2216,12 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
       ogrenciAd: hedef ? hedef.ad : '',
       ders, konu: konu.trim(), detay: detay.trim(),
       ekleyen: (user && user.name) || 'Öğretmen',
-      sonTeslim: sonTeslim || '', link: link.trim(), tarih: Date.now()
+      sonTeslim: sonTeslim || '', link: link.trim(), resimVar: !!resim, resimTur: resim?resimTur:'', tarih: Date.now()
     };
     const ok = await okulYaz(db, "k12_odevler", { liste: [kayit, ...odevler] });
+    if(ok && resim){ try{ await okulYaz(db, "k12_res_"+kayit.id, { data: resim, tur: resimTur }); }catch(e){} }
     setKaydediliyor(false);
-    if(ok){ setKonu(''); setDetay(''); setSonTeslim(''); setLink(''); toast(tur==='birey'?`🎯 Ödev ${hedef?hedef.ad:''} adlı öğrenciye gönderildi.`:`🚀 Ödev ${sinif} sınıfına gönderildi.`,'green'); }
+    if(ok){ setKonu(''); setDetay(''); setSonTeslim(''); setLink(''); setResim(''); setResimTur(''); toast(tur==='birey'?`🎯 Ödev ${hedef?hedef.ad:''} adlı öğrenciye gönderildi.`:`🚀 Ödev ${sinif} sınıfına gönderildi.`,'green'); }
   };
 
   const sil = async (id) => {
@@ -2237,7 +2278,13 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
           <label className="text-[11px] font-black text-rose-700 uppercase">Son Teslim:</label>
           <input type="date" value={sonTeslim} onChange={e=>setSonTeslim(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none" />
         </div>
-        <input value={link} onChange={e=>setLink(e.target.value)} placeholder="🔗 Video / görsel / dosya linki (opsiyonel — YouTube, Drive, resim linki)" className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none mb-3" />
+        <input value={link} onChange={e=>setLink(e.target.value)} placeholder="🔗 Video / görsel / dosya linki (opsiyonel — YouTube, Drive, resim linki)" className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none mb-2" />
+        <label className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg border-2 border-dashed border-sky-300 bg-sky-50 text-sky-700 text-sm font-bold cursor-pointer mb-2">
+          <i className="fa-solid fa-camera"></i>{resim ? (resimTur==='pdf'?'📄 PDF seçildi — değiştir': resimTur==='video'?'🎬 Video seçildi — değiştir':'📷 Fotoğraf seçildi — değiştir') : 'Fotoğraf / Video / PDF Yükle (telefon ya da bilgisayardan)'}
+          <input type="file" accept="image/*,application/pdf,video/*" onChange={dosyaSec} className="hidden" />
+        </label>
+        {resim && <div className="flex items-center gap-3 mb-3">{resimTur==='image' && <img src={resim} className="h-16 rounded-lg border border-slate-200" />}{resimTur==='pdf' && <span className="text-sm text-slate-500"><i className="fa-solid fa-file-pdf text-rose-500 mr-1"></i>PDF eklendi</span>}{resimTur==='video' && <span className="text-sm text-slate-500"><i className="fa-solid fa-film text-indigo-500 mr-1"></i>Video eklendi</span>}<button onClick={()=>{setResim('');setResimTur('');}} className="text-[12px] text-rose-500 font-black">Kaldır</button></div>}
+        {!resim && <div className="mb-1"></div>}
         <button onClick={ata} disabled={kaydediliyor} className="w-full bg-rose-600 text-white font-black py-3 rounded-xl hover:bg-rose-700 transition flex items-center justify-center gap-2">
           {kaydediliyor ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-rocket"></i>}GÖREVİ GÖNDER
         </button>
@@ -2649,6 +2696,7 @@ const OgrenciMerkezi = ({ db, user }) => {
                   </div>
                   <p className="text-slate-800 font-medium whitespace-pre-wrap leading-relaxed text-sm">{o.detay}</p>
                   {o.link && <a href={o.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-2 bg-sky-50 border border-sky-200 text-sky-700 font-bold px-3 py-1.5 rounded-lg text-[13px]"><i className="fa-solid fa-paperclip"></i> Öğretmenin eklediği video/dosya</a>}
+                  {o.resimVar && <OdevResim db={db} odevId={o.id} tur={o.resimTur} />}
                   {ben && !yapildi && (() => {
                     const cevap = (mesajTaslak[o.id]||'');
                     const yeterli = cevap.trim().length >= 10;
@@ -4275,6 +4323,15 @@ const ServisTakip = ({ db, duzenlenebilir }) => {
   );
   if(duzenlenebilir) return body;
   return <div className="bg-white border-4 border-teal-200 rounded-[2rem] p-5 shadow-lg mt-6"><h3 className="text-lg font-black text-teal-800 mb-3 flex items-center"><i className="fa-solid fa-van-shuttle text-teal-500 mr-2"></i>Servis Bilgileri</h3>{body}</div>;
+};
+
+const OdevResim = ({ db, odevId, tur }) => {
+  const doc = useOkulDoc(db, "k12_res_"+odevId);
+  const data = doc && doc.data; if(!data) return null;
+  const t = tur || doc.tur;
+  if(t==='video') return <video src={data} controls className="rounded-xl max-h-72 border border-slate-200 mt-2 w-full"></video>;
+  if(t==='pdf') return <a href={data} download={"odev-"+odevId+".pdf"} className="inline-flex items-center gap-1 mt-2 bg-rose-50 border border-rose-200 text-rose-700 font-bold px-3 py-1.5 rounded-lg text-[13px]"><i className="fa-solid fa-file-pdf"></i> Öğretmenin eklediği PDF'i aç</a>;
+  return <a href={data} target="_blank" rel="noopener noreferrer" className="block mt-2"><img src={data} className="rounded-xl max-h-72 border border-slate-200" alt="ödev görseli" /></a>;
 };
 
 const App = () => {
