@@ -2791,6 +2791,7 @@ const VeliMerkezi = ({ db, user }) => {
         <>
           <YoklamaVeli db={db} ogrenciler={ogrenciler} cocuk={cocuk} />
           <MesajVeli db={db} cocuk={cocuk} user={user} />
+          <EgiticiVeIletisim cocuk={cocuk} />
           <GelisimKarnesi db={db} ogrenci={cocuk} saltOkunur={true} />
           <OkulTakvimi db={db} duzenlenebilir={false} />
           <DersProgrami db={db} duzenlenebilir={false} sinif={cocuk.sinif} />
@@ -2907,6 +2908,7 @@ const MAARIF_MUFREDAT = {
 /* Anahtar/model çözücü — öğrenci cihazında localStorage yoksa ZİRVE ringinden/gömülüden dener */
 function cozKey(){
   try{ const k = localStorage.getItem('gemini_api_key'); if(k && k.trim().length>10) return k.trim(); }catch(e){}
+  try{ if(window.ZIRVE_PAYLASILAN_KEY && String(window.ZIRVE_PAYLASILAN_KEY).trim().length>10) return String(window.ZIRVE_PAYLASILAN_KEY).trim(); }catch(e){}
   try{ if(window.ZIRVE && window.ZIRVE.RING && Array.isArray(window.ZIRVE.RING.keys) && window.ZIRVE.RING.keys.length) return String(window.ZIRVE.RING.keys[0]).trim(); }catch(e){}
   try{ if(typeof GOMULU_ANAHTARLAR!=='undefined' && GOMULU_ANAHTARLAR && GOMULU_ANAHTARLAR.length){ const g=String(GOMULU_ANAHTARLAR[0]||'').trim(); if(g.length>10) return g; } }catch(e){}
   return '';
@@ -4334,6 +4336,55 @@ const OdevResim = ({ db, odevId, tur }) => {
   return <a href={data} target="_blank" rel="noopener noreferrer" className="block mt-2"><img src={data} className="rounded-xl max-h-72 border border-slate-200" alt="ödev görseli" /></a>;
 };
 
+const EGITICI_KAYNAKLAR = {
+  anaokulu: [
+    {ad:'TRT Çocuk', url:'https://www.youtube.com/@TRTCocuk', ikon:'fa-tv', not:'Şarkılar, çizgi filmler, eğitici videolar'},
+    {ad:'EBA (MEB)', url:'https://www.eba.gov.tr', ikon:'fa-graduation-cap', not:'Resmi eğitim platformu'},
+    {ad:'Okul Öncesi Etkinlik', url:'https://www.youtube.com/@TRTCocuk/playlists', ikon:'fa-shapes', not:'Boyama, sayı, renk, şekil'},
+  ],
+  ilkokul: [
+    {ad:'EBA (MEB)', url:'https://www.eba.gov.tr', ikon:'fa-graduation-cap', not:'Ders videoları ve testler'},
+    {ad:'Khan Academy Türkçe', url:'https://tr.khanacademy.org', ikon:'fa-calculator', not:'Ücretsiz matematik & fen'},
+    {ad:'TRT EBA TV', url:'https://www.youtube.com/@trtebatv', ikon:'fa-tv', not:'Sınıf seviyesine göre dersler'},
+  ],
+  ortaokul: [
+    {ad:'EBA (MEB)', url:'https://www.eba.gov.tr', ikon:'fa-graduation-cap', not:'LGS hazırlık, ders videoları'},
+    {ad:'Khan Academy Türkçe', url:'https://tr.khanacademy.org', ikon:'fa-calculator', not:'Matematik, fen, kodlama'},
+    {ad:'TRT EBA TV', url:'https://www.youtube.com/@trtebatv', ikon:'fa-tv', not:'Ortaokul dersleri'},
+  ],
+};
+const EgiticiVeIletisim = ({ cocuk }) => {
+  const sev = (function(x){ x=String(x||''); if(x.indexOf('Anaokul')>=0||x.indexOf('anaokul')>=0) return 'anaokulu'; const n=parseInt(x); return n>=5?'ortaokul':'ilkokul'; })(cocuk?cocuk.sinif:'');
+  const list = EGITICI_KAYNAKLAR[sev]||EGITICI_KAYNAKLAR.ilkokul;
+  return (
+    <>
+      <div className="bg-white border-4 border-pink-200 rounded-[2rem] p-5 shadow-lg mt-6">
+        <h3 className="text-lg font-black text-pink-700 mb-1 flex items-center"><i className="fa-solid fa-lightbulb text-pink-500 mr-2"></i>Eğitici İçerikler{cocuk?` · ${cocuk.sinif}`:''}</h3>
+        <p className="text-xs text-slate-500 mb-3">Çocuğunuzun seviyesine uygun, güvenli ve ücretsiz kaynaklar.</p>
+        <div className="space-y-2">
+          {list.map((r,i)=>(
+            <a key={i} href={r.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 bg-pink-50 hover:bg-pink-100 rounded-xl p-3 transition">
+              <i className={`fa-solid ${r.ikon} text-pink-500 text-lg w-6 text-center`}></i>
+              <div className="flex-1"><div className="font-black text-slate-700 text-sm">{r.ad}</div><div className="text-[11px] text-slate-500">{r.not}</div></div>
+              <i className="fa-solid fa-arrow-up-right-from-square text-slate-300"></i>
+            </a>
+          ))}
+        </div>
+      </div>
+      <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-[2rem] p-5 shadow-lg mt-6 text-white">
+        <h3 className="text-lg font-black mb-3 flex items-center"><i className="fa-solid fa-school mr-2"></i>Değişim Koleji · İletişim</h3>
+        <div className="grid grid-cols-2 gap-2">
+          <a href="https://www.instagram.com/degisim.koleji" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-white/15 hover:bg-white/25 rounded-xl p-3 font-bold text-sm"><i className="fa-brands fa-instagram text-lg"></i>Instagram</a>
+          <a href="https://youtube.com/@degisimkoleji-u6n" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-white/15 hover:bg-white/25 rounded-xl p-3 font-bold text-sm"><i className="fa-brands fa-youtube text-lg"></i>YouTube</a>
+          <a href="tel:+905444976558" className="flex items-center gap-2 bg-white/15 hover:bg-white/25 rounded-xl p-3 font-bold text-sm"><i className="fa-solid fa-phone"></i>Ara</a>
+          <a href="https://wa.me/905444976558" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-white/15 hover:bg-white/25 rounded-xl p-3 font-bold text-sm"><i className="fa-brands fa-whatsapp text-lg"></i>WhatsApp</a>
+        </div>
+        <p className="text-white/70 text-[11px] mt-2 text-center">📞 +90 544 497 65 58</p>
+      </div>
+    </>
+  );
+};
+
 const App = () => {
 
 // K12 SİSTEM STATELERİ VE EKRAN SÜRESİ
@@ -4656,6 +4707,7 @@ const unsubConf = window.FirebaseSDK.onSnapshot(confRef, (docSnap) => {
         const data = docSnap.data();
         if(data) {
             setGlobalConfig(data);
+            try{ window.ZIRVE_PAYLASILAN_KEY = data.paylasilanKey || ''; }catch(e){}
             setAdminInputNews(data.news || "");
             setAdminInputPopup(data.popup || "");
             setAdminInputKurumKodu(data.kurumKodu || "değişim2026");
@@ -6105,7 +6157,7 @@ const renderSharedUI = () => (
     <>
         <DraggableRobot apiKey={apiKey} modelName={modelName} />
         {adminAsli && <AdminOnizlemeBar current={systemRole} ogrenciler={kayitliOgrenciler} onRol={(r,u)=>{ setSystemRole(r); setK12User(u); window.scrollTo(0,0); }} onCikis={()=>{ try{ window.FirebaseSDK && window.FirebaseSDK.getAuth && window.FirebaseSDK.getAuth().signOut(); }catch(e){} try{ window.ZIRVE_admin=false; localStorage.removeItem('k12_oturum'); }catch(e){} setAdminAsli(false); setK12User(null); setSystemRole(null); }} />}
-        {systemRole && systemRole!=='student' && <button id="zu-ayar" onClick={()=>setShowSettings(true)} title="Ayarlar" className="fixed left-3 bottom-16 z-[99990] w-10 h-10 rounded-full bg-slate-700/80 hover:bg-slate-800 text-white shadow-lg flex items-center justify-center no-print">⚙️</button>}
+        {systemRole && <button id="zu-ayar" onClick={()=>setShowSettings(true)} title="Ayarlar" className="fixed left-3 bottom-16 z-[99990] w-10 h-10 rounded-full bg-slate-700/80 hover:bg-slate-800 text-white shadow-lg flex items-center justify-center no-print">⚙️</button>}
         {toastMessage && (
             <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl z-[99999] flex items-center space-x-2 animate-fade-in no-print font-medium text-sm w-max">
                 <i className="fa-solid fa-bell text-green-400"></i><span>{toastMessage}</span>
@@ -6198,6 +6250,9 @@ const renderSharedUI = () => (
                                             <div>
                                                 <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Kurum Giriş Kodu (Şifre)</label>
                                                 <input type="text" value={adminInputKurumKodu} onChange={(e)=>setAdminInputKurumKodu(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 font-bold text-amber-900 transition-all" />
+                                                <label className="block text-[10px] font-black text-emerald-500 uppercase mb-1 mt-3">🔑 Ortak AI Anahtarı (herkeste çalışır)</label>
+                                                <input type="text" value={globalConfig?.paylasilanKey||''} onChange={(e)=>setGlobalConfig({...globalConfig, paylasilanKey:e.target.value})} placeholder="AIzaSy... (yapıştırınca herkeste AI açılır)" className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-emerald-500 font-mono text-sm transition-all" />
+                                                <button onClick={async()=>{ try{ const {doc,setDoc}=window.FirebaseSDK; await setDoc(doc(db,"maas_config","k12_global"),{paylasilanKey:(globalConfig?.paylasilanKey||'').trim()},{merge:true}); try{window.ZIRVE_PAYLASILAN_KEY=(globalConfig?.paylasilanKey||'').trim();}catch(e){} showToast('Ortak anahtar kaydedildi — herkeste AI açıldı.'); }catch(e){ alert('Hata: '+e.message); } }} className="mt-2 w-full bg-emerald-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-emerald-700">Ortak Anahtarı Kaydet</button>
                                             </div>
                                         </div>
                                     </div>
