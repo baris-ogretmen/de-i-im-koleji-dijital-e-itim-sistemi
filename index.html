@@ -4381,6 +4381,7 @@ const EgiticiVeIletisim = ({ cocuk }) => {
           <a href="https://wa.me/905444976558" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-white/15 hover:bg-white/25 rounded-xl p-3 font-bold text-sm"><i className="fa-brands fa-whatsapp text-lg"></i>WhatsApp</a>
         </div>
         <p className="text-white/70 text-[11px] mt-2 text-center">📞 +90 544 497 65 58</p>
+        <a href="https://baris-ogretmen.github.io/site-1/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 rounded-xl p-2.5 font-bold text-sm mt-2 transition"><i className="fa-solid fa-globe"></i>Web Sitemiz · Daha Fazlası</a>
       </div>
     </>
   );
@@ -4392,7 +4393,7 @@ const AnahtarYardim = ({ user }) => {
   const waMetin = encodeURIComponent('Merhaba, Değişim Koleji dijital sistemi için ücretsiz AI anahtarımı gönderiyorum.\nAdım Soyadım: '+ad+'\nAnahtarım: (buraya yapıştırın)');
   return (
     <>
-      <button onClick={()=>setAcik(true)} title="Ücretsiz AI Anahtarı Nasıl Alınır?" className="fixed right-3 bottom-16 z-[99990] w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg flex items-center justify-center no-print">🔑</button>
+      <button id="zu-anahtar" onClick={()=>setAcik(true)} title="Ücretsiz AI Anahtarı Nasıl Alınır?" className="fixed right-3 bottom-16 z-[99990] w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg flex items-center justify-center no-print">🔑</button>
       {acik && (
         <div onClick={()=>setAcik(false)} className="fixed inset-0 z-[99995] bg-black/50 flex items-center justify-center p-4">
           <div onClick={e=>e.stopPropagation()} className="bg-white rounded-2xl max-w-sm w-full p-5 max-h-[85vh] overflow-auto">
@@ -9502,7 +9503,7 @@ notes.map(n => (
     el.addEventListener('touchstart',down,{passive:false}); window.addEventListener('touchmove',move,{passive:false}); window.addEventListener('touchend',up);
     el.addEventListener('click',function(e){ if(moved){ e.stopPropagation(); e.preventDefault(); moved=false; } }, true);
   }
-  function surukleAta(){ ['zlisans-fab','zu-mod','zu-ai','zu-ayar'].forEach(function(id){ var el=document.getElementById(id); if(el) zuSurukle(el); }); }
+  function surukleAta(){ ['zlisans-fab','zu-mod','zu-ai','zu-ayar','zu-anahtar'].forEach(function(id){ var el=document.getElementById(id); if(el) zuSurukle(el); }); }
 
   function baslat(){ modPill(); uygula(); aiBanner(); yerlestir(); surukleAta(); setTimeout(surukleAta,900); setTimeout(surukleAta,2200); setInterval(surukleAta,3000); }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", baslat); else baslat();
