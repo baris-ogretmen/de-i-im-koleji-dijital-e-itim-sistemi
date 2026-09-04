@@ -9492,20 +9492,23 @@ notes.map(n => (
     ov.querySelector('#zs-kop').onclick=function(){ var t='SISTEM SAGLIK RAPORU — '+new Date().toLocaleString('tr-TR')+String.fromCharCode(10)+ozet+String.fromCharCode(10)+C.map(function(x){return ikon[x.d]+' '+x.ad;}).join(String.fromCharCode(10)); try{navigator.clipboard.writeText(t);this.textContent='✓ Kopyalandı';}catch(e){alert(t);} };
   };
 
+  function konumGeriYukle(el){ if(window._zuDragging) return; try{ var kyt=localStorage.getItem('zu_pos_'+el.id); if(kyt){ var p=JSON.parse(kyt); el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.right='auto'; el.style.bottom='auto'; } }catch(e){} }
   function zuSurukle(el){
     if(!el || el.dataset.zsurukle) return; el.dataset.zsurukle='1';
-    try{ var kyt=localStorage.getItem('zu_pos_'+el.id); if(kyt){ var p=JSON.parse(kyt); el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.right='auto'; el.style.bottom='auto'; } }catch(e){}
+    try{ el.style.touchAction='none'; el.style.webkitUserSelect='none'; }catch(e){}
+    konumGeriYukle(el);
     var sx,sy,ox,oy,drag=false,moved=false;
-    function down(e){ var t=e.touches?e.touches[0]:e; sx=t.clientX; sy=t.clientY; var r=el.getBoundingClientRect(); ox=r.left; oy=r.top; drag=true; moved=false; }
-    function move(e){ if(!drag)return; var t=e.touches?e.touches[0]:e; var dx=t.clientX-sx, dy=t.clientY-sy; if(Math.abs(dx)+Math.abs(dy)>4){ moved=true; el.style.left=Math.max(2,Math.min(window.innerWidth-42,ox+dx))+'px'; el.style.top=Math.max(2,Math.min(window.innerHeight-42,oy+dy))+'px'; el.style.right='auto'; el.style.bottom='auto'; if(e.cancelable)e.preventDefault(); } }
-    function up(){ if(drag&&moved){ try{ var r=el.getBoundingClientRect(); localStorage.setItem('zu_pos_'+el.id, JSON.stringify({x:Math.round(r.left),y:Math.round(r.top)})); }catch(e){} } drag=false; }
+    function nk(e){ if(e.touches&&e.touches[0])return e.touches[0]; if(e.changedTouches&&e.changedTouches[0])return e.changedTouches[0]; return e; }
+    function down(e){ var t=nk(e); sx=t.clientX; sy=t.clientY; var r=el.getBoundingClientRect(); ox=r.left; oy=r.top; drag=true; moved=false; window._zuDragging=true; }
+    function move(e){ if(!drag)return; var t=nk(e); var dx=t.clientX-sx, dy=t.clientY-sy; if(!moved && (Math.abs(dx)+Math.abs(dy))<6) return; moved=true; if(e.cancelable)e.preventDefault(); var nx=Math.max(2,Math.min(window.innerWidth-48,ox+dx)); var ny=Math.max(2,Math.min(window.innerHeight-60,oy+dy)); el.style.left=nx+'px'; el.style.top=ny+'px'; el.style.right='auto'; el.style.bottom='auto'; }
+    function up(){ if(drag&&moved){ try{ var r=el.getBoundingClientRect(); localStorage.setItem('zu_pos_'+el.id, JSON.stringify({x:Math.round(r.left),y:Math.round(r.top)})); }catch(e){} } drag=false; setTimeout(function(){ window._zuDragging=false; },60); }
     el.addEventListener('mousedown',down); window.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
-    el.addEventListener('touchstart',down,{passive:false}); window.addEventListener('touchmove',move,{passive:false}); window.addEventListener('touchend',up);
+    el.addEventListener('touchstart',down,{passive:true}); window.addEventListener('touchmove',move,{passive:false}); window.addEventListener('touchend',up);
     el.addEventListener('click',function(e){ if(moved){ e.stopPropagation(); e.preventDefault(); moved=false; } }, true);
   }
-  function surukleAta(){ ['zlisans-fab','zu-mod','zu-ai','zu-ayar','zu-anahtar'].forEach(function(id){ var el=document.getElementById(id); if(el) zuSurukle(el); }); }
+  function surukleAta(){ ['zlisans-fab','zu-mod','zu-ai','zu-ayar','zu-anahtar'].forEach(function(id){ var el=document.getElementById(id); if(el){ zuSurukle(el); konumGeriYukle(el); } }); }
 
-  function baslat(){ modPill(); uygula(); aiBanner(); yerlestir(); surukleAta(); setTimeout(surukleAta,900); setTimeout(surukleAta,2200); setInterval(surukleAta,3000); }
+  function baslat(){ modPill(); uygula(); aiBanner(); yerlestir(); surukleAta(); setTimeout(surukleAta,900); setTimeout(surukleAta,2200); setInterval(surukleAta,1200); }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", baslat); else baslat();
 })();
 </script>
