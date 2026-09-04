@@ -2908,6 +2908,7 @@ const MAARIF_MUFREDAT = {
 /* Anahtar/model çözücü — öğrenci cihazında localStorage yoksa ZİRVE ringinden/gömülüden dener */
 function cozKey(){
   try{ const k = localStorage.getItem('gemini_api_key'); if(k && k.trim().length>10) return k.trim(); }catch(e){}
+  try{ if(window.ZIRVE_PAYLASILAN_KEYS && window.ZIRVE_PAYLASILAN_KEYS.length){ const a=window.ZIRVE_PAYLASILAN_KEYS; const k=String(a[Math.floor(Math.random()*a.length)]||'').trim(); if(k.length>10) return k; } }catch(e){}
   try{ if(window.ZIRVE_PAYLASILAN_KEY && String(window.ZIRVE_PAYLASILAN_KEY).trim().length>10) return String(window.ZIRVE_PAYLASILAN_KEY).trim(); }catch(e){}
   try{ if(window.ZIRVE && window.ZIRVE.RING && Array.isArray(window.ZIRVE.RING.keys) && window.ZIRVE.RING.keys.length) return String(window.ZIRVE.RING.keys[0]).trim(); }catch(e){}
   try{ if(typeof GOMULU_ANAHTARLAR!=='undefined' && GOMULU_ANAHTARLAR && GOMULU_ANAHTARLAR.length){ const g=String(GOMULU_ANAHTARLAR[0]||'').trim(); if(g.length>10) return g; } }catch(e){}
@@ -4385,6 +4386,36 @@ const EgiticiVeIletisim = ({ cocuk }) => {
   );
 };
 
+const AnahtarYardim = ({ user }) => {
+  const [acik, setAcik] = useState(false);
+  const ad = (user && user.name) ? user.name : '';
+  const waMetin = encodeURIComponent('Merhaba, Değişim Koleji dijital sistemi için ücretsiz AI anahtarımı gönderiyorum.\nAdım Soyadım: '+ad+'\nAnahtarım: (buraya yapıştırın)');
+  return (
+    <>
+      <button onClick={()=>setAcik(true)} title="Ücretsiz AI Anahtarı Nasıl Alınır?" className="fixed right-3 bottom-16 z-[99990] w-10 h-10 rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg flex items-center justify-center no-print">🔑</button>
+      {acik && (
+        <div onClick={()=>setAcik(false)} className="fixed inset-0 z-[99995] bg-black/50 flex items-center justify-center p-4">
+          <div onClick={e=>e.stopPropagation()} className="bg-white rounded-2xl max-w-sm w-full p-5 max-h-[85vh] overflow-auto">
+            <h3 className="text-lg font-black text-slate-800 mb-1">🔑 Ücretsiz Yapay Zeka Anahtarı</h3>
+            <p className="text-sm text-slate-600 mb-2">Konu özeti, testler ve raporlar gibi yapay zeka özellikleri ücretsiz bir Google anahtarıyla çalışır. <b>Hiçbir ücret alınmaz, hiçbir riski yoktur.</b></p>
+            <p className="text-sm text-slate-600 mb-3">Ortak kullanım için anahtarını alıp <b>Barış Öğretmen'e WhatsApp'tan göndermen</b> gerekir; o eklenince yapay zeka herkeste açılır. <b>Göndermezsen bu özellikler çalışmayabilir.</b></p>
+            <ol className="text-[13px] text-slate-600 space-y-1 mb-3 list-decimal pl-5">
+              <li>"Ücretsiz Anahtar Al"a dokun.</li>
+              <li>Google hesabınla giriş yap.</li>
+              <li>"Create API key / Anahtar oluştur"a dokun.</li>
+              <li>Oluşan anahtarı kopyala.</li>
+              <li>"WhatsApp ile Gönder"e dokun, adınla birlikte yapıştırıp gönder.</li>
+            </ol>
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="block text-center bg-sky-600 text-white font-black py-2.5 rounded-xl text-sm mb-2">🔑 Ücretsiz Anahtar Al (aistudio.google.com)</a>
+            <a href={"https://wa.me/905076319287?text="+waMetin} target="_blank" rel="noopener noreferrer" className="block text-center bg-green-500 text-white font-black py-2.5 rounded-xl text-sm mb-2"><i className="fa-brands fa-whatsapp mr-1"></i>WhatsApp ile Barış Öğretmen'e Gönder</a>
+            <button onClick={()=>setAcik(false)} className="w-full bg-slate-100 text-slate-500 font-black py-2 rounded-xl text-sm">Kapat</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
 const App = () => {
 
 // K12 SİSTEM STATELERİ VE EKRAN SÜRESİ
@@ -4707,7 +4738,7 @@ const unsubConf = window.FirebaseSDK.onSnapshot(confRef, (docSnap) => {
         const data = docSnap.data();
         if(data) {
             setGlobalConfig(data);
-            try{ window.ZIRVE_PAYLASILAN_KEY = data.paylasilanKey || ''; }catch(e){}
+            try{ const _pk=String(data.paylasilanKey||''); const _arr=_pk.split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); window.ZIRVE_PAYLASILAN_KEYS=_arr; window.ZIRVE_PAYLASILAN_KEY=_arr[0]||''; }catch(e){}
             setAdminInputNews(data.news || "");
             setAdminInputPopup(data.popup || "");
             setAdminInputKurumKodu(data.kurumKodu || "değişim2026");
@@ -6158,6 +6189,7 @@ const renderSharedUI = () => (
         <DraggableRobot apiKey={apiKey} modelName={modelName} />
         {adminAsli && <AdminOnizlemeBar current={systemRole} ogrenciler={kayitliOgrenciler} onRol={(r,u)=>{ setSystemRole(r); setK12User(u); window.scrollTo(0,0); }} onCikis={()=>{ try{ window.FirebaseSDK && window.FirebaseSDK.getAuth && window.FirebaseSDK.getAuth().signOut(); }catch(e){} try{ window.ZIRVE_admin=false; localStorage.removeItem('k12_oturum'); }catch(e){} setAdminAsli(false); setK12User(null); setSystemRole(null); }} />}
         {systemRole && <button id="zu-ayar" onClick={()=>setShowSettings(true)} title="Ayarlar" className="fixed left-3 bottom-16 z-[99990] w-10 h-10 rounded-full bg-slate-700/80 hover:bg-slate-800 text-white shadow-lg flex items-center justify-center no-print">⚙️</button>}
+        {systemRole && <AnahtarYardim user={k12User} />}
         {toastMessage && (
             <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl z-[99999] flex items-center space-x-2 animate-fade-in no-print font-medium text-sm w-max">
                 <i className="fa-solid fa-bell text-green-400"></i><span>{toastMessage}</span>
@@ -6250,9 +6282,13 @@ const renderSharedUI = () => (
                                             <div>
                                                 <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Kurum Giriş Kodu (Şifre)</label>
                                                 <input type="text" value={adminInputKurumKodu} onChange={(e)=>setAdminInputKurumKodu(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 font-bold text-amber-900 transition-all" />
-                                                <label className="block text-[10px] font-black text-emerald-500 uppercase mb-1 mt-3">🔑 Ortak AI Anahtarı (herkeste çalışır)</label>
-                                                <input type="text" value={globalConfig?.paylasilanKey||''} onChange={(e)=>setGlobalConfig({...globalConfig, paylasilanKey:e.target.value})} placeholder="AIzaSy... (yapıştırınca herkeste AI açılır)" className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-emerald-500 font-mono text-sm transition-all" />
-                                                <button onClick={async()=>{ try{ const {doc,setDoc}=window.FirebaseSDK; await setDoc(doc(db,"maas_config","k12_global"),{paylasilanKey:(globalConfig?.paylasilanKey||'').trim()},{merge:true}); try{window.ZIRVE_PAYLASILAN_KEY=(globalConfig?.paylasilanKey||'').trim();}catch(e){} showToast('Ortak anahtar kaydedildi — herkeste AI açıldı.'); }catch(e){ alert('Hata: '+e.message); } }} className="mt-2 w-full bg-emerald-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-emerald-700">Ortak Anahtarı Kaydet</button>
+                                                <label className="block text-[10px] font-black text-emerald-500 uppercase mb-1 mt-3">🔑 Ortak AI Anahtarları (herkeste çalışır — istediğin kadar, 1000+ anahtar)</label>
+                                                <textarea value={globalConfig?.paylasilanKey||''} onChange={(e)=>setGlobalConfig({...globalConfig, paylasilanKey:e.target.value})} rows="4" placeholder="Her satıra bir anahtar (AIzaSy...). Velilerin/öğretmenlerin gönderdiği anahtarları buraya yapıştır — hepsi havuza eklenir, sistem otomatik dağıtır." className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-emerald-500 font-mono text-xs transition-all resize-y"></textarea>
+                                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                                    <button onClick={()=>{ try{ navigator.clipboard.writeText(globalConfig?.paylasilanKey||''); showToast('📋 Tüm anahtarlar kopyalandı.'); }catch(e){ alert(globalConfig?.paylasilanKey||''); } }} className="bg-slate-200 text-slate-700 font-bold py-2 rounded-lg text-xs">📋 Tümünü Kopyala</button>
+                                                    <button onClick={async()=>{ try{ const t=await navigator.clipboard.readText(); const hepsi=((globalConfig?.paylasilanKey||'')+'\n'+t).split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); const tekil=[]; hepsi.forEach(function(k){ if(tekil.indexOf(k)<0) tekil.push(k); }); setGlobalConfig({...globalConfig, paylasilanKey:tekil.join('\n')}); showToast('📥 '+tekil.length+' anahtar birleştirildi.'); }catch(e){ alert('Pano okunamadı, elle yapıştırın.'); } }} className="bg-blue-600 text-white font-bold py-2 rounded-lg text-xs">📥 Panodan Yapıştır</button>
+                                                </div>
+                                                <button onClick={async()=>{ try{ const {doc,setDoc}=window.FirebaseSDK; const temiz=(globalConfig?.paylasilanKey||'').split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); const metin=temiz.join('\n'); await setDoc(doc(db,"maas_config","k12_global"),{paylasilanKey:metin},{merge:true}); try{ window.ZIRVE_PAYLASILAN_KEYS=temiz; window.ZIRVE_PAYLASILAN_KEY=temiz[0]||''; }catch(e){} showToast(temiz.length+' ortak anahtar kaydedildi — herkeste AI açıldı.'); }catch(e){ alert('Hata: '+e.message); } }} className="mt-2 w-full bg-emerald-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-emerald-700">Ortak Anahtarları Kaydet (herkeste çalışsın)</button>
                                             </div>
                                         </div>
                                     </div>
