@@ -3798,6 +3798,34 @@ const YoklamaVeli = ({ db, ogrenciler, cocuk }) => {
 const MesajOgretmen = ({ db, user, mesajlar, ogrenciler }) => {
   const [seciliId, setSeciliId] = useState('');
   const [metin, setMetin] = useState('');
+  const [yeniAcik, setYeniAcik] = useState(false);
+  const [hedef, setHedef] = useState('veli');
+  const [hedefId, setHedefId] = useState('');
+  const [hedefSinif, setHedefSinif] = useState(OKUL_SINIFLAR[0]);
+  const [yeniMetin, setYeniMetin] = useState('');
+  const [dil, setDil] = useState('');
+  const [ceviriYuk, setCeviriYuk] = useState(false);
+  const yoneticiMi = (typeof window!=='undefined' && window.ZIRVE_admin===true);
+  const cevir = async () => {
+    if(!yeniMetin.trim()||!dil) return alert('Önce mesaj yazın ve dil seçin.');
+    const anahtar=(typeof cozKey==='function'?cozKey():''); if(!anahtar) return alert('Çeviri için Ayarlardan AI anahtarı gerekir.');
+    setCeviriYuk(true);
+    try{ const t=await geminiMetin(anahtar,(typeof cozModel==='function'?cozModel():''),'Aşağıdaki mesajı '+dil+' diline çevir. SADECE çeviriyi yaz, başka açıklama ekleme:\n\n'+yeniMetin); if(t&&t.trim()) setYeniMetin(t.trim()); }catch(e){ alert('Çeviri yapılamadı, tekrar deneyin.'); }
+    setCeviriYuk(false);
+  };
+  const topluGonder = async () => {
+    if(!yeniMetin.trim()) return alert('Mesaj yazın.');
+    let hedefler=[];
+    if(hedef==='veli'){ const o=ogrenciler.find(x=>x.id===hedefId); if(!o) return alert('Bir veli/öğrenci seçin.'); hedefler=[o]; }
+    else if(hedef==='sinif'){ hedefler=ogrenciler.filter(x=>x.sinif===hedefSinif); }
+    else if(hedef==='okul'){ hedefler=ogrenciler.slice(); }
+    if(!hedefler.length) return alert('Hedefte kayıtlı öğrenci yok.');
+    if(hedef!=='veli' && !window.confirm(hedefler.length+' veliye mesaj gönderilecek. Onaylıyor musunuz?')) return;
+    const yeni=[...(mesajlar||[])];
+    hedefler.forEach(function(o){ yeni.push({id:yeniId(), ts:Date.now(), ogrenciId:o.id, ogrenciAd:o.ad, sinif:o.sinif, gonderen:'ogretmen', ad:(user&&user.name)||'Öğretmen', metin:yeniMetin.trim(), okOgretmen:true, okVeli:false}); });
+    const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni});
+    if(ok){ setYeniMetin(''); setYeniAcik(false); setDil(''); toast(hedefler.length+' veliye mesaj gönderildi.','green'); }
+  };
   useEffect(()=>{ try{ var u=(mesajlar||[]).filter(function(m){return m.gonderen==='veli'&&!m.okOgretmen;}).length; if(u>0) toast('📬 '+u+' yeni veli mesajı var','#2563eb'); }catch(e){} }, []);
   const grup = {};
   (mesajlar||[]).forEach(m=>{ if(!grup[m.ogrenciId]) grup[m.ogrenciId]={ad:m.ogrenciAd, sinif:m.sinif, list:[], unread:0}; grup[m.ogrenciId].list.push(m); if(m.gonderen==='veli'&&!m.okOgretmen) grup[m.ogrenciId].unread++; });
@@ -3830,6 +3858,25 @@ const MesajOgretmen = ({ db, user, mesajlar, ogrenciler }) => {
   }
   return (
     <div>
+      <button onClick={()=>setYeniAcik(v=>!v)} className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black py-2.5 rounded-xl text-sm mb-3 hover:brightness-110"><i className="fa-solid fa-pen-to-square mr-1"></i>{yeniAcik?'Kapat':'Yeni / Toplu Mesaj Gönder'}</button>
+      {yeniAcik && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 mb-4">
+          <div className="flex gap-1.5 mb-2">
+            <button onClick={()=>setHedef('veli')} className={`flex-1 py-1.5 rounded-lg text-xs font-black ${hedef==='veli'?'bg-indigo-600 text-white':'bg-white text-slate-500'}`}>Belirli Veli</button>
+            <button onClick={()=>setHedef('sinif')} className={`flex-1 py-1.5 rounded-lg text-xs font-black ${hedef==='sinif'?'bg-indigo-600 text-white':'bg-white text-slate-500'}`}>Sınıf</button>
+            {yoneticiMi && <button onClick={()=>setHedef('okul')} className={`flex-1 py-1.5 rounded-lg text-xs font-black ${hedef==='okul'?'bg-rose-600 text-white':'bg-white text-slate-500'}`}>Tüm Okul</button>}
+          </div>
+          {hedef==='veli' && <select value={hedefId} onChange={e=>setHedefId(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none mb-2"><option value="">Öğrenci / veli seç…</option>{ogrenciler.map(o=><option key={o.id} value={o.id}>{o.ad} · {o.sinif}</option>)}</select>}
+          {hedef==='sinif' && <select value={hedefSinif} onChange={e=>setHedefSinif(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none mb-2">{OKUL_SINIFLAR.map(sn=><option key={sn}>{sn}</option>)}</select>}
+          {hedef==='okul' && <p className="text-[12px] text-rose-600 font-bold mb-2">⚠️ Tüm okuldaki velilere gönderilecek (yönetici).</p>}
+          <textarea value={yeniMetin} onChange={e=>setYeniMetin(e.target.value)} rows="3" placeholder="Mesajınız…" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none mb-2 resize-y"></textarea>
+          <div className="flex gap-2 mb-2">
+            <select value={dil} onChange={e=>setDil(e.target.value)} className="flex-1 px-2 py-2 rounded-lg border border-gray-200 text-xs font-bold outline-none"><option value="">🌐 Çeviri (opsiyonel)…</option>{['İngilizce','Almanca','Arapça','Rusça','Fransızca','Kürtçe','Türkçe'].map(d=><option key={d}>{d}</option>)}</select>
+            <button onClick={cevir} disabled={ceviriYuk||!dil} className="bg-fuchsia-600 text-white font-black px-3 rounded-lg text-xs disabled:opacity-50">{ceviriYuk?<i className="fa-solid fa-spinner fa-spin"></i>:'🌐 Çevir'}</button>
+          </div>
+          <button onClick={topluGonder} className="w-full bg-emerald-600 text-white font-black py-2.5 rounded-lg text-sm hover:bg-emerald-700"><i className="fa-solid fa-paper-plane mr-1"></i>Gönder</button>
+        </div>
+      )}
       <h4 className="font-black text-slate-700 text-sm mb-2"><i className="fa-solid fa-inbox mr-1"></i>Veli Mesajları</h4>
       {konusmalar.length===0 ? <p className="text-center text-slate-400 py-6 text-sm">Henüz mesaj yok. Veliler size buradan yazınca görünür.</p> : (
         <div className="space-y-1.5">
