@@ -1633,7 +1633,7 @@ const StudentPortal = ({ user, logout, timeLeft, globalConfig, db }) => {
                     <div className="bg-gradient-to-br from-orange-400 to-red-500 text-white w-24 h-24 flex items-center justify-center rounded-full group-hover:scale-110 transition-transform shadow-lg"><i className="fa-solid fa-bullseye text-[50px]"></i></div>
                     <div className="text-center">
                         <h3 className="font-black text-3xl text-slate-800 mb-2">Sınıf Görevleri</h3>
-                        <p className="text-slate-500 font-bold text-sm px-4">Öğretmeninin sınıfına atadığı görevleri tamamla, D-Coin kazan!</p>
+                        <p className="text-slate-500 font-bold text-sm px-4">Öğretmeninin sınıfına atadığı görevleri tamamla, Yıldız kazan!</p>
                     </div>
                 </button>
             </div>
@@ -2161,7 +2161,7 @@ const OgrenciYonetim = ({ db, ogrenciler, teslimler }) => {
                   <p className="font-black text-slate-800 text-sm truncate">{o.ad} {o.no && <span className="text-slate-400 font-normal">· No {o.no}</span>}</p>
                   <p className="text-[11px] text-slate-500 font-medium truncate">
                     <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-bold">{o.sinif}</span>
-                    {' '}<i className="fa-solid fa-coins text-amber-500"></i> {o.puan||0} D-Coin · {yapilan} teslim
+                    {' '}<i className="fa-solid fa-coins text-amber-500"></i> {o.puan||0} Yıldız · {yapilan} teslim
                     {baskin && <span> · <i className="fa-solid fa-dna text-emerald-500"></i> {baskin.a.ad}</span>}
                   </p>
                 </div>
@@ -2494,14 +2494,14 @@ const RozetSiralama = ({ db, ogrenciler }) => {
     if(!rozetAd.trim()) return alert("Rozet adı girin.");
     const liste = ogrenciler.map(o=> o.id===id ? { ...o, rozetler:[...(o.rozetler||[]), {ad:rozetAd.trim(), tarih:Date.now()}], puan:(o.puan||0)+20 } : o);
     const ok = await okulYaz(db, "k12_ogrenciler", { liste });
-    if(ok){ setRozetAd(''); toast('🏅 Rozet verildi (+20 D-Coin).','green'); }
+    if(ok){ setRozetAd(''); toast('🏅 Rozet verildi (+20 Yıldız).','green'); }
   };
 
   const madalya = ['🥇','🥈','🥉'];
   return (
     <div>
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-        <h4 className="font-black text-amber-800 text-sm mb-2"><i className="fa-solid fa-medal mr-1"></i>Rozet Ver (+20 D-Coin)</h4>
+        <h4 className="font-black text-amber-800 text-sm mb-2"><i className="fa-solid fa-medal mr-1"></i>Rozet Ver (+20 Yıldız)</h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
           <select value={id} onChange={e=>setId(e.target.value)} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none">
             <option value="">— Öğrenci —</option>
@@ -2634,7 +2634,7 @@ const OgrenciMerkezi = ({ db, user }) => {
     if(okT){
       const liste = ogrenciler.map(o=> o.id===ben.id ? { ...o, puan:(o.puan||0)+10 } : o);
       await okulYaz(db, "k12_ogrenciler", { liste });
-      toast('🎉 Görev tamamlandı! +10 D-Coin kazandın.','green');
+      toast('🎉 Görev tamamlandı! +10 Yıldız kazandın.','green');
       try{ window.ZKUTLA && window.ZKUTLA(); }catch(e){}
     }
   };
@@ -2648,7 +2648,7 @@ const OgrenciMerkezi = ({ db, user }) => {
         <div className="bg-white border-4 border-indigo-200 rounded-[2rem] p-6 shadow-lg text-center">
           <i className="fa-solid fa-id-card text-4xl text-indigo-400 mb-2"></i>
           <p className="font-black text-slate-700 mb-2">Seni listeden seç</p>
-          <p className="text-xs text-slate-500 mb-3">Kişisel ödev, DNA ve D-Coin'lerini görmek için kaydını seç. (Öğretmenin seni kaydetmediyse söyle.)</p>
+          <p className="text-xs text-slate-500 mb-3">Kişisel ödev, DNA ve Yıldız'lerini görmek için kaydını seç. (Öğretmenin seni kaydetmediyse söyle.)</p>
           <select value={secId} onChange={e=>setSecId(e.target.value)} className="px-4 py-2.5 rounded-xl border-2 border-indigo-200 text-sm font-bold outline-none">
             <option value="">— {sinifim} listesi —</option>
             {sinifDaki.map(o=><option key={o.id} value={o.id}>{o.ad}</option>)}
@@ -2661,7 +2661,7 @@ const OgrenciMerkezi = ({ db, user }) => {
           <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl p-5 text-white shadow-lg text-center">
             <i className="fa-solid fa-coins text-3xl mb-1"></i>
             <p className="text-4xl font-black">{ben.puan||0}</p>
-            <p className="text-xs font-bold text-amber-50">D-Coin</p>
+            <p className="text-xs font-bold text-amber-50">Yıldız</p>
           </div>
           <div className="bg-gradient-to-br from-emerald-400 to-teal-500 rounded-3xl p-5 text-white shadow-lg text-center">
             <i className="fa-solid fa-clipboard-check text-3xl mb-1"></i>
@@ -2755,7 +2755,7 @@ const OgrenciMerkezi = ({ db, user }) => {
 
       {sirali.length>0 && (
         <div className="bg-white border-4 border-amber-200 rounded-[2rem] p-6 shadow-lg">
-          <h3 className="text-lg font-black text-amber-800 mb-3"><i className="fa-solid fa-ranking-star text-amber-500 mr-2"></i>{sinifim} D-Coin Sıralaması</h3>
+          <h3 className="text-lg font-black text-amber-800 mb-3"><i className="fa-solid fa-ranking-star text-amber-500 mr-2"></i>{sinifim} Yıldız Sıralaması</h3>
           <div className="space-y-1.5">
             {sirali.slice(0,10).map((o,i)=>(
               <div key={o.id} className={`flex items-center gap-2 rounded-lg p-2 ${ben&&o.id===ben.id?'bg-amber-100 border border-amber-300':'bg-slate-50'}`}>
@@ -2817,7 +2817,7 @@ const VeliMerkezi = ({ db, user }) => {
           <YemekListesi db={db} duzenlenebilir={false} />
           <ServisTakip db={db} duzenlenebilir={false} />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl p-5 text-white shadow text-center"><i className="fa-solid fa-coins text-2xl mb-1"></i><p className="text-3xl font-black">{cocuk.puan||0}</p><p className="text-xs font-bold">D-Coin</p></div>
+            <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl p-5 text-white shadow text-center"><i className="fa-solid fa-coins text-2xl mb-1"></i><p className="text-3xl font-black">{cocuk.puan||0}</p><p className="text-xs font-bold">Yıldız</p></div>
             <div className="bg-gradient-to-br from-emerald-400 to-teal-500 rounded-3xl p-5 text-white shadow text-center"><i className="fa-solid fa-clipboard-check text-2xl mb-1"></i><p className="text-3xl font-black">{teslimler.filter(t=>t.ogrenciId===cocuk.id).length}</p><p className="text-xs font-bold">Tamamlanan</p></div>
             <div className="bg-gradient-to-br from-violet-500 to-purple-600 rounded-3xl p-5 text-white shadow text-center"><i className="fa-solid fa-medal text-2xl mb-1"></i><p className="text-3xl font-black">{(cocuk.rozetler||[]).length}</p><p className="text-xs font-bold">Rozet</p></div>
           </div>
@@ -3422,7 +3422,7 @@ const KitapTakip = ({ db, ogrenciler, ben }) => {
     const yeni = { ad:ad.trim(), sayfa:Number(sayfa)||0, tarih:Date.now() };
     const liste = ogrenciler.map(o=> o.id===ben.id ? { ...o, kitaplar:[...(o.kitaplar||[]), yeni], puan:(o.puan||0)+5 } : o);
     const ok = await okulYaz(db, "k12_ogrenciler", { liste });
-    if(ok){ setAd(''); setSayfa(''); toast('📚 Kitap eklendi! +5 D-Coin','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
+    if(ok){ setAd(''); setSayfa(''); toast('📚 Kitap eklendi! +5 Yıldız','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
   };
   const sil = async (idx) => {
     const liste = ogrenciler.map(o=> o.id===ben.id ? { ...o, kitaplar:(o.kitaplar||[]).filter((_,i)=>i!==idx) } : o);
@@ -3482,8 +3482,8 @@ const SinifKarnesi = ({ ogrenciler, odevler, teslimler }) => {
       .ozet{display:flex;gap:14px;margin:14px 0}.k{background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:10px 14px}.k b{font-size:18px;color:#4338ca;display:block}
       .imza{margin-top:26px;color:#94a3b8;font-size:12px}@media print{.no{display:none}}</style></head>
       <body><h1>${okulAdi} — ${sinif} Sınıf Karnesi</h1><div class="alt">Oluşturulma: ${bugun}</div>
-      <div class="ozet"><div class="k"><b>${veri.length}</b>öğrenci</div><div class="k"><b>${veri.reduce((t,v)=>t+v.puan,0)}</b>toplam D-Coin</div><div class="k"><b>${veri.reduce((t,v)=>t+v.kitap,0)}</b>okunan kitap</div><div class="k"><b>${veri.filter(v=>v.dna==='Tamam').length}</b>DNA tamam</div></div>
-      <table><thead><tr><th>#</th><th>Öğrenci</th><th>Ödev (yapılan/atanan)</th><th>D-Coin</th><th>Öğrenme DNA</th><th>Kitap</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="ozet"><div class="k"><b>${veri.length}</b>öğrenci</div><div class="k"><b>${veri.reduce((t,v)=>t+v.puan,0)}</b>toplam Yıldız</div><div class="k"><b>${veri.reduce((t,v)=>t+v.kitap,0)}</b>okunan kitap</div><div class="k"><b>${veri.filter(v=>v.dna==='Tamam').length}</b>DNA tamam</div></div>
+      <table><thead><tr><th>#</th><th>Öğrenci</th><th>Ödev (yapılan/atanan)</th><th>Yıldız</th><th>Öğrenme DNA</th><th>Kitap</th></tr></thead><tbody>${rows}</tbody></table>
       <div class="imza">${okulAdi} · Dijital Eğitim Ekosistemi ile oluşturuldu.</div>
       <button class="no" onclick="window.print()" style="margin-top:18px;padding:10px 18px;border:0;background:#4f46e5;color:#fff;border-radius:8px;font-weight:700;cursor:pointer">🖨️ Yazdır / PDF Kaydet</button>
       </body></html>`;
@@ -3503,7 +3503,7 @@ const SinifKarnesi = ({ ogrenciler, odevler, teslimler }) => {
       {!veri.length ? <p className="text-center text-slate-400 py-6 text-sm">Bu sınıfta kayıtlı öğrenci yok.</p> : (
         <div className="overflow-auto rounded-xl border border-slate-200">
           <table className="w-full text-sm">
-            <thead><tr className="bg-indigo-50 text-indigo-800 text-[11px] uppercase"><th className="p-2 text-left">Öğrenci</th><th className="p-2">Ödev</th><th className="p-2">D-Coin</th><th className="p-2">DNA</th><th className="p-2">Kitap</th></tr></thead>
+            <thead><tr className="bg-indigo-50 text-indigo-800 text-[11px] uppercase"><th className="p-2 text-left">Öğrenci</th><th className="p-2">Ödev</th><th className="p-2">Yıldız</th><th className="p-2">DNA</th><th className="p-2">Kitap</th></tr></thead>
             <tbody>
               {veri.map((v,i)=>(
                 <tr key={i} className="border-t border-slate-100">
@@ -4146,7 +4146,7 @@ const GelisimKarnesi = ({ db, ogrenci, ogrenciler, saltOkunur }) => {
   const okulAdi=(()=>{try{return localStorage.getItem('okul_adi')||'Okulumuz';}catch(e){return 'Okulumuz';}})();
   const StatKutu = (
     <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-3">
-      {[['Ödev',`${yapilan}/${atanan}`,'text-indigo-600'],['Tamamlama',`%${oran}`,'text-emerald-600'],['Devamsızlık',gelmedi,'text-rose-600'],['Kitap',kitap,'text-teal-600'],['D-Coin',puan,'text-amber-600']].map((k,i)=>(
+      {[['Ödev',`${yapilan}/${atanan}`,'text-indigo-600'],['Tamamlama',`%${oran}`,'text-emerald-600'],['Devamsızlık',gelmedi,'text-rose-600'],['Kitap',kitap,'text-teal-600'],['Yıldız',puan,'text-amber-600']].map((k,i)=>(
         <div key={i} className="bg-slate-50 rounded-xl p-2 text-center"><div className={`text-lg font-black ${k[2]}`}>{k[1]}</div><div className="text-[10px] font-bold text-slate-400">{k[0]}</div></div>
       ))}
     </div>
@@ -4175,7 +4175,7 @@ const GelisimKarnesi = ({ db, ogrenci, ogrenciler, saltOkunur }) => {
     const anahtar=(typeof cozKey==='function'?cozKey():''); if(!anahtar) return alert('AI için Ayarlardan Gemini anahtarı girin.');
     setAiYuk(true); setMod(tip);
     try{
-      const veri=`Öğrenci: ${ogrenci.ad} (${ogrenci.sinif}). Ödev tamamlama: ${yapilan}/${atanan} (%${oran}). Devamsızlık: ${gelmedi} gün, geç: ${gec}. Okunan kitap: ${kitap}. D-Coin: ${puan}. Güçlü yönler (DNA): ${dnaOzet}.`;
+      const veri=`Öğrenci: ${ogrenci.ad} (${ogrenci.sinif}). Ödev tamamlama: ${yapilan}/${atanan} (%${oran}). Devamsızlık: ${gelmedi} gün, geç: ${gec}. Okunan kitap: ${kitap}. Yıldız: ${puan}. Güçlü yönler (DNA): ${dnaOzet}.`;
       const p = tip==='yilsonu'
         ? `${veri}\nBir rehber öğretmen gibi, ${ogrenci.sinif} düzeyine uygun YIL SONU DEĞERLENDİRMESİ ve YOL HARİTASI yaz. Bölümler (renkli HTML, kod bloğu yok): <h3>Genel Değerlendirme</h3>, <h3>Güçlü Yönler</h3>, <h3>Gelişim Alanları</h3>, <h3>Yaz Dönemi Yol Haritası</h3> (4 somut madde). Sıcak, umut verici, damgalamayan dil.`
         : `${veri}\nBir rehber öğretmen gibi veliye yönelik kısa GELİŞİM RAPORU yaz. Bölümler (renkli HTML, kod bloğu yok): <h3>Bu Dönem Nasıl Gidiyor?</h3> (2-3 cümle), <h3>Takdir Edilecekler</h3> (2 madde), <h3>Birlikte Destekleyelim</h3> (veli+öğretmen işbirliği için 3 öneri). Sıcak dil.`;
@@ -4193,7 +4193,7 @@ const GelisimKarnesi = ({ db, ogrenci, ogrenciler, saltOkunur }) => {
     const html=`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>${ogrenci.ad} Gelişim Karnesi</title>
       <style>body{font-family:system-ui,Arial;padding:28px;color:#0f172a;max-width:800px;margin:auto}h1{margin:0;font-size:22px;color:#7c3aed}.alt{color:#64748b;font-size:13px;margin:2px 0 16px}.g{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}.k{background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:10px 14px;font-size:13px}.k b{display:block;font-size:18px;color:#6d28d9}h3{color:#7c3aed;font-size:15px;margin:14px 0 4px}.imza{margin-top:24px;color:#94a3b8;font-size:12px}button{margin-top:18px;padding:10px 18px;border:0;background:#7c3aed;color:#fff;border-radius:8px;font-weight:700;cursor:pointer}@media print{button{display:none}}</style></head>
       <body><h1>${okulAdi} — Gelişim Karnesi</h1><div class="alt">${ogrenci.ad} · ${ogrenci.sinif} · ${new Date().toLocaleDateString('tr-TR')}</div>
-      <div class="g"><div class="k"><b>${yapilan}/${atanan}</b>Ödev</div><div class="k"><b>%${oran}</b>Tamamlama</div><div class="k"><b>${gelmedi}</b>Devamsızlık</div><div class="k"><b>${kitap}</b>Kitap</div><div class="k"><b>${puan}</b>D-Coin</div></div>
+      <div class="g"><div class="k"><b>${yapilan}/${atanan}</b>Ödev</div><div class="k"><b>%${oran}</b>Tamamlama</div><div class="k"><b>${gelmedi}</b>Devamsızlık</div><div class="k"><b>${kitap}</b>Kitap</div><div class="k"><b>${puan}</b>Yıldız</div></div>
       <div style="font-size:13px;line-height:1.7">${aiMetin||'<i>AI raporu üretilmedi.</i>'}</div>
       <div class="imza">${okulAdi} · Dijital Eğitim Ekosistemi</div><button onclick="window.print()">🖨️ Yazdır / PDF</button></body></html>`;
     const w=window.open('','_blank'); if(!w){alert('Açılır pencereye izin verin.');return;} w.document.open(); w.document.write(html); w.document.close();
@@ -4244,7 +4244,7 @@ const SinifLigi = ({ db }) => {
     <div>
       <div className="bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-4 text-white mb-4">
         <h3 className="font-black text-lg"><i className="fa-solid fa-trophy mr-2"></i>Sınıflar Arası Lig</h3>
-        <p className="text-white/80 text-xs">D-Coin toplamına göre sınıf sıralaması</p>
+        <p className="text-white/80 text-xs">Yıldız toplamına göre sınıf sıralaması</p>
       </div>
       {sinifSira.length===0 ? <p className="text-center text-slate-400 py-6 text-sm">Henüz veri yok.</p> : (
         <div className="space-y-2 mb-5">
@@ -4253,7 +4253,7 @@ const SinifLigi = ({ db }) => {
               <span className="text-xl w-8 text-center">{madalya[i]||(i+1)}</span>
               <span className="flex-1 font-black text-slate-700">{x.s}</span>
               <span className="text-[11px] text-slate-400">ort. {x.ort}</span>
-              <span className="font-black text-amber-600">{x.puan} 🪙</span>
+              <span className="font-black text-amber-600">{x.puan} ⭐</span>
             </div>
           ))}
         </div>
@@ -4264,7 +4264,7 @@ const SinifLigi = ({ db }) => {
           <div key={o.id} className="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-2">
             <span className="w-6 text-center font-black text-slate-400">{i+1}</span>
             <span className="flex-1 font-bold text-slate-700 text-sm">{o.ad} <span className="text-[11px] text-slate-400">· {o.sinif}</span></span>
-            <span className="font-black text-amber-600 text-sm">{o.puan||0} 🪙</span>
+            <span className="font-black text-amber-600 text-sm">{o.puan||0} ⭐</span>
           </div>
         ))}
       </div>
@@ -4708,7 +4708,7 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
-if (apiKey) localStorage.setItem('gemini_api_key', apiKey);
+if (apiKey && !(window.ZIRVE_PAYLASILAN_KEYS && window.ZIRVE_PAYLASILAN_KEYS.indexOf(apiKey)>=0)) localStorage.setItem('gemini_api_key', apiKey);
 localStorage.setItem('gemini_model_name', modelName);
 if (modelName) localStorage.setItem('gemini_model_name', modelName);
 }, [apiKey, modelName]);
@@ -4805,7 +4805,7 @@ const unsubConf = window.FirebaseSDK.onSnapshot(confRef, (docSnap) => {
         const data = docSnap.data();
         if(data) {
             setGlobalConfig(data);
-            try{ const _pk=String(data.paylasilanKey||''); const _arr=_pk.split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); window.ZIRVE_PAYLASILAN_KEYS=_arr; window.ZIRVE_PAYLASILAN_KEY=_arr[0]||''; }catch(e){}
+            try{ const _pk=String(data.paylasilanKey||''); const _arr=_pk.split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); window.ZIRVE_PAYLASILAN_KEYS=_arr; window.ZIRVE_PAYLASILAN_KEY=_arr[0]||''; if(_arr.length){ var _own=''; try{_own=(localStorage.getItem('gemini_api_key')||'').trim();}catch(e2){} if(!_own || _own.length<10){ try{ setApiKey(_arr[Math.floor(Math.random()*_arr.length)]); }catch(e3){} } } }catch(e){}
             setAdminInputNews(data.news || "");
             setAdminInputPopup(data.popup || "");
             setAdminInputKurumKodu(data.kurumKodu || "değişim2026");
@@ -9409,7 +9409,7 @@ notes.map(n => (
       + '<li><b>Ödev & takip:</b> Öğretmen ödev verir, öğrenci yapıp gönderir, veli anında görür.</li>'
       + '<li><b>Öğrenme DNA’sı:</b> Her öğrencinin güçlü yönlerini keşfet, kişiye özel öner.</li>'
       + '<li><b>Konu çalış:</b> Maarif müfredatına uygun renkli özet ve etkinlikler, sesli okuma.</li>'
-      + '<li><b>Rozet & D-Coin:</b> Oyunlaştırma ile motivasyon; veliyle kolay iletişim.</li>'
+      + '<li><b>Rozet & Yıldız:</b> Oyunlaştırma ile motivasyon; veliyle kolay iletişim.</li>'
       + '<li><b>Sınava hazırlık:</b> LGS, TYT-AYT ve okul denemeleri; konu anlatımı, soru bankası ve analiz.</li>'
       + '</ul>'
       + '<p class="zl-imza">Barış Öğretmen tarafından geliştirildi · Türkiye’de bir ilk 🇹🇷</p>'
