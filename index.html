@@ -1421,8 +1421,9 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
                         let finalName = role === 'teacher' ? teacherName : name.trim();
                         if (role !== 'teacher' && finalName.length < 2) return alert('Lütfen geçerli bir isim girin!');
                         
+                        const _knorm = (x)=>String(x||'').replace(/[İIı]/g,'i').replace(/[Ğğ]/g,'g').replace(/[Üü]/g,'u').replace(/[Şş]/g,'s').replace(/[Öö]/g,'o').replace(/[Çç]/g,'c').toLowerCase().replace(/\s+/g,'').trim();
                         const dogruKod = globalConfig?.kurumKodu || 'değişim2026';
-                        if(kurumKodu !== dogruKod) return alert('Güvenlik İhlali: Kurum Kodu hatalı! Sadece Değişim Koleji üyeleri giriş yapabilir.');
+                        if(_knorm(kurumKodu) !== _knorm(dogruKod)) return alert('Kurum Kodu hatalı. Kurumunuzun verdiği kodu tekrar girin (büyük/küçük harf ve boşluk fark etmez).');
                         
                         let finalGrade = role === 'teacher' ? 'teacher' : grade;
                         onLogin({ role, name: finalName, grade: finalGrade });
