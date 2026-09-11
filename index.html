@@ -1346,17 +1346,7 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
     const [grade, setGrade] = useState(ALL_GRADES[0]);
     const [kurumKodu, setKurumKodu] = useState('');
 
-    useEffect(() => {
-        if (dynamicTeachers.length > 0 && !dynamicTeachers.includes(teacherName)) {
-            setTeacherName(dynamicTeachers[0]);
-        }
-    }, [globalConfig?.teachers]);
-
-    useEffect(() => {
-        if (dynamicTeachers.length > 0 && !dynamicTeachers.includes(teacherName)) {
-            setTeacherName(dynamicTeachers[0]);
-        }
-    }, [globalConfig?.teachers]);
+    /* Öğretmen adı otomatik doldurulmaz — herkes kendi adını yazar (Barış Hocam ön-dolumu kaldırıldı) */
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -2102,7 +2092,7 @@ const OgrenciYonetim = ({ db, ogrenciler, teslimler }) => {
       liste.push({ id:yeniId(), ad:ad.trim(), sinif, no:no.trim(), veliAdi:veliAdi.trim(), veliTel:veliTel.trim(), notlar:notlar.trim(), dna:null, puan:0, rozetler:[], tarih:Date.now() });
     }
     const ok = await okulYaz(db, "k12_ogrenciler", { liste });
-    if(ok){ setAd(''); setNo(''); setVeliAdi(''); setVeliTel(''); setNotlar(''); setDuzenleId(null); toast(duzenleId?'✏️ Öğrenci güncellendi.':'✅ Öğrenci kaydedildi. Artık sabit ve tüm cihazlarda görünür.','green'); }
+    if(ok){ setFiltreSinif(sinif); setAd(''); setNo(''); setVeliAdi(''); setVeliTel(''); setNotlar(''); setDuzenleId(null); toast(duzenleId?'✏️ Öğrenci güncellendi.':'✅ Öğrenci kaydedildi ve aşağıda listelendi.','green'); }
   };
   const sil = async (id) => {
     if(!window.confirm("Bu öğrenci kaydı silinsin mi? (Ödev/teslim geçmişi kalır)")) return;
@@ -2815,8 +2805,6 @@ const VeliMerkezi = ({ db, user }) => {
           <GelisimKarnesi db={db} ogrenci={cocuk} saltOkunur={true} />
           <OkulTakvimi db={db} duzenlenebilir={false} />
           <DersProgrami db={db} duzenlenebilir={false} sinif={cocuk.sinif} />
-          <YemekListesi db={db} duzenlenebilir={false} />
-          <ServisTakip db={db} duzenlenebilir={false} />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl p-5 text-white shadow text-center"><i className="fa-solid fa-coins text-2xl mb-1"></i><p className="text-3xl font-black">{cocuk.puan||0}</p><p className="text-xs font-bold">Yıldız</p></div>
             <div className="bg-gradient-to-br from-emerald-400 to-teal-500 rounded-3xl p-5 text-white shadow text-center"><i className="fa-solid fa-clipboard-check text-2xl mb-1"></i><p className="text-3xl font-black">{teslimler.filter(t=>t.ogrenciId===cocuk.id).length}</p><p className="text-xs font-bold">Tamamlanan</p></div>
@@ -3044,9 +3032,10 @@ const KonuCalisma = ({ grade }) => {
     setYukleniyor(true);
     try{
       const seviye = kucuk ? 'ÇOK BASİT, kısa cümleli, bol emoji ve renkli; küçük çocuğun anlayacağı dilde' : 'yaş düzeyine uygun, net ve öğretici';
+      const maarif = `KESİN KURAL: Türkiye 2024 "Türkiye Yüzyılı Maarif Modeli" müfredatına ve ${grade} sınıfı kazanımlarına birebir bağlı kal; sınıf seviyesinin ve müfredatın DIŞINA ÇIKMA, kazanım dışı/ileri seviye ya da uydurma bilgi VERME. `;
       const istem = tur==='ozet'
-        ? `${grade} öğrencisi için "${ders.ders}" dersinden "${secilenKonu}" konusunu ${seviye} bir şekilde ÖZETLE. Renkli HTML döndür: <h3> başlık, önemli yerler <b> ve renkli <span style="color:...">, örnekler kutular içinde. Bol emoji kullan. SADECE HTML gövdesi döndür (html/head/body etiketi olmadan), kod bloğu (üç tırnak) kullanma.`
-        : `${grade} öğrencisi için "${ders.ders}" dersinden "${secilenKonu}" konusuyla ilgili EĞLENCELİ 3-4 ETKİNLİK/ALIŞTIRMA hazırla (${seviye}). Bilmece, eşleştirme, boşluk doldurma, mini quiz gibi. Renkli HTML döndür (başlıklar, renkli kutular, emoji). Cevapları en sonda "✅ Cevaplar" başlığı altında ver. SADECE HTML gövdesi döndür, kod bloğu kullanma.`;
+        ? maarif + `${grade} öğrencisi için "${ders.ders}" dersinden "${secilenKonu}" konusunu ${seviye} bir şekilde ÖZETLE. Renkli HTML döndür: <h3> başlık, önemli yerler <b> ve renkli <span style="color:...">, örnekler kutular içinde. Bol emoji kullan. SADECE HTML gövdesi döndür (html/head/body etiketi olmadan), kod bloğu (üç tırnak) kullanma.`
+        : maarif + `${grade} öğrencisi için "${ders.ders}" dersinden "${secilenKonu}" konusuyla ilgili EĞLENCELİ 3-4 ETKİNLİK/ALIŞTIRMA hazırla (${seviye}). Bilmece, eşleştirme, boşluk doldurma, mini quiz gibi. Renkli HTML döndür (başlıklar, renkli kutular, emoji). Cevapları en sonda "✅ Cevaplar" başlığı altında ver. SADECE HTML gövdesi döndür, kod bloğu kullanma.`;
       let t = await geminiMetin(anahtar, cozModel(), istem);
       t = (t||'').replace(/```html|```/g,'').trim();
       if(!t){ setHata('Şu an üretilemedi, tekrar dene.'); }
@@ -3854,15 +3843,18 @@ const MesajOgretmen = ({ db, user, mesajlar, ogrenciler }) => {
   const thread = acik ? grup[seciliId].list.slice().sort((a,b)=>a.ts-b.ts) : [];
   const ac = async (id) => { setSeciliId(id); const yeni=(mesajlar||[]).map(m=> (m.ogrenciId===id && m.gonderen==='veli' && !m.okOgretmen) ? {...m, okOgretmen:true} : m); if(JSON.stringify(yeni)!==JSON.stringify(mesajlar)) await okulYaz(db,"k12_mesajlar",{liste:yeni}); };
   const gonder = async () => { if(!metin.trim()||!acik) return; const g=grup[seciliId]; const yeni=[...(mesajlar||[]), {id:yeniId(), ts:Date.now(), ogrenciId:seciliId, ogrenciAd:g.ad, sinif:g.sinif, gonderen:'ogretmen', ad:(user&&user.name)||'Öğretmen', metin:metin.trim(), okOgretmen:true, okVeli:false}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ setMetin(''); toast('Cevap gönderildi, veliye iletildi.','green'); } };
+  const mesajSil = async (id) => { if(!window.confirm('Bu mesaj silinsin mi?')) return; await okulYaz(db,"k12_mesajlar",{liste:(mesajlar||[]).filter(x=>x.id!==id)}); };
+  const sohbetTemizle = async () => { if(!window.confirm('Bu öğrenciyle tüm mesaj geçmişi silinsin mi?')) return; await okulYaz(db,"k12_mesajlar",{liste:(mesajlar||[]).filter(x=>x.ogrenciId!==seciliId)}); setSeciliId(''); };
 
   if(acik){
     return (
       <div>
         <button onClick={()=>setSeciliId('')} className="text-xs font-black text-indigo-600 mb-2"><i className="fa-solid fa-arrow-left mr-1"></i>Tüm mesajlar</button>
         <div className="bg-slate-50 rounded-xl p-3 mb-2 max-h-72 overflow-auto">
-          <p className="text-sm font-black text-slate-700 mb-2">{grup[seciliId].ad} · {grup[seciliId].sinif}</p>
+          <div className="flex items-center justify-between mb-2"><p className="text-sm font-black text-slate-700">{grup[seciliId].ad} · {grup[seciliId].sinif}</p><button onClick={sohbetTemizle} className="text-[11px] text-rose-500 font-bold"><i className="fa-solid fa-trash mr-1"></i>Geçmişi Sil</button></div>
           {thread.map(m=>(
-            <div key={m.id} className={`mb-2 flex ${m.gonderen==='ogretmen'?'justify-end':'justify-start'}`}>
+            <div key={m.id} className={`mb-2 flex items-center gap-1 ${m.gonderen==='ogretmen'?'justify-end':'justify-start'}`}>
+              {m.gonderen==='ogretmen' && <button onClick={()=>mesajSil(m.id)} className="text-slate-300 hover:text-rose-500 text-[11px]"><i className="fa-solid fa-trash-can"></i></button>}
               <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-[13px] ${m.gonderen==='ogretmen'?'bg-indigo-600 text-white':'bg-white border border-slate-200 text-slate-700'}`}>
                 <div className="text-[10px] opacity-70 mb-0.5">{m.ad}</div>{m.metin}
               </div>
@@ -3924,13 +3916,16 @@ const MesajVeli = ({ db, cocuk, user }) => {
   useEffect(()=>{ if(cocuk && unread>0){ const yeni=mesajlar.map(m=>(m.ogrenciId===cocuk.id && m.gonderen==='ogretmen' && !m.okVeli)?{...m,okVeli:true}:m); okulYaz(db,"k12_mesajlar",{liste:yeni}); } }, [cocuk?cocuk.id:'', unread]);
   if(!cocuk) return null;
   const gonder = async () => { if(!metin.trim()) return; const yeni=[...mesajlar, {id:yeniId(), ts:Date.now(), ogrenciId:cocuk.id, ogrenciAd:cocuk.ad, sinif:cocuk.sinif, gonderen:'veli', ad:(user&&user.name)||'Veli', metin:metin.trim(), okOgretmen:false, okVeli:true}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ setMetin(''); toast('Mesajınız öğretmene iletildi.','green'); } };
+  const mesajSil = async (id) => { if(!window.confirm('Bu mesaj silinsin mi?')) return; await okulYaz(db,"k12_mesajlar",{liste:mesajlar.filter(x=>x.id!==id)}); };
+  const sohbetTemizle = async () => { if(!window.confirm('Tüm mesaj geçmişi silinsin mi?')) return; await okulYaz(db,"k12_mesajlar",{liste:mesajlar.filter(x=>x.ogrenciId!==cocuk.id)}); };
   return (
     <div className="bg-white border-4 border-sky-200 rounded-[2rem] p-6 shadow-lg mt-6">
       <h3 className="text-xl font-black text-sky-800 mb-1 flex items-center"><i className="fa-solid fa-comments text-sky-500 mr-2"></i>Öğretmenle Mesajlaşma</h3>
-      <p className="text-sm text-slate-500 mb-3">{cocuk.ad} hakkında öğretmene yazın; cevap gelince burada görürsünüz.</p>
+      <div className="flex items-center justify-between mb-3"><p className="text-sm text-slate-500">{cocuk.ad} hakkında öğretmene yazın; cevap gelince burada görürsünüz.</p>{thread.length>0 && <button onClick={sohbetTemizle} className="text-[11px] text-rose-500 font-bold whitespace-nowrap ml-2"><i className="fa-solid fa-trash mr-1"></i>Geçmişi Sil</button>}</div>
       <div className="bg-slate-50 rounded-xl p-3 mb-2 max-h-64 overflow-auto">
         {thread.length===0 ? <p className="text-center text-slate-400 text-sm py-3">Henüz mesaj yok. İlk mesajı siz yazın.</p> : thread.map(m=>(
-          <div key={m.id} className={`mb-2 flex ${m.gonderen==='veli'?'justify-end':'justify-start'}`}>
+          <div key={m.id} className={`mb-2 flex items-center gap-1 ${m.gonderen==='veli'?'justify-end':'justify-start'}`}>
+            {m.gonderen==='veli' && <button onClick={()=>mesajSil(m.id)} className="text-slate-300 hover:text-rose-500 text-[11px]"><i className="fa-solid fa-trash-can"></i></button>}
             <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-[13px] ${m.gonderen==='veli'?'bg-sky-600 text-white':'bg-white border border-slate-200 text-slate-700'}`}>
               <div className="text-[10px] opacity-70 mb-0.5">{m.gonderen==='veli'?'Siz':m.ad}</div>{m.metin}
             </div>
