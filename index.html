@@ -1338,7 +1338,7 @@ const DraggableRobot = ({ apiKey, modelName }) => {
     );
 };
 
-const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
+const LoginScreen = ({ onLogin, openSettings, globalConfig, db }) => {
     const dynamicTeachers = globalConfig?.teachers ? globalConfig.teachers.split(',').map(t=>t.trim()).filter(Boolean) : TEACHER_NAMES;
     const [role, setRole] = useState('student');
     const [name, setName] = useState('');
@@ -1400,7 +1400,7 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
                     <div>
                         <input 
                             type="password" 
-                            placeholder="Kurum Kodu (Şifre)" 
+                            placeholder={role==='teacher'?'Öğretmen Şifreniz / Kurum Kodu':'Kurum Kodu (Şifre)'} 
                             value={kurumKodu} 
                             onChange={e=>setKurumKodu(e.target.value)} 
                             className="w-full bg-black/30 border border-white/10 text-white px-6 py-4 rounded-2xl outline-none focus:border-amber-400 focus:bg-black/50 transition font-bold text-center text-sm md:text-base placeholder-gray-400"
@@ -1409,12 +1409,23 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig }) => {
 
                     <button onClick={()=>{
                         let finalName = role === 'teacher' ? teacherName : name.trim();
-                        if (role !== 'teacher' && finalName.length < 2) return alert('Lütfen geçerli bir isim girin!');
-                        
+                        if (finalName.length < 2) return alert('Lütfen geçerli bir isim girin!');
                         const _knorm = (x)=>String(x||'').replace(/[İIı]/g,'i').replace(/[Ğğ]/g,'g').replace(/[Üü]/g,'u').replace(/[Şş]/g,'s').replace(/[Öö]/g,'o').replace(/[Çç]/g,'c').toLowerCase().replace(/\s+/g,'').trim();
                         const dogruKod = globalConfig?.kurumKodu || 'değişim2026';
-                        if(_knorm(kurumKodu) !== _knorm(dogruKod)) return alert('Kurum Kodu hatalı. Kurumunuzun verdiği kodu tekrar girin (büyük/küçük harf ve boşluk fark etmez).');
-                        
+                        const logKaydet = async (durum) => { try{ const {doc,getDoc,setDoc}=window.FirebaseSDK; const ref=doc(db,"maas_config","k12_giris"); let l=[]; try{const sn=await getDoc(ref); if(sn.exists()) l=(sn.data().liste)||[];}catch(e){} l.unshift({ad:finalName,rol:role,durum,ts:Date.now()}); if(l.length>300)l=l.slice(0,300); await setDoc(ref,{liste:l},{merge:true}); }catch(e){} };
+                        if(role==='teacher'){
+                          const map={}; (globalConfig?.ogretmenSifreleri||'').split(/[\n,;]+/).forEach(function(st){ const i=st.indexOf(':'); if(i>0){ map[_knorm(st.slice(0,i))]=st.slice(i+1).trim(); } });
+                          if(Object.keys(map).length>0){
+                            const beklenen=map[_knorm(finalName)];
+                            if(!beklenen){ logKaydet('yetkisiz öğretmen denemesi'); return alert('Bu isimde kayıtlı öğretmen yok. Lütfen yöneticinize başvurun.'); }
+                            if((kurumKodu||'').trim()!==beklenen){ logKaydet('öğretmen şifresi hatalı'); return alert('Öğretmen şifresi hatalı. Lütfen yöneticinizin verdiği şifreyi girin.'); }
+                          } else {
+                            if(_knorm(kurumKodu) !== _knorm(dogruKod)) return alert('Kurum Kodu hatalı. Kurumunuzun verdiği kodu tekrar girin.');
+                          }
+                        } else {
+                          if(_knorm(kurumKodu) !== _knorm(dogruKod)) return alert('Kurum Kodu hatalı. Kurumunuzun verdiği kodu tekrar girin.');
+                        }
+                        logKaydet('giriş');
                         let finalGrade = role === 'teacher' ? 'teacher' : grade;
                         onLogin({ role, name: finalName, grade: finalGrade });
                     }} className={`w-full py-5 rounded-2xl font-black text-white text-xl shadow-2xl hover:scale-[1.02] transition-transform flex items-center justify-center gap-3 mt-6 ${
@@ -4669,6 +4680,28 @@ const BugununOzeti = ({ db, ogrenci }) => {
   );
 };
 
+const GirisKayitlari = ({ db }) => {
+  const doc = useOkulDoc(db, "k12_giris"); const liste = (doc && doc.liste) || [];
+  const supheli = liste.filter(r=>r.durum && r.durum!=='giriş');
+  const temizle = async () => { if(!window.confirm('Tüm giriş kayıtları silinsin mi?')) return; await okulYaz(db,"k12_giris",{liste:[]}); };
+  return (
+    <div className="bg-white/90 rounded-xl p-3">
+      <div className="flex items-center justify-between mb-2"><span className="text-[11px] font-black text-slate-700 uppercase"><i className="fa-solid fa-clock-rotate-left mr-1"></i>Giriş Kayıtları ({liste.length})</span>{liste.length>0 && <button onClick={temizle} className="text-[10px] text-rose-500 font-bold">Temizle</button>}</div>
+      {supheli.length>0 && <div className="bg-rose-50 border border-rose-200 rounded-lg p-2 mb-2 text-[11px] text-rose-700 font-bold">⚠️ {supheli.length} şüpheli/başarısız giriş denemesi! Aşağıda kırmızı.</div>}
+      <div className="space-y-1 max-h-56 overflow-auto">
+        {liste.length===0 ? <p className="text-slate-400 text-[12px] text-center py-2">Henüz giriş kaydı yok.</p> : liste.slice(0,80).map((r,i)=>(
+          <div key={i} className={`text-[11px] flex items-center gap-2 rounded px-2 py-1 ${(r.durum&&r.durum!=='giriş')?'bg-rose-50 text-rose-700':'bg-slate-50 text-slate-600'}`}>
+            <span>{(r.durum&&r.durum!=='giriş')?'⚠️':(r.rol==='teacher'?'👩‍🏫':r.rol==='parent'?'👪':'🧑‍🎓')}</span>
+            <span className="font-bold">{r.ad}</span><span className="text-slate-400">{r.rol}</span>
+            {(r.durum&&r.durum!=='giriş') && <span className="font-bold">· {r.durum}</span>}
+            <span className="ml-auto text-slate-300 text-[10px]">{new Date(r.ts).toLocaleString('tr-TR')}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const App = () => {
 
 // K12 SİSTEM STATELERİ VE EKRAN SÜRESİ
@@ -6531,6 +6564,10 @@ const renderSharedUI = () => (
                                            <div>
                                                 <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Öğretmen İsimleri (Virgülle Ayırın)</label>
                                                 <input type="text" value={globalConfig?.teachers || "Sınıf Öğretmeni, Branş Öğretmeni"} onChange={(e)=>setGlobalConfig({...globalConfig, teachers: e.target.value})} placeholder="Örn: Ayşe Hoca, Ali Bey..." className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 font-medium transition-all text-sm" />
+                                                <label className="block text-[10px] font-black text-emerald-500 uppercase mb-1 mt-3">🔒 Öğretmen Şifreleri (her satır: Ad:şifre)</label>
+                                                <textarea value={globalConfig?.ogretmenSifreleri||''} onChange={(e)=>setGlobalConfig({...globalConfig, ogretmenSifreleri:e.target.value})} rows="3" placeholder={"Derya Bekiroğlu:derya123\nAhmet Yıldız:ahmet456"} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-emerald-500 font-mono text-xs transition-all resize-y"></textarea>
+                                                <p className="text-[10px] text-slate-400 mt-1">Boşsa öğretmenler eskisi gibi kurum koduyla girer. Doldurunca o öğretmen SADECE kendi şifresiyle girebilir. (Kaydetmeyi unutma.)</p>
+                                                <div className="mt-3"><GirisKayitlari db={db} /></div>
                                             </div>
                                             <div>
                                                 <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Kurum Giriş Kodu (Şifre)</label>
@@ -6572,6 +6609,7 @@ const renderSharedUI = () => (
                                         const confRef = doc(firestore, "maas_config", "k12_global");
                                         await setDoc(confRef, { 
                                             teachers: globalConfig?.teachers || "Sınıf Öğretmeni, Branş Öğretmeni",
+                                            ogretmenSifreleri: globalConfig?.ogretmenSifreleri || "",
                                             news: adminInputNews, 
                                             popup: adminInputPopup, 
                                             kurumKodu: adminInputKurumKodu,
@@ -6604,7 +6642,7 @@ const renderSharedUI = () => (
 );
 
 if (systemRole === 'student' && (Number(localStorage.getItem('ekran_limit_dk'))||0) > 0 && screenTimeLeft <= 0) return <><ScreenTimeLock /></>;
-if (!systemRole) return <>{renderSharedUI()}<LoginScreen onLogin={handleLogin} openSettings={()=>setShowSettings(true)} globalConfig={globalConfig} /></>;
+if (!systemRole) return <>{renderSharedUI()}<LoginScreen onLogin={handleLogin} openSettings={()=>setShowSettings(true)} globalConfig={globalConfig} db={db} /></>;
 if (systemRole === 'student') return <>{renderSharedUI()}<StudentPortal user={k12User} logout={handleLogout} timeLeft={screenTimeLeft} globalConfig={globalConfig} db={db} /></>;
 if (systemRole === 'parent') return <>{renderSharedUI()}<ParentPortal user={k12User} logout={handleLogout} globalConfig={globalConfig} db={db} /></>;
 if (systemRole === 'teacher') return <>{renderSharedUI()}
