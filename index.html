@@ -1429,7 +1429,7 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig, db }) => {
                         if (finalName.length < 2) return alert('Lütfen geçerli bir isim girin!');
                         const _knorm = (x)=>String(x||'').replace(/[İIı]/g,'i').replace(/[Ğğ]/g,'g').replace(/[Üü]/g,'u').replace(/[Şş]/g,'s').replace(/[Öö]/g,'o').replace(/[Çç]/g,'c').toLowerCase().replace(/\s+/g,'').trim();
                         const dogruKod = globalConfig?.kurumKodu || 'değişim2026';
-                        const logKaydet = async (durum) => { try{ const {doc,setDoc,updateDoc,arrayUnion}=window.FirebaseSDK; const ref=doc(db,"maas_config","k12_giris"); const kayit={ad:finalName,rol:role,durum,ts:Date.now()}; try{ await updateDoc(ref,{liste:arrayUnion(kayit)}); }catch(e){ await setDoc(ref,{liste:[kayit]},{merge:true}); } }catch(e){} };
+                        const logKaydet = async (durum) => { try{ const {doc,setDoc,updateDoc,getDoc,arrayUnion}=window.FirebaseSDK; const ref=doc(db,"maas_config","k12_giris"); const kayit={ad:finalName,rol:role,durum:durum,ts:Date.now()}; try{ var sn=await getDoc(ref); if(!sn.exists() || !Array.isArray((sn.data()||{}).liste)){ var mevcut=(sn.exists()&&Array.isArray((sn.data()||{}).liste))?sn.data().liste:[]; await setDoc(ref,{liste:mevcut.concat([kayit])},{merge:true}); } else { await updateDoc(ref,{liste:arrayUnion(kayit)}); } }catch(e){ try{ await updateDoc(ref,{liste:arrayUnion(kayit)}); }catch(e2){ try{ var s2=await getDoc(ref); var l2=(s2.exists()&&Array.isArray((s2.data()||{}).liste))?s2.data().liste:[]; l2.push(kayit); await setDoc(ref,{liste:l2},{merge:true}); }catch(e3){} } } }catch(e){} };
                         if(role==='teacher'){
                           const satirlar=(globalConfig?.ogretmenSifreleri||'').split(/[\n,;]+/).map(function(x){return x.trim();}).filter(Boolean);
                           const _sil=function(x){ return _knorm(x).replace(/ogretmen|hocam|hoca|teacher/g,''); };
@@ -4736,6 +4736,37 @@ const BugununOzeti = ({ db, ogrenci }) => {
   );
 };
 
+const SistemTest = ({ db, globalConfig, apiKey }) => {
+  const [sonuc, setSonuc] = useState(null);
+  const [calisiyor, setCalisiyor] = useState(false);
+  const test = async () => {
+    setCalisiyor(true); const r=[]; const ekle=(ad,durum,mesaj)=>r.push({ad,durum,mesaj});
+    try{ ekle('Firebase Bağlantısı', db?'ok':'hata', db?'Bağlı ve aktif':'Bağlantı yok!'); }catch(e){ ekle('Firebase Bağlantısı','hata',String(e)); }
+    try{ const {doc,setDoc,getDoc,deleteDoc}=window.FirebaseSDK; const tref=doc(db,"maas_config","k12_selftest"); const tv='t'+Date.now(); await setDoc(tref,{v:tv}); const sn=await getDoc(tref); const ok=sn.exists()&&sn.data().v===tv; try{await deleteDoc(tref);}catch(e){} ekle('Bulut Yazma / Okuma', ok?'ok':'hata', ok?'Veriler kaydediliyor ve geri okunuyor':'Başarısız — Firestore kuralını yayınladınız mı?'); }catch(e){ ekle('Bulut Yazma / Okuma','hata','Hata: '+(e.message||e)+' — Firestore kuralını kontrol edin'); }
+    try{ const k=((typeof cozKey==='function'?cozKey():'')||apiKey||''); ekle('Yapay Zeka Anahtarı', (k&&k.length>10)?'ok':'uyari', (k&&k.length>10)?'Anahtar mevcut, AI çalışır':'Anahtar yok — Ayarlardan girin veya ortak anahtar ekleyin'); }catch(e){ ekle('Yapay Zeka Anahtarı','uyari','Kontrol edilemedi'); }
+    try{ const a=((typeof window!=='undefined'&&window.ZIRVE_PAYLASILAN_KEYS)||[]); ekle('Ortak Anahtar Havuzu', a.length>0?'ok':'uyari', a.length>0?(a.length+' ortak anahtar aktif'):'Ortak anahtar yok (isteğe bağlı)'); }catch(e){ ekle('Ortak Anahtar Havuzu','uyari','—'); }
+    try{ const t=((globalConfig&&globalConfig.ogretmenSifreleri)||'').trim(); ekle('Öğretmen Şifreleri', t?'ok':'uyari', t?'Tanımlı — öğretmen girişi kilitli':'Boş — öğretmenler kurum koduyla girer'); }catch(e){ ekle('Öğretmen Şifreleri','uyari','—'); }
+    try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_giris")); const n=(sn.exists()&&Array.isArray(sn.data().liste))?sn.data().liste.length:0; ekle('Giriş Kayıtları', n>0?'ok':'uyari', n+' giriş kaydı tutuluyor'); }catch(e){ ekle('Giriş Kayıtları','uyari','Okunamadı'); }
+    try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_ogrenciler")); const n=(sn.exists()&&Array.isArray(sn.data().liste))?sn.data().liste.length:0; ekle('Öğrenci Kayıtları', 'ok', n+' öğrenci kayıtlı ve okunabiliyor'); }catch(e){ ekle('Öğrenci Kayıtları','uyari','Okunamadı'); }
+    try{ localStorage.setItem('_zt','1'); localStorage.removeItem('_zt'); ekle('Yerel Depolama','ok','Çalışıyor'); }catch(e){ ekle('Yerel Depolama','uyari','Tarayıcı kısıtlamış olabilir'); }
+    try{ ekle('İnternet Bağlantısı', navigator.onLine?'ok':'hata', navigator.onLine?'Çevrimiçi':'Çevrimdışısınız!'); }catch(e){}
+    setSonuc(r); setCalisiyor(false);
+  };
+  const renk={ok:'text-emerald-600',uyari:'text-amber-600',hata:'text-rose-600'};
+  const ikon={ok:'✅',uyari:'⚠️',hata:'❌'};
+  const hataSay=sonuc?sonuc.filter(x=>x.durum==='hata').length:0;
+  const uyariSay=sonuc?sonuc.filter(x=>x.durum==='uyari').length:0;
+  return (
+    <div className="bg-white/90 rounded-xl p-3 mt-3">
+      <span className="text-[12px] font-black text-slate-700 uppercase"><i className="fa-solid fa-heart-pulse mr-1"></i>Otonom Sistem Testi</span>
+      <p className="text-[11px] text-slate-500 my-2">Tek tuşla sistemin tüm kritik parçalarını kontrol eder; bir sorun varsa yerini ve nedenini söyler.</p>
+      <button onClick={test} disabled={calisiyor} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 rounded-lg text-sm disabled:opacity-60 mb-2">{calisiyor?'⏳ Test ediliyor…':'🩺 Sistemi Şimdi Test Et'}</button>
+      {sonuc && <div className={`rounded-lg p-2 mb-2 text-[12px] font-black text-center ${hataSay>0?'bg-rose-50 text-rose-700':uyariSay>0?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700'}`}>{hataSay>0?('❌ '+hataSay+' SORUN bulundu — aşağıya bakın'):uyariSay>0?('⚠️ '+uyariSay+' uyarı · '+(sonuc.length-uyariSay)+' test başarılı'):('✅ HER ŞEY YOLUNDA! ('+sonuc.length+'/'+sonuc.length+')')}</div>}
+      {sonuc && <div className="space-y-1">{sonuc.map((x,i)=>(<div key={i} className="flex items-start gap-2 text-[12px] bg-slate-50 rounded px-2 py-1.5"><span>{ikon[x.durum]}</span><div><b className="text-slate-700">{x.ad}</b><div className={renk[x.durum]}>{x.mesaj}</div></div></div>))}</div>}
+    </div>
+  );
+};
+
 const GirisKayitlari = ({ db }) => {
   const doc = useOkulDoc(db, "k12_giris"); const liste = (doc && doc.liste) || [];
   const [sekme, setSekme] = useState('teacher');
@@ -6924,6 +6955,7 @@ const renderSharedUI = () => (
                                                 <p className="text-[10px] text-slate-400 mt-1">Boşsa öğretmenler eskisi gibi kurum koduyla girer. Doldurunca o öğretmen SADECE kendi şifresiyle girebilir. (Kaydetmeyi unutma.)</p>
                                                 <button onClick={async()=>{ try{ const {doc,setDoc}=window.FirebaseSDK; await setDoc(doc(db,"maas_config","k12_global"),{ teachers:(globalConfig?.teachers||""), ogretmenSifreleri:(globalConfig?.ogretmenSifreleri||"") },{merge:true}); setOgrKayitOnay(true); if(typeof showToast==='function') showToast("✅ Kaydedildi!"); setTimeout(function(){ setOgrKayitOnay(false); },3000); }catch(e){ alert("Hata: "+e.message); } }} className={`mt-2 w-full font-black py-3 rounded-lg text-sm text-white transition ${ogrKayitOnay?'bg-emerald-800':'bg-emerald-600 hover:bg-emerald-700'}`}>{ogrKayitOnay?'✅ Kaydedildi!':'💾 Öğretmen İsim & Şifrelerini Kaydet'}</button>
                                                 <div className="mt-3"><GirisKayitlari db={db} /></div>
+                                                <SistemTest db={db} globalConfig={globalConfig} apiKey={apiKey} />
                                             </div>
                                             <div>
                                                 <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Kurum Giriş Kodu (Şifre)</label>
