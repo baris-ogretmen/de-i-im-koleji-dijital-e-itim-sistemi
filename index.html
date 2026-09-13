@@ -1356,14 +1356,15 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig, db }) => {
     const [teacherName, setTeacherName] = useState("");
     const [grade, setGrade] = useState(ALL_GRADES[0]);
     const [kurumKodu, setKurumKodu] = useState('');
+    const [kvkkAcik, setKvkkAcik] = useState(false);
 
     /* Öğretmen adı otomatik doldurulmaz — herkes kendi adını yazar (Barış Hocam ön-dolumu kaldırıldı) */
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-            <div className="absolute top-4 right-4 z-50">
-                <button onClick={openSettings} className="bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-full backdrop-blur-md transition shadow-lg border border-white/20 font-bold flex items-center gap-2"><i className="fa-solid fa-user-shield text-lg"></i> Yönetici Girişi</button>
-                <p className="text-[10px] text-white/50 mt-4 max-w-md mx-auto leading-relaxed text-center px-4"><i className="fa-solid fa-shield-halved mr-1"></i> KVKK Bilgilendirmesi: Bu uygulamadaki öğrenci, veli ve öğretmen verileri yalnızca eğitim ve gelişim amacıyla, ilgili kurum tarafından işlenir; üçüncü kişilerle paylaşılmaz. Yapay zeka çıktıları bilgilendirme amaçlıdır, önemli kararlarda uzman görüşü alınmalıdır. Giriş yaparak bu koşulları kabul etmiş olursunuz.</p>
+            <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+                <button onClick={()=>setKvkkAcik(true)} title="KVKK Bilgilendirmesi" className="bg-white/10 hover:bg-white/20 text-white w-11 h-11 rounded-full backdrop-blur-md border border-white/20 flex items-center justify-center transition"><i className="fa-solid fa-shield-halved"></i></button><button onClick={openSettings} className="bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-full backdrop-blur-md transition shadow-lg border border-white/20 font-bold flex items-center gap-2 text-sm"><i className="fa-solid fa-user-shield"></i> Yönetici</button>
+                {kvkkAcik && (<div onClick={()=>setKvkkAcik(false)} className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in"><div onClick={e=>e.stopPropagation()} className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl"><h3 className="font-black text-slate-800 text-lg mb-3 flex items-center"><i className="fa-solid fa-shield-halved text-indigo-500 mr-2"></i>KVKK Bilgilendirmesi</h3><p className="text-slate-600 text-sm leading-relaxed">Bu uygulamadaki öğrenci, veli ve öğretmen verileri yalnızca eğitim ve gelişim amacıyla, ilgili kurum tarafından işlenir; üçüncü kişilerle paylaşılmaz. Yapay zeka çıktıları bilgilendirme amaçlıdır, önemli kararlarda uzman görüşü alınmalıdır. Giriş yaparak bu koşulları kabul etmiş olursunuz.</p><button onClick={()=>setKvkkAcik(false)} className="mt-4 w-full bg-indigo-600 text-white font-black py-2.5 rounded-xl hover:bg-indigo-700">Anladım</button></div></div>)}
             </div>
             
             <div className="absolute -top-32 -left-32 w-96 h-96 bg-purple-600/20 rounded-full mix-blend-screen filter blur-[100px] animate-pulse"></div>
@@ -2104,6 +2105,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='rehberlik' && <RehberlikHaritasi db={db} ogrenciler={ogrenciler} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='defter'  && <OgretmenDefteri db={db} duzenlenebilir={true} user={user} />}
         {!yukleniyor && sekme==='kitapharita' && <KitapKurduHaritasi ogrenciler={ogrenciler} />}
+        <ZirveFooter />
         {!yukleniyor && sekme==='ders'    && <DersProgrami db={db} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='yemek'   && <YemekListesi db={db} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='servis'  && <ServisTakip db={db} duzenlenebilir={true} />}
@@ -2739,6 +2741,7 @@ const OgrenciMerkezi = ({ db, user }) => {
       <SinifPanosu db={db} duzenlenebilir={false} sinif={sinifim} />
       <KulupEtkinlik db={db} duzenlenebilir={false} />
       <KitapKurduHaritasi ogrenciler={ogrenciler} />
+      <ZirveFooter />
       <VeliAnketi db={db} duzenlenebilir={false} />
 
       {ben && <KendiniKesfet db={db} ogrenciler={ogrenciler} ben={ben} teslimler={teslimler} />}
@@ -2878,6 +2881,7 @@ const VeliMerkezi = ({ db, user }) => {
           <KulupEtkinlik db={db} duzenlenebilir={false} />
           <RehberlikHaritasi db={db} ogrenciler={ogrenciler} duzenlenebilir={false} ogrenci={cocuk} />
           <KitapKurduHaritasi ogrenciler={ogrenciler} />
+          <ZirveFooter />
           <VeliAnketi db={db} duzenlenebilir={false} />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl p-5 text-white shadow text-center"><i className="fa-solid fa-coins text-2xl mb-1"></i><p className="text-3xl font-black">{cocuk.puan||0}</p><p className="text-xs font-bold">Yıldız</p></div>
@@ -4998,6 +5002,13 @@ const KitapKurduHaritasi = ({ ogrenciler }) => {
     </div>
   );
 };
+
+const ZirveFooter = () => (
+  <div className="mt-10 mb-24 text-center">
+    <a href="https://baris-ogretmen.github.io/site-1/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm font-black text-indigo-600 hover:text-white hover:bg-indigo-600 bg-indigo-50 px-5 py-2.5 rounded-full transition border border-indigo-200"><i className="fa-solid fa-globe"></i>Web Sitemiz</a>
+    <p className="text-[11px] text-slate-400 mt-2">baris-ogretmen.github.io/site-1 · Değişim Koleji Eğitim Ekosistemi</p>
+  </div>
+);
 
 const App = () => {
 
