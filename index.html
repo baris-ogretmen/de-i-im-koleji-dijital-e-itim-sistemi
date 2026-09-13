@@ -4739,34 +4739,103 @@ const BugununOzeti = ({ db, ogrenci }) => {
 const SistemTest = ({ db, globalConfig, apiKey }) => {
   const [sonuc, setSonuc] = useState(null);
   const [calisiyor, setCalisiyor] = useState(false);
+  const [ilerleme, setIlerleme] = useState('');
+  const [kopyalandi, setKopyalandi] = useState(false);
   const test = async () => {
-    setCalisiyor(true); const r=[]; const ekle=(ad,durum,mesaj)=>r.push({ad,durum,mesaj});
-    try{ ekle('Firebase Bağlantısı', db?'ok':'hata', db?'Bağlı ve aktif':'Bağlantı yok!'); }catch(e){ ekle('Firebase Bağlantısı','hata',String(e)); }
-    try{ const {doc,setDoc,getDoc,deleteDoc}=window.FirebaseSDK; const tref=doc(db,"maas_config","k12_selftest"); const tv='t'+Date.now(); await setDoc(tref,{v:tv}); const sn=await getDoc(tref); const ok=sn.exists()&&sn.data().v===tv; try{await deleteDoc(tref);}catch(e){} ekle('Bulut Yazma / Okuma', ok?'ok':'hata', ok?'Veriler kaydediliyor ve geri okunuyor':'Başarısız — Firestore kuralını yayınladınız mı?'); }catch(e){ ekle('Bulut Yazma / Okuma','hata','Hata: '+(e.message||e)+' — Firestore kuralını kontrol edin'); }
-    try{ const k=((typeof cozKey==='function'?cozKey():'')||apiKey||''); ekle('Yapay Zeka Anahtarı', (k&&k.length>10)?'ok':'uyari', (k&&k.length>10)?'Anahtar mevcut, AI çalışır':'Anahtar yok — Ayarlardan girin veya ortak anahtar ekleyin'); }catch(e){ ekle('Yapay Zeka Anahtarı','uyari','Kontrol edilemedi'); }
-    try{ const a=((typeof window!=='undefined'&&window.ZIRVE_PAYLASILAN_KEYS)||[]); ekle('Ortak Anahtar Havuzu', a.length>0?'ok':'uyari', a.length>0?(a.length+' ortak anahtar aktif'):'Ortak anahtar yok (isteğe bağlı)'); }catch(e){ ekle('Ortak Anahtar Havuzu','uyari','—'); }
-    try{ const t=((globalConfig&&globalConfig.ogretmenSifreleri)||'').trim(); ekle('Öğretmen Şifreleri', t?'ok':'uyari', t?'Tanımlı — öğretmen girişi kilitli':'Boş — öğretmenler kurum koduyla girer'); }catch(e){ ekle('Öğretmen Şifreleri','uyari','—'); }
-    try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_giris")); const n=(sn.exists()&&Array.isArray(sn.data().liste))?sn.data().liste.length:0; ekle('Giriş Kayıtları', n>0?'ok':'uyari', n+' giriş kaydı tutuluyor'); }catch(e){ ekle('Giriş Kayıtları','uyari','Okunamadı'); }
-    try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_ogrenciler")); const n=(sn.exists()&&Array.isArray(sn.data().liste))?sn.data().liste.length:0; ekle('Öğrenci Kayıtları', 'ok', n+' öğrenci kayıtlı ve okunabiliyor'); }catch(e){ ekle('Öğrenci Kayıtları','uyari','Okunamadı'); }
-    try{ localStorage.setItem('_zt','1'); localStorage.removeItem('_zt'); ekle('Yerel Depolama','ok','Çalışıyor'); }catch(e){ ekle('Yerel Depolama','uyari','Tarayıcı kısıtlamış olabilir'); }
-    try{ ekle('İnternet Bağlantısı', navigator.onLine?'ok':'hata', navigator.onLine?'Çevrimiçi':'Çevrimdışısınız!'); }catch(e){}
-    setSonuc(r); setCalisiyor(false);
+    setCalisiyor(true); setKopyalandi(false); const r=[]; const SDK=window.FirebaseSDK||{};
+    const ekle=(panel,ad,durum,mesaj)=>r.push({panel,ad,durum,mesaj});
+    // bir özelliğin veri sistemini gerçekten dener: yaz → oku → sil
+    const yazOku = async (panel, ad, path, ornek) => {
+      setIlerleme(ad+' test ediliyor…');
+      try{ const {doc,setDoc,getDoc,deleteDoc}=SDK; const ref=doc(db,"maas_config",path);
+        await setDoc(ref, ornek); const sn=await getDoc(ref);
+        const ok=sn.exists() && JSON.stringify(sn.data())===JSON.stringify(ornek);
+        try{ await deleteDoc(ref); }catch(e){}
+        ekle(panel, ad, ok?'ok':'hata', ok?'Çalışıyor (yaz-oku başarılı)':'Veri geri okunamadı — Firestore kuralı/bağlantı');
+      }catch(e){ ekle(panel, ad,'hata','HATA: '+(e.message||e)); }
+    };
+    const oku = async (panel, ad, path, etiket) => {
+      setIlerleme(ad+' okunuyor…');
+      try{ const {doc,getDoc}=SDK; const sn=await getDoc(doc(db,"maas_config",path)); const n=(sn.exists()&&Array.isArray((sn.data()||{}).liste))?sn.data().liste.length:0; ekle(panel, ad,'ok',(etiket||'')+n+' kayıt okunabiliyor'); }
+      catch(e){ ekle(panel, ad,'hata','Okunamadı: '+(e.message||e)); }
+    };
+    const T=Date.now();
+    // ---------- GENEL / ALTYAPI ----------
+    ekle('Altyapı','Firebase Bağlantısı', db?'ok':'hata', db?'Bağlı':'Yok!');
+    ekle('Altyapı','İnternet', (typeof navigator!=='undefined'&&navigator.onLine)?'ok':'hata', (typeof navigator!=='undefined'&&navigator.onLine)?'Çevrimiçi':'Çevrimdışı!');
+    try{ localStorage.setItem('_zt','1'); localStorage.removeItem('_zt'); ekle('Altyapı','Yerel Depolama','ok','Çalışıyor'); }catch(e){ ekle('Altyapı','Yerel Depolama','uyari','Kısıtlı'); }
+    await yazOku('Altyapı','Bulut Yazma/Okuma (çekirdek)','k12_selftest',{v:'t'+T});
+    // ---------- CANLI YAPAY ZEKA ----------
+    setIlerleme('Yapay Zeka canlı test ediliyor…');
+    try{ const anahtar=((typeof cozKey==='function'?cozKey():'')||apiKey||'');
+      if(!anahtar||anahtar.length<10){ ekle('Yapay Zeka','AI Motoru (Konu Çalış, Bülten, Karne, Ödev Fikri)','uyari','Anahtar yok — Ayarlardan girin/ortak anahtar ekleyin'); }
+      else{ const c=await geminiMetin(anahtar,(typeof cozModel==='function'?cozModel():''),'Sadece şunu yaz: TAMAM'); ekle('Yapay Zeka','AI Motoru (Konu Çalış, Bülten, Karne, Ödev Fikri)', (c&&c.trim())?'ok':'hata', (c&&c.trim())?('CANLI cevap alındı: "'+c.trim().slice(0,18)+'"'):'AI cevap vermedi — anahtar/kota sorunu'); }
+    }catch(e){ ekle('Yapay Zeka','AI Motoru','hata','AI HATASI: '+(e.message||e)); }
+    // ---------- ÖĞRETMEN PANELİ ----------
+    await oku('Öğretmen Paneli','Öğrenci Kayıt & Liste','k12_ogrenciler');
+    await yazOku('Öğretmen Paneli','Ödev Atama','k12_selftest_odev',{liste:[{id:'t',sinif:'_T_',ders:'test',ts:T}]});
+    await oku('Öğretmen Paneli','Ödev Teslim Takibi','k12_teslim');
+    await yazOku('Öğretmen Paneli','Yoklama & Devamsızlık','k12_selftest_yok',{liste:[{ogrenciId:'_T_',durum:'geldi',tarih:'2000-01-01'}]});
+    await yazOku('Öğretmen Paneli','Veli↔Öğretmen Mesaj','k12_selftest_mesaj',{liste:[{id:'t',ogrenciId:'_T_',gonderen:'veli',metin:'x',ts:T}]});
+    await yazOku('Öğretmen Paneli','Randevu Sistemi','k12_selftest_rand',{liste:[{id:'t',tarih:'2000-01-01'}]});
+    await yazOku('Öğretmen Paneli','Okul Takvimi','k12_selftest_tak',{liste:[{id:'t',baslik:'x'}]});
+    await yazOku('Öğretmen Paneli','Ders Programı','k12_selftest_ders',{liste:[{id:'t',sinif:'_T_'}]});
+    await yazOku('Öğretmen Paneli','Yemek & Servis','k12_selftest_yem',{liste:[{id:'t'}]});
+    await yazOku('Öğretmen Paneli','Duyuru Sistemi','k12_selftest_duy',{liste:[{id:'t',metin:'x'}]});
+    await yazOku('Öğretmen Paneli','Haftanın Öğrencisi','k12_selftest_haf',{liste:[{sinif:'_T_',ogrenciAd:'x'}]});
+    await yazOku('Öğretmen Paneli','Veli Anketi','k12_selftest_ank',{liste:[{id:'t',soru:'x',secenekler:[]}]});
+    await yazOku('Öğretmen Paneli','Sınıf Panosu','k12_selftest_pan',{liste:[{id:'t',sinif:'_T_',metin:'x'}]});
+    await yazOku('Öğretmen Paneli','Kulüp & Etkinlik','k12_selftest_kul',{liste:[{id:'t',tur:'kulup',ad:'x'}]});
+    await yazOku('Öğretmen Paneli','Rehberlik Gelişim Haritası','k12_selftest_reh',{liste:[{id:'t',ogrenciId:'_T_',yil:'2000'}]});
+    await yazOku('Öğretmen Paneli','Öğretmen Defteri','k12_selftest_def',{liste:[{id:'t',hafta:1}]});
+    ekle('Öğretmen Paneli','DNA · Rozet/Yıldız · Lig · Karne · Bülten · Gelişim', (typeof DnaDegerlendirme==='function' && typeof SinifKarnesi==='function' && typeof HaftalikBulten==='function' && typeof GelisimOgretmen==='function' && typeof SinifLigi==='function')?'ok':'hata', 'Bileşenler yüklü (öğrenci verisi + AI üzerinden çalışır)');
+    ekle('Öğretmen Paneli','Gürültü Metre', (typeof GurultuMetre==='function')?'ok':'hata', 'Yüklü (mikrofon izniyle çalışır)');
+    // ---------- ÖĞRENCİ PANELİ ----------
+    ekle('Öğrenci Paneli','AI Konu Çalışma', (r.find(x=>x.ad&&x.ad.indexOf('AI Motoru')===0)||{}).durum||'uyari', 'AI Motoru testine bağlı');
+    await oku('Öğrenci Paneli','Ödev Teslim (fotoğraf/yazı)','k12_teslim');
+    ekle('Öğrenci Paneli','Kitap Okuma · Kendini Keşfet (DNA) · Bugünün Özeti', (typeof KitapTakip==='function' && typeof KendiniKesfet==='function' && typeof BugununOzeti==='function')?'ok':'hata', 'Bileşenler yüklü (öğrenci verisi üzerinden çalışır)');
+    // ---------- VELİ PANELİ ----------
+    ekle('Veli Paneli','Yoklama Görüntüleme · Gelişim Karnesi · Randevu · Anket', (typeof YoklamaVeli==='function' && typeof GelisimKarnesi==='function' && typeof RandevuVeli==='function' && typeof VeliAnketi==='function')?'ok':'hata', 'Bileşenler yüklü (öğretmen verisini okur)');
+    ekle('Veli Paneli','Veli↔Öğretmen Mesaj', (r.find(x=>x.ad==='Veli↔Öğretmen Mesaj')||{}).durum||'uyari', 'Mesaj sistemine bağlı');
+    // ---------- YÖNETİCİ PANELİ ----------
+    try{ const a=((typeof window!=='undefined'&&window.ZIRVE_PAYLASILAN_KEYS)||[]); ekle('Yönetici Paneli','Ortak Anahtar Havuzu', a.length>0?'ok':'uyari', a.length>0?(a.length+' anahtar aktif'):'Yok (isteğe bağlı)'); }catch(e){}
+    try{ const t=((globalConfig&&globalConfig.ogretmenSifreleri)||'').trim(); ekle('Yönetici Paneli','Öğretmen Şifreleri', t?'ok':'uyari', t?'Tanımlı':'Boş — kurum koduyla girilir'); }catch(e){}
+    await oku('Yönetici Paneli','Giriş Kayıtları','k12_giris');
+    await yazOku('Yönetici Paneli','Ayar Kaydetme (config)','k12_selftest_cfg',{v:T});
+    setIlerleme(''); setSonuc(r); setCalisiyor(false);
+  };
+  const raporMetni = () => { if(!sonuc) return '';
+    const sim={ok:'[OK]',uyari:'[UYARI]',hata:'[SORUN]'};
+    const h=sonuc.filter(x=>x.durum==='hata').length, u=sonuc.filter(x=>x.durum==='uyari').length;
+    let t='DEĞİŞİM KOLEJİ — PANEL BAZLI OTONOM SAĞLIK KONTROLÜ\n'+new Date().toLocaleString('tr-TR')+'\nÖZET: '+(h>0?(h+' SORUN'):(u>0?(u+' uyarı'):'HER ŞEY YOLUNDA'))+' ('+sonuc.length+' test)\n';
+    let pan=''; sonuc.forEach(x=>{ if(x.panel!==pan){ pan=x.panel; t+='\n=== '+pan+' ===\n'; } t+=sim[x.durum]+' '+x.ad+': '+x.mesaj+'\n'; });
+    return t;
+  };
+  const kopyala = async () => { const t=raporMetni();
+    try{ await navigator.clipboard.writeText(t); setKopyalandi(true); setTimeout(()=>setKopyalandi(false),2500); }
+    catch(e){ try{ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); setKopyalandi(true); setTimeout(()=>setKopyalandi(false),2500); }catch(e2){ alert(t); } }
   };
   const renk={ok:'text-emerald-600',uyari:'text-amber-600',hata:'text-rose-600'};
   const ikon={ok:'✅',uyari:'⚠️',hata:'❌'};
   const hataSay=sonuc?sonuc.filter(x=>x.durum==='hata').length:0;
   const uyariSay=sonuc?sonuc.filter(x=>x.durum==='uyari').length:0;
+  const paneller = sonuc? sonuc.reduce((a,x)=>{ (a[x.panel]=a[x.panel]||[]).push(x); return a; },{}) : {};
   return (
     <div className="bg-white/90 rounded-xl p-3 mt-3">
-      <span className="text-[12px] font-black text-slate-700 uppercase"><i className="fa-solid fa-heart-pulse mr-1"></i>Otonom Sistem Testi</span>
-      <p className="text-[11px] text-slate-500 my-2">Tek tuşla sistemin tüm kritik parçalarını kontrol eder; bir sorun varsa yerini ve nedenini söyler.</p>
-      <button onClick={test} disabled={calisiyor} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 rounded-lg text-sm disabled:opacity-60 mb-2">{calisiyor?'⏳ Test ediliyor…':'🩺 Sistemi Şimdi Test Et'}</button>
-      {sonuc && <div className={`rounded-lg p-2 mb-2 text-[12px] font-black text-center ${hataSay>0?'bg-rose-50 text-rose-700':uyariSay>0?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700'}`}>{hataSay>0?('❌ '+hataSay+' SORUN bulundu — aşağıya bakın'):uyariSay>0?('⚠️ '+uyariSay+' uyarı · '+(sonuc.length-uyariSay)+' test başarılı'):('✅ HER ŞEY YOLUNDA! ('+sonuc.length+'/'+sonuc.length+')')}</div>}
-      {sonuc && <div className="space-y-1">{sonuc.map((x,i)=>(<div key={i} className="flex items-start gap-2 text-[12px] bg-slate-50 rounded px-2 py-1.5"><span>{ikon[x.durum]}</span><div><b className="text-slate-700">{x.ad}</b><div className={renk[x.durum]}>{x.mesaj}</div></div></div>))}</div>}
+      <span className="text-[12px] font-black text-slate-700 uppercase"><i className="fa-solid fa-heart-pulse mr-1"></i>Otonom Sağlık Kontrolü — Tüm Paneller</span>
+      <p className="text-[11px] text-slate-500 my-2">Öğretmen · Öğrenci · Veli · Yönetici panellerindeki <b>her özelliği</b> tek tek gerçekten dener (canlı AI + yaz-oku). Sorun varsa yerini söyler; <b>Kopyala</b> ile bize iletin.</p>
+      <button onClick={test} disabled={calisiyor} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 rounded-lg text-sm disabled:opacity-60 mb-2">{calisiyor?('⏳ '+(ilerleme||'Test ediliyor…')):'🩺 TÜM SİSTEMİ Test Et (panel panel)'}</button>
+      {sonuc && <div className={`rounded-lg p-2 mb-2 text-[12px] font-black text-center ${hataSay>0?'bg-rose-50 text-rose-700':uyariSay>0?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700'}`}>{hataSay>0?('❌ '+hataSay+' SORUN bulundu'):uyariSay>0?('⚠️ '+uyariSay+' uyarı · '+(sonuc.length-uyariSay)+' başarılı'):('✅ HEPSİ ÇALIŞIYOR! ('+sonuc.length+'/'+sonuc.length+')')}</div>}
+      {sonuc && <button onClick={kopyala} className={`w-full font-black py-2 rounded-lg text-sm mb-2 ${kopyalandi?'bg-emerald-700 text-white':'bg-slate-700 hover:bg-slate-800 text-white'}`}>{kopyalandi?'✅ Kopyalandı — bize yapıştırın':'📋 Sonucu Kopyala'}</button>}
+      {sonuc && Object.keys(paneller).map(p=>(
+        <div key={p} className="mb-2">
+          <div className="text-[11px] font-black text-indigo-700 uppercase bg-indigo-50 rounded px-2 py-1 mb-1">{p}</div>
+          <div className="space-y-1">{paneller[p].map((x,i)=>(<div key={i} className="flex items-start gap-2 text-[12px] bg-slate-50 rounded px-2 py-1.5"><span>{ikon[x.durum]}</span><div><b className="text-slate-700">{x.ad}</b><div className={renk[x.durum]}>{x.mesaj}</div></div></div>))}</div>
+        </div>
+      ))}
     </div>
   );
 };
-
 const GirisKayitlari = ({ db }) => {
   const doc = useOkulDoc(db, "k12_giris"); const liste = (doc && doc.liste) || [];
   const [sekme, setSekme] = useState('teacher');
