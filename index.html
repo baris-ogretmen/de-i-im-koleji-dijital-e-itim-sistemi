@@ -2108,7 +2108,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='rehberlik' && <RehberlikHaritasi db={db} ogrenciler={ogrenciler} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='defter'  && <OgretmenDefteri db={db} duzenlenebilir={true} user={user} />}
         {!yukleniyor && sekme==='kitapharita' && <KitapKurduHaritasi ogrenciler={ogrenciler} />}
-        <ZirveFooter />
+        <AkademiKart rol="ogretmen" />
         {!yukleniyor && sekme==='ders'    && <DersProgrami db={db} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='yemek'   && <YemekListesi db={db} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='servis'  && <ServisTakip db={db} duzenlenebilir={true} />}
@@ -2884,7 +2884,7 @@ const VeliMerkezi = ({ db, user }) => {
           <KulupEtkinlik db={db} duzenlenebilir={false} />
           <RehberlikHaritasi db={db} ogrenciler={ogrenciler} duzenlenebilir={false} ogrenci={cocuk} />
           <KitapKurduHaritasi ogrenciler={ogrenciler} />
-          <ZirveFooter />
+          <AkademiKart rol="veli" />
           <VeliAnketi db={db} duzenlenebilir={false} />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl p-5 text-white shadow text-center"><i className="fa-solid fa-coins text-2xl mb-1"></i><p className="text-3xl font-black">{cocuk.puan||0}</p><p className="text-xs font-bold">Yıldız</p></div>
@@ -3919,7 +3919,8 @@ const MesajOgretmen = ({ db, user, mesajlar, ogrenciler }) => {
   useEffect(()=>{ try{ var u=(mesajlar||[]).filter(function(m){return m.gonderen==='veli'&&!m.okOgretmen;}).length; if(u>0) toast('📬 '+u+' yeni veli mesajı var','#2563eb'); }catch(e){} }, []);
   const grup = {};
   (mesajlar||[]).forEach(m=>{ if(!grup[m.ogrenciId]) grup[m.ogrenciId]={ad:m.ogrenciAd, sinif:m.sinif, list:[], unread:0}; grup[m.ogrenciId].list.push(m); if(m.gonderen==='veli'&&!m.okOgretmen) grup[m.ogrenciId].unread++; });
-  const konusmalar = Object.keys(grup).map(id=>{ const g=grup[id]; const son=g.list.slice().sort((a,b)=>b.ts-a.ts)[0]; return {id, ad:g.ad, sinif:g.sinif, unread:g.unread, son}; }).sort((a,b)=>(b.son?b.son.ts:0)-(a.son?a.son.ts:0));
+  const _benAd = String((user&&user.name)||'').trim().toLocaleLowerCase('tr'); const _yonetici = (typeof window!=='undefined' && window.ZIRVE_admin===true);
+  const konusmalar = Object.keys(grup).map(id=>{ const g=grup[id]; const son=g.list.slice().sort((a,b)=>b.ts-a.ts)[0]; return {id, ad:g.ad, sinif:g.sinif, unread:g.unread, son}; }).filter(function(k){ if(_yonetici) return true; var tm=grup[k.id].list.filter(function(m){return m.gonderen==='ogretmen';}); if(tm.length===0) return true; return tm.some(function(m){return String(m.ad||'').trim().toLocaleLowerCase('tr')===_benAd;}); }).sort((a,b)=>(b.son?b.son.ts:0)-(a.son?a.son.ts:0));
   const acik = seciliId && grup[seciliId];
   const thread = acik ? grup[seciliId].list.slice().sort((a,b)=>a.ts-b.ts) : [];
   const ac = async (id) => { setSeciliId(id); const yeni=(mesajlar||[]).map(m=> (m.ogrenciId===id && m.gonderen==='veli' && !m.okOgretmen) ? {...m, okOgretmen:true} : m); if(JSON.stringify(yeni)!==JSON.stringify(mesajlar)) await okulYaz(db,"k12_mesajlar",{liste:yeni}); };
@@ -4741,34 +4742,49 @@ const GirisKayitlari = ({ db }) => {
   const [ara, setAra] = useState('');
   const temizle = async () => { if(!window.confirm('Bu ayın tüm giriş kayıtları silinip YENİ AYA sıfırdan başlanacak. Onaylıyor musunuz? (Geri alınamaz)')) return; await okulYaz(db,"k12_giris",{liste:[]}); toast('✅ Kayıtlar temizlendi, yeni ay başladı.','green'); };
   const supheli = liste.filter(r=>r.durum && r.durum!=='giriş');
-  const sirali = liste.slice().sort((a,b)=>(b.ts||0)-(a.ts||0));
-  const rolSay = (rol)=> liste.filter(r=>r.rol===rol && (!r.durum||r.durum==='giriş')).length;
-  const filtre = sirali.filter(r=>{
-    const rolTamam = sekme==='supheli' ? (r.durum && r.durum!=='giriş') : (r.rol===sekme && (!r.durum || r.durum==='giriş'));
-    const araTamam = !ara || String(r.ad||'').toLocaleLowerCase('tr').indexOf(ara.toLocaleLowerCase('tr'))>=0;
-    return rolTamam && araTamam;
-  });
+  const basarili = liste.filter(r=>!r.durum || r.durum==='giriş');
+  const rolSay = (rol)=> { const a={}; basarili.filter(r=>r.rol===rol).forEach(r=>{a[r.ad]=1;}); return Object.keys(a).length; };
+  const sayac={teacher:{},parent:{},student:{}};
+  basarili.forEach(r=>{ if(sayac[r.rol]) sayac[r.rol][r.ad]=(sayac[r.rol][r.ad]||0)+1; });
+  const enCok=(rol)=> Object.keys(sayac[rol]||{}).map(function(ad){return {ad:ad,n:sayac[rol][ad]};}).sort((a,b)=>b.n-a.n).slice(0,3);
+  const kaynak = sekme==='supheli' ? supheli : basarili.filter(r=>r.rol===sekme);
+  const grupla={};
+  kaynak.forEach(r=>{ const k=(r.ad||'')+'|'+(r.durum||''); if(!grupla[k]) grupla[k]={ad:r.ad,rol:r.rol,durum:r.durum,adet:0,sonTs:0}; grupla[k].adet++; if((r.ts||0)>grupla[k].sonTs) grupla[k].sonTs=r.ts||0; });
+  const grupliListe = Object.keys(grupla).map(k=>grupla[k]).filter(g=>!ara || String(g.ad||'').toLocaleLowerCase('tr').indexOf(ara.toLocaleLowerCase('tr'))>=0).sort((a,b)=>b.sonTs-a.sonTs);
   const sekmeler=[{k:'teacher',ad:'👩‍🏫 Öğretmenler',s:rolSay('teacher')},{k:'parent',ad:'👪 Veliler',s:rolSay('parent')},{k:'student',ad:'🧑‍🎓 Öğrenciler',s:rolSay('student')},{k:'supheli',ad:'⚠️ Şüpheli',s:supheli.length}];
+  const madalya=['🥇','🥈','🥉'];
   return (
     <div className="bg-white/90 rounded-xl p-3">
       <div className="flex items-center justify-between mb-2"><span className="text-[12px] font-black text-slate-700 uppercase"><i className="fa-solid fa-clock-rotate-left mr-1"></i>Giriş Kayıtları ({liste.length})</span>{liste.length>0 && <button onClick={temizle} className="text-[10px] text-white bg-rose-500 hover:bg-rose-600 font-bold px-2.5 py-1 rounded-lg">🗑️ Ay Sonu · Temizle</button>}</div>
-      {liste.length>0 && (()=>{ const ts=liste.map(r=>r.ts).filter(Boolean); const ilk=Math.min.apply(null,ts), son=Math.max.apply(null,ts); return <p className="text-[11px] text-slate-500 mb-2">📅 <b>{new Date(ilk).toLocaleDateString('tr-TR')}</b> — <b>{new Date(son).toLocaleDateString('tr-TR')}</b> arası toplam <b>{liste.length}</b> giriş kaydı</p>; })()}
+      {liste.length>0 && (()=>{ const ts=liste.map(r=>r.ts).filter(Boolean); const ilk=Math.min.apply(null,ts), son=Math.max.apply(null,ts); return <p className="text-[11px] text-slate-500 mb-2">📅 <b>{new Date(ilk).toLocaleDateString('tr-TR')}</b> — <b>{new Date(son).toLocaleDateString('tr-TR')}</b> arası toplam <b>{liste.length}</b> giriş</p>; })()}
+      {basarili.length>0 && <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl p-3 mb-3 text-white">
+        <p className="font-black text-sm mb-2">🏆 Bu Ayın En Çok Girenleri (motivasyon / ödül)</p>
+        <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
+          {[{r:'teacher',ad:'👩‍🏫 Öğretmen'},{r:'parent',ad:'👪 Veli'},{r:'student',ad:'🧑‍🎓 Öğrenci'}].map(x=>{ const t=enCok(x.r); return (
+            <div key={x.r} className="bg-white/15 rounded-xl p-2">
+              <div className="font-bold text-white/90 mb-1">{x.ad}</div>
+              {t.length===0? <div className="text-white/60">—</div> : t.map((e,i)=>(<div key={i} className="truncate">{madalya[i]} {e.ad} <b>({e.n})</b></div>))}
+            </div>
+          );})}
+        </div>
+      </div>}
       {supheli.length>0 && <div className="bg-rose-50 border border-rose-200 rounded-lg p-2 mb-2 text-[11px] text-rose-700 font-bold">⚠️ {supheli.length} şüpheli/başarısız giriş denemesi var! "Şüpheli" sekmesine bakın.</div>}
       <div className="flex gap-1 mb-2 flex-wrap">
         {sekmeler.map(x=>(<button key={x.k} onClick={()=>setSekme(x.k)} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-black transition ${sekme===x.k?(x.k==='supheli'?'bg-rose-600 text-white':'bg-indigo-600 text-white'):'bg-slate-100 text-slate-500'}`}>{x.ad} ({x.s})</button>))}
       </div>
       <input value={ara} onChange={e=>setAra(e.target.value)} placeholder="🔍 İsimle ara…" className="w-full mb-2 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none" />
       <div className="space-y-1 max-h-72 overflow-auto">
-        {filtre.length===0 ? <p className="text-slate-400 text-[12px] text-center py-3">Bu grupta kayıt yok.</p> : filtre.map((r,i)=>{ const d=new Date(r.ts); return (
-          <div key={i} className={`text-[12px] flex items-center gap-2 rounded-lg px-2.5 py-1.5 ${(r.durum&&r.durum!=='giriş')?'bg-rose-50 text-rose-700 border border-rose-100':'bg-slate-50 text-slate-700'}`}>
-            <span>{(r.durum&&r.durum!=='giriş')?'⚠️':(r.rol==='teacher'?'👩‍🏫':r.rol==='parent'?'👪':'🧑‍🎓')}</span>
-            <span className="font-black">{r.ad}</span>
-            {(r.durum&&r.durum!=='giriş') && <span className="font-bold text-[11px]">· {r.durum}</span>}
+        {grupliListe.length===0 ? <p className="text-slate-400 text-[12px] text-center py-3">Bu grupta kayıt yok.</p> : grupliListe.map((g,i)=>{ const d=new Date(g.sonTs); return (
+          <div key={i} className={`text-[12px] flex items-center gap-2 rounded-lg px-2.5 py-1.5 ${(g.durum&&g.durum!=='giriş')?'bg-rose-50 text-rose-700 border border-rose-100':'bg-slate-50 text-slate-700'}`}>
+            <span>{(g.durum&&g.durum!=='giriş')?'⚠️':(g.rol==='teacher'?'👩‍🏫':g.rol==='parent'?'👪':'🧑‍🎓')}</span>
+            <span className="font-black">{g.ad}</span>
+            {g.adet>1 && <span className="bg-indigo-600 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full">×{g.adet}</span>}
+            {(g.durum&&g.durum!=='giriş') && <span className="font-bold text-[11px]">· {g.durum}</span>}
             <span className="ml-auto text-right text-[10px] text-slate-400 leading-tight">{d.toLocaleDateString('tr-TR')}<br/>{d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</span>
           </div>
         );})}
       </div>
-      <p className="text-[10px] text-slate-400 mt-2">📌 En son giren en üstte. Bir kişi hiç girmediyse burada görünmez — "ben girdim/yaptım" diyeni böyle kontrol edebilirsiniz.</p>
+      <p className="text-[10px] text-slate-400 mt-2">📌 Aynı kişi birden çok girdiyse yanında <b>×adet</b> gösterilir, son giriş saati sağda. Hiç girmeyen listede görünmez.</p>
     </div>
   );
 };
@@ -5021,6 +5037,17 @@ const KitapKurduHaritasi = ({ ogrenciler }) => {
     </div>
   );
 };
+
+const AkademiKart = ({ rol }) => (
+  <button onClick={()=>window.open('https://baris-ogretmen.github.io/site-1/','_blank')} className="w-full bg-white border-4 border-slate-100 hover:border-cyan-400 p-6 rounded-[2.5rem] shadow-xl hover:-translate-y-1 transition-all flex flex-col items-center justify-center gap-4 group relative overflow-hidden mt-8 mb-24">
+    <div className="absolute top-0 right-0 bg-cyan-100 text-cyan-700 text-[10px] font-black px-4 py-2 rounded-bl-2xl uppercase tracking-widest">Akademi</div>
+    <div className="bg-gradient-to-br from-cyan-400 to-blue-500 text-white w-20 h-20 flex items-center justify-center rounded-3xl group-hover:scale-110 transition-transform shadow-lg"><i className="fa-solid fa-globe text-[42px]"></i></div>
+    <div className="text-center">
+      <h3 className="font-black text-2xl text-slate-800 mb-1">Eğitim Ekosistemi</h3>
+      <p className="text-slate-500 font-bold text-sm px-2">{rol==='veli'?'Barış Öğretmen Akademi platformumuzu keşfedin, çalışmaları ve içerikleri görün!':'Barış Öğretmen Akademi platformuna gidin, tüm çalışmalara ulaşın!'}</p>
+    </div>
+  </button>
+);
 
 const ZirveFooter = () => (
   <div className="mt-10 mb-24 text-center">
