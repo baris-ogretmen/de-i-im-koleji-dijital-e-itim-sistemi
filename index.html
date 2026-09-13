@@ -45,11 +45,11 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
   import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
-  import { getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+  import { getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, setDoc, getDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
   window.FirebaseSDK = {
     initializeApp, getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword,
-    getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, setDoc
+    getFirestore, collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, setDoc, getDoc, arrayUnion
   };
   window.dispatchEvent(new Event('firebase-sdk-ready'));
 </script>
@@ -1429,7 +1429,7 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig, db }) => {
                         if (finalName.length < 2) return alert('Lütfen geçerli bir isim girin!');
                         const _knorm = (x)=>String(x||'').replace(/[İIı]/g,'i').replace(/[Ğğ]/g,'g').replace(/[Üü]/g,'u').replace(/[Şş]/g,'s').replace(/[Öö]/g,'o').replace(/[Çç]/g,'c').toLowerCase().replace(/\s+/g,'').trim();
                         const dogruKod = globalConfig?.kurumKodu || 'değişim2026';
-                        const logKaydet = async (durum) => { try{ const {doc,getDoc,setDoc}=window.FirebaseSDK; const ref=doc(db,"maas_config","k12_giris"); let l=[]; try{const sn=await getDoc(ref); if(sn.exists()) l=(sn.data().liste)||[];}catch(e){} l.unshift({ad:finalName,rol:role,durum,ts:Date.now()}); if(l.length>300)l=l.slice(0,300); await setDoc(ref,{liste:l},{merge:true}); }catch(e){} };
+                        const logKaydet = async (durum) => { try{ const {doc,setDoc,updateDoc,arrayUnion}=window.FirebaseSDK; const ref=doc(db,"maas_config","k12_giris"); const kayit={ad:finalName,rol:role,durum,ts:Date.now()}; try{ await updateDoc(ref,{liste:arrayUnion(kayit)}); }catch(e){ await setDoc(ref,{liste:[kayit]},{merge:true}); } }catch(e){} };
                         if(role==='teacher'){
                           const satirlar=(globalConfig?.ogretmenSifreleri||'').split(/[\n,;]+/).map(function(x){return x.trim();}).filter(Boolean);
                           const _sil=function(x){ return _knorm(x).replace(/ogretmen|hocam|hoca|teacher/g,''); };
@@ -4739,7 +4739,7 @@ const GirisKayitlari = ({ db }) => {
   const doc = useOkulDoc(db, "k12_giris"); const liste = (doc && doc.liste) || [];
   const [sekme, setSekme] = useState('teacher');
   const [ara, setAra] = useState('');
-  const temizle = async () => { if(!window.confirm('TÜM giriş kayıtları silinsin mi? (Geri alınamaz)')) return; await okulYaz(db,"k12_giris",{liste:[]}); };
+  const temizle = async () => { if(!window.confirm('Bu ayın tüm giriş kayıtları silinip YENİ AYA sıfırdan başlanacak. Onaylıyor musunuz? (Geri alınamaz)')) return; await okulYaz(db,"k12_giris",{liste:[]}); toast('✅ Kayıtlar temizlendi, yeni ay başladı.','green'); };
   const supheli = liste.filter(r=>r.durum && r.durum!=='giriş');
   const sirali = liste.slice().sort((a,b)=>(b.ts||0)-(a.ts||0));
   const rolSay = (rol)=> liste.filter(r=>r.rol===rol && (!r.durum||r.durum==='giriş')).length;
@@ -4751,7 +4751,8 @@ const GirisKayitlari = ({ db }) => {
   const sekmeler=[{k:'teacher',ad:'👩‍🏫 Öğretmenler',s:rolSay('teacher')},{k:'parent',ad:'👪 Veliler',s:rolSay('parent')},{k:'student',ad:'🧑‍🎓 Öğrenciler',s:rolSay('student')},{k:'supheli',ad:'⚠️ Şüpheli',s:supheli.length}];
   return (
     <div className="bg-white/90 rounded-xl p-3">
-      <div className="flex items-center justify-between mb-2"><span className="text-[12px] font-black text-slate-700 uppercase"><i className="fa-solid fa-clock-rotate-left mr-1"></i>Giriş Kayıtları ({liste.length})</span>{liste.length>0 && <button onClick={temizle} className="text-[10px] text-rose-500 font-bold">Tümünü Temizle</button>}</div>
+      <div className="flex items-center justify-between mb-2"><span className="text-[12px] font-black text-slate-700 uppercase"><i className="fa-solid fa-clock-rotate-left mr-1"></i>Giriş Kayıtları ({liste.length})</span>{liste.length>0 && <button onClick={temizle} className="text-[10px] text-white bg-rose-500 hover:bg-rose-600 font-bold px-2.5 py-1 rounded-lg">🗑️ Ay Sonu · Temizle</button>}</div>
+      {liste.length>0 && (()=>{ const ts=liste.map(r=>r.ts).filter(Boolean); const ilk=Math.min.apply(null,ts), son=Math.max.apply(null,ts); return <p className="text-[11px] text-slate-500 mb-2">📅 <b>{new Date(ilk).toLocaleDateString('tr-TR')}</b> — <b>{new Date(son).toLocaleDateString('tr-TR')}</b> arası toplam <b>{liste.length}</b> giriş kaydı</p>; })()}
       {supheli.length>0 && <div className="bg-rose-50 border border-rose-200 rounded-lg p-2 mb-2 text-[11px] text-rose-700 font-bold">⚠️ {supheli.length} şüpheli/başarısız giriş denemesi var! "Şüpheli" sekmesine bakın.</div>}
       <div className="flex gap-1 mb-2 flex-wrap">
         {sekmeler.map(x=>(<button key={x.k} onClick={()=>setSekme(x.k)} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-black transition ${sekme===x.k?(x.k==='supheli'?'bg-rose-600 text-white':'bg-indigo-600 text-white'):'bg-slate-100 text-slate-500'}`}>{x.ad} ({x.s})</button>))}
