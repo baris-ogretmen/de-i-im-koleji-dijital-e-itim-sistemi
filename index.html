@@ -2744,7 +2744,7 @@ const OgrenciMerkezi = ({ db, user }) => {
       <SinifPanosu db={db} duzenlenebilir={false} sinif={sinifim} />
       <KulupEtkinlik db={db} duzenlenebilir={false} />
       <KitapKurduHaritasi ogrenciler={ogrenciler} />
-      <ZirveFooter />
+      <AkademiKart rol="ogrenci" />
       <VeliAnketi db={db} duzenlenebilir={false} />
 
       {ben && <KendiniKesfet db={db} ogrenciler={ogrenciler} ben={ben} teslimler={teslimler} />}
@@ -5165,6 +5165,8 @@ const [k12User, setK12User] = useState(null);
 const [screenTimeLeft, setScreenTimeLeft] = useState(0);
 const [showSettings, setShowSettings] = useState(false);
 const [ogrKayitOnay, setOgrKayitOnay] = useState(false);
+const [keyTestSonuc, setKeyTestSonuc] = useState([]);
+const [keyTestCalisiyor, setKeyTestCalisiyor] = useState(false);
 
 // DİNAMİK DUYURU (HABER BANDI VE POPUP) YÖNETİMİ
 const [globalConfig, setGlobalConfig] = useState({ news: "", popup: "" });
@@ -7036,7 +7038,12 @@ const renderSharedUI = () => (
                                                     <button onClick={()=>{ if(!window.confirm('Tüm ortak anahtarlar SİLİNSİN mi? (Kaydet\'e basınca kalıcı olur)')) return; setGlobalConfig({...globalConfig, paylasilanKey:''}); showToast('🗑️ Anahtarlar temizlendi — Kaydet\'e basmayı unutmayın.'); }} className="bg-rose-500 text-white font-bold py-2 rounded-lg text-xs">🗑️ Tümünü Sil</button>
                                                     <button onClick={async()=>{ try{ const t=await navigator.clipboard.readText(); const hepsi=((globalConfig?.paylasilanKey||'')+'\n'+t).split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); const tekil=[]; hepsi.forEach(function(k){ if(tekil.indexOf(k)<0) tekil.push(k); }); setGlobalConfig({...globalConfig, paylasilanKey:tekil.join('\n')}); showToast('📥 '+tekil.length+' anahtar birleştirildi.'); }catch(e){ alert('Pano okunamadı, elle yapıştırın.'); } }} className="bg-blue-600 text-white font-bold py-2 rounded-lg text-xs">📥 Panodan Yapıştır</button>
                                                 </div>
-                                                <button onClick={async(ev)=>{ const btn=ev.currentTarget; const eski=btn.innerHTML; const keys=(globalConfig?.paylasilanKey||'').split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); if(keys.length===0){ alert('Önce anahtar ekleyin.'); return; } const test=keys.slice(0,25); let ok=0,kotu=0; btn.disabled=true; for(let i=0;i<test.length;i++){ btn.innerHTML='🧪 Test '+(i+1)+'/'+test.length+'…'; try{ const c=await geminiMetin(test[i],(typeof cozModel==='function'?cozModel():''),'OK'); if(c&&String(c).trim())ok++; else kotu++; }catch(e){ kotu++; } } btn.innerHTML=eski; btn.disabled=false; alert('🧪 ANAHTAR TEST SONUCU\n\n✅ Çalışan: '+ok+'\n❌ Çalışmayan / kota dolu: '+kotu+'\n\n(İlk '+test.length+' anahtar test edildi; toplam '+keys.length+' anahtar var)\n\nNot: Google kalan kota miktarını API ile paylaşmaz; her anahtarın çalışıp çalışmadığı canlı test edilir.'); }} className="mt-2 w-full bg-fuchsia-600 text-white font-bold py-2 rounded-lg text-xs hover:bg-fuchsia-700">🧪 Anahtarları Test Et (çalışıyor mu?)</button>
+                                                <button onClick={async()=>{ const keys=(globalConfig?.paylasilanKey||'').split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); if(keys.length===0){ alert('Önce anahtar ekleyin.'); return; } setKeyTestCalisiyor(true); setKeyTestSonuc([]); const test=keys.slice(0,50); for(let i=0;i<test.length;i++){ let ok=false; try{ const c=await geminiMetin(test[i],(typeof cozModel==='function'?cozModel():''),'OK'); ok=!!(c&&String(c).trim()); }catch(e){ ok=false; } setKeyTestSonuc(function(p){ return p.concat([{key:test[i].slice(0,8)+'…'+test[i].slice(-4), ok:ok}]); }); } setKeyTestCalisiyor(false); }} disabled={keyTestCalisiyor} className="mt-2 w-full bg-fuchsia-600 text-white font-bold py-2 rounded-lg text-xs hover:bg-fuchsia-700 disabled:opacity-60">{keyTestCalisiyor?('🧪 Test ediliyor… ('+keyTestSonuc.length+')'):'🧪 Anahtarları Test Et (anlık sonuç)'}</button>
+                                                {(keyTestSonuc.length>0 || keyTestCalisiyor) && <div className="mt-2 bg-white rounded-lg p-2 border border-slate-200">
+                                                  {keyTestSonuc.length>0 && <div className="flex gap-3 text-[11px] font-black mb-1"><span className="text-emerald-600">✅ {keyTestSonuc.filter(x=>x.ok).length} çalışıyor</span><span className="text-rose-600">❌ {keyTestSonuc.filter(x=>!x.ok).length} çalışmıyor</span></div>}
+                                                  <div className="space-y-1 max-h-52 overflow-auto">{keyTestSonuc.map(function(x,i){ return <div key={i} className={`text-[11px] font-mono flex items-center justify-between px-2 py-1 rounded ${x.ok?'bg-emerald-50 text-emerald-700':'bg-rose-50 text-rose-700'}`}><span>{i+1}. {x.key}</span><span>{x.ok?'✅':'❌'}</span></div>; })}</div>
+                                                  <p className="text-[9px] text-slate-400 mt-1">Not: Google kalan kotayı API ile vermez; anahtarın çalışıp çalışmadığı test edilir.</p>
+                                                </div>}
                                                 <button onClick={async()=>{ try{ const {doc,setDoc}=window.FirebaseSDK; const temiz=(globalConfig?.paylasilanKey||'').split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); const metin=temiz.join('\n'); await setDoc(doc(db,"maas_config","k12_global"),{paylasilanKey:metin},{merge:true}); try{ window.ZIRVE_PAYLASILAN_KEYS=temiz; window.ZIRVE_PAYLASILAN_KEY=temiz[0]||''; }catch(e){} showToast(temiz.length+' ortak anahtar kaydedildi — herkeste AI açıldı.'); }catch(e){ alert('Hata: '+e.message); } }} className="mt-2 w-full bg-emerald-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-emerald-700">Ortak Anahtarları Kaydet (herkeste çalışsın)</button>
                                             </div>
                                         </div>
