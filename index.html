@@ -2012,6 +2012,64 @@ async function geminiMetin(apiKey, modelName, prompt){
 /* ============================================================================
    ÖĞRETMEN MERKEZİ — mega yönetim: kayıt / ödev / teslim / DNA / rozet / duyuru
    ============================================================================ */
+const SinavUret = ({ apiKey, modelName }) => {
+  const [sinif,setSinif]=useState(OKUL_SINIFLAR[0]);
+  const [ders,setDers]=useState((typeof OKUL_DERSLER!=='undefined'&&OKUL_DERSLER[0])||'Türkçe');
+  const [konu,setKonu]=useState('');
+  const [adet,setAdet]=useState('10');
+  const [zorluk,setZorluk]=useState('Orta');
+  const [yuk,setYuk]=useState(false);
+  const [sorular,setSorular]=useState(null);
+  const [ham,setHam]=useState('');
+  const uret=async()=>{
+    if(!konu.trim())return alert('Önce konu yazın.');
+    const anahtar=apiKey||(typeof cozKey==='function'?cozKey():'');
+    if(!anahtar||anahtar.length<10)return alert('AI anahtarı gerekli (Ayarlar).');
+    setYuk(true); setSorular(null); setHam('');
+    const p='KESİN KURAL: Türkiye 2024 "Türkiye Yüzyılı Maarif Modeli" müfredatına ve '+sinif+' kazanımlarına uygun, '+ders+' dersi "'+konu+'" konusundan '+adet+' adet '+zorluk+' zorlukta ÇOKTAN SEÇMELİ soru üret. Sınıf seviyesinin ve müfredatın dışına ÇIKMA. Her soru 4 şıklı olsun. SADECE şu JSON dizisini döndür; başka HİÇBİR şey yazma, markdown/```  kullanma: [{"soru":"...","secenekler":["birinci şık","ikinci şık","üçüncü şık","dördüncü şık"],"dogru":0}] (dogru: doğru şıkkın 0-3 arası indeksi).';
+    try{ let c=await geminiMetin(anahtar,modelName||(typeof cozModel==='function'?cozModel():''),p); c=String(c||'').trim().replace(/```json/gi,'').replace(/```/g,'').trim();
+      let arr=null; try{ arr=JSON.parse(c); }catch(e){ const m=c.match(/\[[\s\S]*\]/); if(m){ try{arr=JSON.parse(m[0]);}catch(e2){} } }
+      if(Array.isArray(arr)&&arr.length){ setSorular(arr); } else { setHam(c||'Boş cevap geldi, tekrar deneyin.'); }
+    }catch(e){ alert('Üretilemedi: '+(e.message||e)); }
+    setYuk(false);
+  };
+  const harf=['A','B','C','D','E'];
+  const yazdir=()=>{
+    if(!sorular)return;
+    let h='<html><head><meta charset="utf-8"><title>'+ders+' - '+konu+'</title><style>body{font-family:Arial,sans-serif;padding:26px;color:#111;line-height:1.5}h1{font-size:18px;margin:0}h2{font-size:13px;color:#555;font-weight:normal;margin:4px 0 18px}.s{margin:12px 0;page-break-inside:avoid}.o{margin-left:18px}.cev{margin-top:26px;border-top:1px solid #ccc;padding-top:10px;font-size:12px;color:#333}@media print{.no{display:none}}</style></head><body>';
+    h+='<h1>Değişim Koleji — '+sinif+' · '+ders+'</h1><h2>Konu: '+konu+' · '+sorular.length+' soru · Ad Soyad: .........................</h2>';
+    sorular.forEach((q,i)=>{ h+='<div class="s"><b>'+(i+1)+') '+(q.soru||'')+'</b>'; (q.secenekler||[]).forEach((o,j)=>{ h+='<div class="o">'+harf[j]+') '+o+'</div>'; }); h+='</div>'; });
+    h+='<div class="cev"><b>Cevap Anahtarı:</b> '+sorular.map((q,i)=>(i+1)+'-'+harf[q.dogru||0]).join('&nbsp;&nbsp;')+'</div>';
+    h+='<button class="no" onclick="window.print()" style="margin-top:20px;padding:10px 22px;font-size:14px;cursor:pointer">🖨️ Yazdır / PDF</button></body></html>';
+    const w=window.open('','_blank'); if(w){ w.document.write(h); w.document.close(); } else { alert('Açılır pencere engellendi.'); }
+  };
+  return (
+    <div>
+      <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 mb-3">
+        <p className="text-[12px] text-rose-700 font-bold mb-2">📝 AI Sınav/Test Üretici — Maarif müfredatına uygun çoktan seçmeli sorular. Yazdır ya da PDF olarak kaydet.</p>
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <select value={sinif} onChange={e=>setSinif(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none">{OKUL_SINIFLAR.map(x=><option key={x}>{x}</option>)}</select>
+          <select value={ders} onChange={e=>setDers(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none">{((typeof OKUL_DERSLER!=='undefined'&&OKUL_DERSLER)||['Türkçe','Matematik']).map(x=><option key={x}>{x}</option>)}</select>
+          <select value={adet} onChange={e=>setAdet(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none">{['5','10','15','20'].map(x=><option key={x} value={x}>{x} soru</option>)}</select>
+          <select value={zorluk} onChange={e=>setZorluk(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none">{['Kolay','Orta','Zor'].map(x=><option key={x}>{x}</option>)}</select>
+        </div>
+        <input value={konu} onChange={e=>setKonu(e.target.value)} placeholder="Konu (ör. Çarpma İşlemi / Ses Bilgisi)" className="w-full mb-2 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none" />
+        <button onClick={uret} disabled={yuk} className="w-full bg-rose-600 text-white font-black py-2.5 rounded-lg text-sm disabled:opacity-60">{yuk?'⏳ Sorular üretiliyor…':'📝 Sınav Sorularını Üret'}</button>
+      </div>
+      {ham && <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-slate-700 whitespace-pre-wrap">{ham}</div>}
+      {sorular && <div>
+        <button onClick={yazdir} className="w-full bg-slate-700 hover:bg-slate-800 text-white font-black py-2.5 rounded-lg text-sm mb-3"><i className="fa-solid fa-print mr-1"></i>Yazdır / PDF olarak kaydet</button>
+        <div className="space-y-3">{sorular.map((q,i)=>(
+          <div key={i} className="bg-white border border-slate-200 rounded-xl p-3">
+            <p className="font-black text-slate-700 text-sm mb-2">{i+1}) {q.soru}</p>
+            <div className="space-y-1">{(q.secenekler||[]).map((o,j)=>(<div key={j} className={`text-[13px] px-2 py-1 rounded ${j===(q.dogru||0)?'bg-emerald-100 text-emerald-800 font-bold':'text-slate-600'}`}>{harf[j]}) {o} {j===(q.dogru||0)?' ✓':''}</div>))}</div>
+          </div>
+        ))}</div>
+      </div>}
+    </div>
+  );
+};
+
 const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
   const ogrDoc = useOkulDoc(db, "k12_ogrenciler");
   const odevDoc = useOkulDoc(db, "k12_odevler");
@@ -2030,35 +2088,44 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
   const yukleniyor = (ogrDoc===null || odevDoc===null);
 
   const sekmeler = [
-    { k:'ogrenci', ad:'Öğrenciler', ikon:'fa-user-graduate' },
-    { k:'odev',    ad:'Ödev Ata',   ikon:'fa-paper-plane' },
-    { k:'teslim',  ad:'Teslimler',  ikon:'fa-clipboard-check' },
-    { k:'yoklama', ad:'Yoklama', ikon:'fa-clipboard-user' },
-    { k:'devamsizlik', ad:'Devamsızlık', ikon:'fa-calendar-xmark' },
-    { k:'dna',     ad:'Öğrenme DNA', ikon:'fa-dna' },
-    { k:'rozet',   ad:'Rozet & Sıralama', ikon:'fa-trophy' },
-    { k:'veli',    ad:'Veli İletişim', ikon:'fa-comments' },
-    { k:'mesaj',   ad:'Mesajlar', ikon:'fa-inbox' },
-    { k:'karne',   ad:'Sınıf Karnesi', ikon:'fa-file-lines' },
-    { k:'bulten',  ad:'Haftalık Bülten', ikon:'fa-newspaper' },
-    { k:'gelisim', ad:'Gelişim Karnesi', ikon:'fa-chart-line' },
-    { k:'lig',     ad:'Lig', ikon:'fa-trophy' },
-    { k:'qr',      ad:'QR Katılım', ikon:'fa-qrcode' },
-    { k:'randevu', ad:'Randevu',    ikon:'fa-calendar-check' },
-    { k:'takvim',  ad:'Okul Takvimi', ikon:'fa-calendar-days' },
-    { k:'haftanin', ad:'Haftanın Öğrencisi', ikon:'fa-star' },
-    { k:'anket',   ad:'Veli Anketi', ikon:'fa-square-poll-vertical' },
-    { k:'pano',    ad:'Sınıf Panosu', ikon:'fa-thumbtack' },
-    { k:'kulup',   ad:'Kulüp & Etkinlik', ikon:'fa-people-group' },
-    { k:'gurultu', ad:'Gürültü Metre', ikon:'fa-volume-high' },
-    { k:'rehberlik', ad:'Rehberlik Haritası', ikon:'fa-chart-line' },
-    { k:'defter',  ad:'Öğretmen Defteri', ikon:'fa-book' },
-    { k:'kitapharita', ad:'Kitap Kurdu Haritası', ikon:'fa-book-open-reader' },
-    { k:'ders',    ad:'Ders Programı', ikon:'fa-table-list' },
-    { k:'yemek',   ad:'Yemek Listesi', ikon:'fa-utensils' },
-    { k:'servis',  ad:'Servis', ikon:'fa-van-shuttle' },
-    { k:'duyuru',  ad:'Duyuru',     ikon:'fa-bullhorn' },
+    { k:'ogrenci', ad:'Öğrenciler', ikon:'fa-user-graduate', grup:'sinif' },
+    { k:'odev',    ad:'Ödev Ata',   ikon:'fa-paper-plane', grup:'sinif' },
+    { k:'teslim',  ad:'Teslimler',  ikon:'fa-clipboard-check', grup:'sinif' },
+    { k:'yoklama', ad:'Yoklama', ikon:'fa-clipboard-user', grup:'sinif' },
+    { k:'devamsizlik', ad:'Devamsızlık', ikon:'fa-calendar-xmark', grup:'sinif' },
+    { k:'qr',      ad:'QR Katılım', ikon:'fa-qrcode', grup:'sinif' },
+    { k:'dna',     ad:'Öğrenme DNA', ikon:'fa-dna', grup:'deger' },
+    { k:'rozet',   ad:'Rozet & Sıralama', ikon:'fa-trophy', grup:'deger' },
+    { k:'karne',   ad:'Sınıf Karnesi', ikon:'fa-file-lines', grup:'deger' },
+    { k:'bulten',  ad:'Haftalık Bülten', ikon:'fa-newspaper', grup:'deger' },
+    { k:'gelisim', ad:'Gelişim Karnesi', ikon:'fa-chart-line', grup:'deger' },
+    { k:'lig',     ad:'Lig', ikon:'fa-ranking-star', grup:'deger' },
+    { k:'rehberlik', ad:'Rehberlik Haritası', ikon:'fa-chart-line', grup:'deger' },
+    { k:'veli',    ad:'Veli İletişim', ikon:'fa-comments', grup:'iletisim' },
+    { k:'mesaj',   ad:'Mesajlar', ikon:'fa-inbox', grup:'iletisim' },
+    { k:'randevu', ad:'Randevu',    ikon:'fa-calendar-check', grup:'iletisim' },
+    { k:'anket',   ad:'Veli Anketi', ikon:'fa-square-poll-vertical', grup:'iletisim' },
+    { k:'pano',    ad:'Sınıf Panosu', ikon:'fa-thumbtack', grup:'iletisim' },
+    { k:'duyuru',  ad:'Duyuru',     ikon:'fa-bullhorn', grup:'iletisim' },
+    { k:'haftanin', ad:'Haftanın Öğrencisi', ikon:'fa-star', grup:'iletisim' },
+    { k:'ders',    ad:'Ders Programı', ikon:'fa-table-list', grup:'program' },
+    { k:'takvim',  ad:'Okul Takvimi', ikon:'fa-calendar-days', grup:'program' },
+    { k:'yemek',   ad:'Yemek Listesi', ikon:'fa-utensils', grup:'program' },
+    { k:'servis',  ad:'Servis', ikon:'fa-van-shuttle', grup:'program' },
+    { k:'kulup',   ad:'Kulüp & Etkinlik', ikon:'fa-people-group', grup:'program' },
+    { k:'defter',  ad:'Öğretmen Defteri', ikon:'fa-book', grup:'arac' },
+    { k:'kitapharita', ad:'Kitap Kurdu Haritası', ikon:'fa-book-open-reader', grup:'arac' },
+    { k:'gurultu', ad:'Gürültü Metre', ikon:'fa-volume-high', grup:'arac' },
+    { k:'sinav', ad:'AI Sınav Üret', ikon:'fa-file-pen', grup:'arac' },
   ];
+  const gruplar = [
+    { g:'sinif', ad:'Sınıf', ikon:'fa-chalkboard-user' },
+    { g:'deger', ad:'Değerlendirme', ikon:'fa-chart-simple' },
+    { g:'iletisim', ad:'İletişim', ikon:'fa-comments' },
+    { g:'program', ad:'Program', ikon:'fa-calendar-days' },
+    { g:'arac', ad:'Araçlar', ikon:'fa-toolbox' },
+  ];
+  const aktifGrup = (sekmeler.find(x=>x.k===sekme)||{}).grup || 'sinif';
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden no-print">
@@ -2071,10 +2138,22 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         <button onClick={()=>{ var ad=window.prompt("Yeni sınıf adı ekle (ör. Anaokulu Papatya, 5-A):"); if(ad&&ad.trim()){ try{ var ek=JSON.parse(localStorage.getItem("ozel_siniflar")||"[]"); if(!Array.isArray(ek))ek=[]; if(ek.indexOf(ad.trim())<0){ ek.push(ad.trim()); localStorage.setItem("ozel_siniflar",JSON.stringify(ek)); alert("Sınıf eklendi. Sayfa yenilenecek."); location.reload(); } else { alert("Bu sınıf zaten var."); } }catch(e){} } }} className="ml-auto bg-white/20 hover:bg-white/30 text-white text-xs font-black px-3 py-2 rounded-lg whitespace-nowrap"><i className="fa-solid fa-plus mr-1"></i>Sınıf Ekle</button>
       </div>
 
-      <div className="flex flex-wrap gap-1 p-2 bg-slate-50 border-b border-gray-200">
-        {sekmeler.map(s=>(
+      <div className="p-2 bg-slate-800 border-b border-slate-700">
+        <div className="grid grid-cols-5 gap-1">
+          {gruplar.map(gr=>{ const aktif=aktifGrup===gr.g; const rozet = gr.g==='iletisim' && okunmamisMesaj>0; return (
+            <button key={gr.g} onClick={()=>{ const ilk=sekmeler.find(x=>x.grup===gr.g); if(ilk) setSekme(ilk.k); }}
+              className={`relative flex flex-col items-center justify-center gap-1 py-2 rounded-xl text-[10px] font-black transition ${aktif?'bg-indigo-600 text-white shadow-lg':'text-slate-300 hover:bg-slate-700'}`}>
+              <i className={`fa-solid ${gr.ikon} text-base`}></i>
+              <span className="leading-none text-center">{gr.ad}</span>
+              {rozet && <span className="absolute top-1 right-2 bg-rose-500 text-white text-[8px] font-black px-1 rounded-full">{okunmamisMesaj}</span>}
+            </button>
+          );})}
+        </div>
+      </div>
+      <div className="flex gap-1.5 p-2 bg-slate-50 border-b border-gray-200 overflow-x-auto">
+        {sekmeler.filter(s=>s.grup===aktifGrup).map(s=>(
           <button key={s.k} onClick={()=>setSekme(s.k)}
-            className={`px-3 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 ${sekme===s.k ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:bg-slate-200'}`}>
+            className={`px-3 py-2 rounded-lg text-xs font-black transition flex items-center gap-1.5 whitespace-nowrap ${sekme===s.k ? 'bg-indigo-600 text-white shadow' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-100'}`}>
             <i className={`fa-solid ${s.ikon}`}></i> {s.ad}
             {s.k==='mesaj' && okunmamisMesaj>0 && <span className="ml-1 bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{okunmamisMesaj}</span>}
           </button>
@@ -2108,6 +2187,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='rehberlik' && <RehberlikHaritasi db={db} ogrenciler={ogrenciler} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='defter'  && <OgretmenDefteri db={db} duzenlenebilir={true} user={user} />}
         {!yukleniyor && sekme==='kitapharita' && <KitapKurduHaritasi ogrenciler={ogrenciler} />}
+        {!yukleniyor && sekme==='sinav'   && <SinavUret apiKey={apiKey} modelName={modelName} />}
         <AkademiKart rol="ogretmen" />
         {!yukleniyor && sekme==='ders'    && <DersProgrami db={db} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='yemek'   && <YemekListesi db={db} duzenlenebilir={true} />}
