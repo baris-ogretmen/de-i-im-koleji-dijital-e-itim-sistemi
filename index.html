@@ -2070,6 +2070,91 @@ const SinavUret = ({ apiKey, modelName }) => {
   );
 };
 
+
+/* ============================================================================
+   SINIF KARŞILAŞTIRMA · AI BAŞARI SERTİFİKASI · CANLI SAAT
+   ============================================================================ */
+const CanliSaat = () => {
+  const [now, setNow] = useState(new Date());
+  useEffect(()=>{ const t=setInterval(()=>setNow(new Date()),1000); return ()=>clearInterval(t); },[]);
+  const gunler=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
+  const aylar=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+  const iki=(n)=>String(n).padStart(2,'0');
+  return (
+    <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white rounded-2xl px-4 py-2.5 mb-4 flex items-center justify-between shadow flex-wrap gap-2">
+      <div className="flex items-center gap-2"><i className="fa-solid fa-calendar-day text-indigo-300"></i><span className="text-sm font-bold">{now.getDate()} {aylar[now.getMonth()]} {now.getFullYear()} · {gunler[now.getDay()]}</span></div>
+      <div className="flex items-center gap-2"><i className="fa-solid fa-clock text-emerald-300"></i><span className="text-lg font-black tabular-nums">{iki(now.getHours())}:{iki(now.getMinutes())}:{iki(now.getSeconds())}</span></div>
+    </div>
+  );
+};
+
+const SinifKarsilastirma = ({ db, ogrenciler }) => {
+  const t=useOkulDoc(db,"k12_teslim"); const teslimler=(t&&t.liste)||[];
+  const [metrik,setMetrik]=useState('yildiz');
+  const siniflar={};
+  (ogrenciler||[]).forEach(o=>{ if(!siniflar[o.sinif]) siniflar[o.sinif]={ad:o.sinif,ogr:0,yildiz:0,kitap:0,teslim:0}; const g=siniflar[o.sinif]; g.ogr++; g.yildiz+=(o.puan||0); g.kitap+=((o.kitaplar||[]).length); });
+  (teslimler||[]).forEach(ts=>{ const o=(ogrenciler||[]).find(x=>x.id===ts.ogrenciId); if(o&&siniflar[o.sinif]) siniflar[o.sinif].teslim++; });
+  const liste=Object.keys(siniflar).map(k=>siniflar[k]).sort((a,b)=>b[metrik]-a[metrik]);
+  const enBuyuk=Math.max(1,...liste.map(x=>x[metrik]));
+  const metrikAd={yildiz:'⭐ Toplam Yıldız',kitap:'📚 Okunan Kitap',teslim:'✅ Ödev Teslim',ogr:'👥 Öğrenci Sayısı'};
+  const renk=['#6366f1','#10b981','#f59e0b','#ec4899','#06b6d4','#8b5cf6','#ef4444','#14b8a6'];
+  return (
+    <div>
+      <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 mb-3">
+        <p className="text-[12px] text-indigo-700 font-bold mb-2">📊 Sınıf Karşılaştırma — hangi sınıf daha aktif? Ölçüt seç, sıralamayı gör.</p>
+        <div className="flex gap-1.5 flex-wrap">
+          {[['yildiz','⭐ Yıldız'],['kitap','📚 Kitap'],['teslim','✅ Teslim'],['ogr','👥 Öğrenci']].map(m=>(
+            <button key={m[0]} onClick={()=>setMetrik(m[0])} className={`px-3 py-1.5 rounded-lg text-xs font-black ${metrik===m[0]?'bg-indigo-600 text-white':'bg-white text-slate-500 border border-slate-200'}`}>{m[1]}</button>
+          ))}
+        </div>
+      </div>
+      {liste.length===0 ? <p className="text-slate-400 text-sm text-center py-4">Henüz veri yok.</p> : <div className="space-y-2">
+        <p className="text-[12px] font-black text-slate-600">{metrikAd[metrik]} sıralaması:</p>
+        {liste.map((s,i)=>(
+          <div key={s.ad}>
+            <div className="flex justify-between text-[12px] font-bold mb-0.5"><span>{i===0?'🥇':i===1?'🥈':i===2?'🥉':'▪️'} {s.ad} <span className="text-slate-400">({s.ogr} öğr.)</span></span><span className="text-slate-700">{s[metrik]}</span></div>
+            <div className="bg-slate-100 rounded-full h-4 overflow-hidden"><div className="h-4 rounded-full transition-all" style={{width:Math.round((s[metrik]/enBuyuk)*100)+'%', background:renk[i%8]}}></div></div>
+          </div>
+        ))}
+      </div>}
+    </div>
+  );
+};
+
+const BasariSertifikasi = ({ ogrenciler, apiKey, modelName }) => {
+  const [ogrId,setOgrId]=useState('');
+  const [tur,setTur]=useState('Başarı');
+  const [metin,setMetin]=useState('');
+  const [yuk,setYuk]=useState(false);
+  const uret=async()=>{
+    const o=(ogrenciler||[]).find(x=>x.id===ogrId); if(!o) return alert('Öğrenci seçin.');
+    const anahtar=apiKey||(typeof cozKey==='function'?cozKey():''); if(!anahtar||anahtar.length<10) return alert('AI anahtarı gerekli.');
+    setYuk(true);
+    const p=o.ad+' adlı '+o.sinif+' öğrencisi için sıcak, motive edici, KISA (2-3 cümle) bir "'+tur+' Belgesi" metni yaz. Çocuğu gururlandıracak, ailesini sevindirecek, olumlu bir dil kullan. Sadece belge metnini yaz, başlık ekleme.';
+    try{ const c=await geminiMetin(anahtar,modelName||(typeof cozModel==='function'?cozModel():''),p); if(c&&String(c).trim()) setMetin(String(c).trim()); else alert('Üretilemedi.'); }catch(e){ alert('Üretilemedi: '+(e.message||e)); }
+    setYuk(false);
+  };
+  const yazdir=()=>{
+    const o=(ogrenciler||[]).find(x=>x.id===ogrId); if(!o||!metin) return;
+    const h='<html><head><meta charset="utf-8"><title>'+tur+' Belgesi</title><style>body{margin:0;font-family:Georgia,serif}.c{width:96%;max-width:800px;margin:24px auto;border:10px solid #b8860b;border-radius:16px;padding:40px;text-align:center;background:linear-gradient(135deg,#fffdf5,#fff8e7)}.c h1{color:#b8860b;font-size:34px;margin:0 0 4px}.c .ad{font-size:30px;font-weight:bold;color:#1e293b;margin:24px 0 8px}.c .snf{color:#64748b;margin-bottom:20px}.c .mt{font-size:17px;color:#334155;line-height:1.7;margin:20px 40px}.c .alt{margin-top:40px;display:flex;justify-content:space-between;color:#475569;font-size:14px}@media print{.no{display:none}}</style></head><body><div class="c"><div style="font-size:46px">🏆</div><h1>'+tur+' Belgesi</h1><div style="color:#94a3b8">Değişim Koleji</div><div class="ad">'+o.ad+'</div><div class="snf">'+o.sinif+'</div><div class="mt">'+metin+'</div><div class="alt"><span>'+new Date().toLocaleDateString('tr-TR')+'</span><span>Değişim Koleji Müdürlüğü</span></div></div><button class="no" onclick="window.print()" style="display:block;margin:20px auto;padding:12px 28px;font-size:15px;cursor:pointer">🖨️ Yazdır / PDF</button></body></html>';
+    const w=window.open('','_blank'); if(w){ w.document.write(h); w.document.close(); } else alert('Açılır pencere engellendi.');
+  };
+  return (
+    <div>
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3">
+        <p className="text-[12px] text-amber-700 font-bold mb-2">🏅 AI Başarı Sertifikası — öğrenciye özel, yazdırılabilir belge. Çocuğu ve aileyi mutlu eder!</p>
+        <select value={ogrId} onChange={e=>setOgrId(e.target.value)} className="w-full mb-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none"><option value="">Öğrenci seç…</option>{(ogrenciler||[]).map(o=><option key={o.id} value={o.id}>{o.ad} · {o.sinif}</option>)}</select>
+        <select value={tur} onChange={e=>setTur(e.target.value)} className="w-full mb-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none">{['Başarı','Üstün Başarı','Kitap Kurdu','Örnek Davranış','Ayın Öğrencisi','Gayret','Katılım'].map(x=><option key={x}>{x}</option>)}</select>
+        <button onClick={uret} disabled={yuk} className="w-full bg-amber-500 text-white font-black py-2.5 rounded-lg text-sm disabled:opacity-60">{yuk?'⏳ Hazırlanıyor…':'🤖 AI ile Belge Metni Üret'}</button>
+      </div>
+      {metin && <div>
+        <textarea value={metin} onChange={e=>setMetin(e.target.value)} rows="3" className="w-full mb-2 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none resize-y"></textarea>
+        <button onClick={yazdir} className="w-full bg-slate-700 hover:bg-slate-800 text-white font-black py-2.5 rounded-lg text-sm"><i className="fa-solid fa-award mr-1"></i>Sertifikayı Yazdır / PDF</button>
+      </div>}
+    </div>
+  );
+};
+
 const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
   const ogrDoc = useOkulDoc(db, "k12_ogrenciler");
   const odevDoc = useOkulDoc(db, "k12_odevler");
@@ -2101,6 +2186,8 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
     { k:'gelisim', ad:'Gelişim Karnesi', ikon:'fa-chart-line', grup:'deger' },
     { k:'lig',     ad:'Lig', ikon:'fa-ranking-star', grup:'deger' },
     { k:'rehberlik', ad:'Rehberlik Haritası', ikon:'fa-chart-line', grup:'deger' },
+    { k:'karsilastirma', ad:'Sınıf Karşılaştırma', ikon:'fa-chart-column', grup:'deger' },
+    { k:'sertifika', ad:'Başarı Sertifikası', ikon:'fa-award', grup:'deger' },
     { k:'veli',    ad:'Veli İletişim', ikon:'fa-comments', grup:'iletisim' },
     { k:'mesaj',   ad:'Mesajlar', ikon:'fa-inbox', grup:'iletisim' },
     { k:'randevu', ad:'Randevu',    ikon:'fa-calendar-check', grup:'iletisim' },
@@ -2161,6 +2248,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
       </div>
 
       <div className="p-4 md:p-5">
+        <CanliSaat />
         {yukleniyor && <div className="text-center text-slate-400 py-8"><i className="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p className="text-sm font-bold">Veritabanı yükleniyor…</p></div>}
         {!yukleniyor && sekme==='ogrenci' && <OgretmenDashboard db={db} ogrenciler={ogrenciler} odevler={odevler} teslimler={teslimler} mesajlar={mesajlar} />}
         {!yukleniyor && sekme==='ogrenci' && <OgrenciYonetim db={db} ogrenciler={ogrenciler} teslimler={teslimler} />}
@@ -2185,7 +2273,9 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='kulup'   && <KulupEtkinlik db={db} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='gurultu' && <GurultuMetre />}
         {!yukleniyor && sekme==='rehberlik' && <RehberlikHaritasi db={db} ogrenciler={ogrenciler} duzenlenebilir={true} />}
-        {!yukleniyor && sekme==='defter'  && <OgretmenDefteri db={db} duzenlenebilir={true} user={user} />}
+        {!yukleniyor && sekme==='karsilastirma' && <SinifKarsilastirma db={db} ogrenciler={ogrenciler} />}
+        {!yukleniyor && sekme==='sertifika' && <BasariSertifikasi ogrenciler={ogrenciler} apiKey={apiKey} modelName={modelName} />}
+        {!yukleniyor && sekme==='defter'  && <OgretmenDefteri db={db} duzenlenebilir={true} user={user} apiKey={apiKey} modelName={modelName} />}
         {!yukleniyor && sekme==='kitapharita' && <KitapKurduHaritasi ogrenciler={ogrenciler} />}
         {!yukleniyor && sekme==='sinav'   && <SinavUret apiKey={apiKey} modelName={modelName} />}
         <AkademiKart rol="ogretmen" />
@@ -2809,6 +2899,7 @@ const OgrenciMerkezi = ({ db, user }) => {
         </div>
       )}
 
+      <CanliSaat />
       <GununSozu />
 
       {ben && <BugununOzeti db={db} ogrenci={ben} />}
@@ -2958,6 +3049,7 @@ const VeliMerkezi = ({ db, user }) => {
           <GelisimKarnesi db={db} ogrenci={cocuk} saltOkunur={true} />
           <OkulTakvimi db={db} duzenlenebilir={false} />
           <DersProgrami db={db} duzenlenebilir={false} sinif={cocuk.sinif} />
+          <CanliSaat />
           <BugununOzeti db={db} ogrenci={cocuk} />
           <HaftaninOgrencisi db={db} duzenlenebilir={false} ogrenciler={ogrenciler} sinif={cocuk.sinif} />
           <SinifPanosu db={db} duzenlenebilir={false} sinif={cocuk.sinif} />
@@ -4816,6 +4908,38 @@ const BugununOzeti = ({ db, ogrenci }) => {
   );
 };
 
+const YoneticiGenelBakis = ({ db }) => {
+  const o=useOkulDoc(db,"k12_ogrenciler"); const ogr=(o&&o.liste)||[];
+  const y=useOkulDoc(db,"k12_yoklama"); const yok=(y&&y.liste)||[];
+  const od=useOkulDoc(db,"k12_odevler"); const odev=(od&&od.liste)||[];
+  const t=useOkulDoc(db,"k12_teslim"); const tes=(t&&t.liste)||[];
+  const m=useOkulDoc(db,"k12_mesajlar"); const mes=(m&&m.liste)||[];
+  const bugun=new Date().toISOString().slice(0,10);
+  const bugunYok=yok.filter(r=>r.tarih===bugun);
+  const gelen=bugunYok.filter(r=>r.durum==='geldi').length;
+  const gelmeyen=bugunYok.filter(r=>r.durum==='gelmedi'||r.durum==='gec').length;
+  const okunmamis=mes.filter(x=>x.gonderen==='veli'&&!x.okOgretmen).length;
+  const sinifDagilim={}; ogr.forEach(x=>{sinifDagilim[x.sinif]=(sinifDagilim[x.sinif]||0)+1;});
+  const kutu=[
+    {ad:'Toplam Öğrenci',d:ogr.length,i:'fa-user-graduate',r:'from-indigo-500 to-blue-600'},
+    {ad:'Bugün Gelen',d:gelen,i:'fa-user-check',r:'from-emerald-500 to-teal-600'},
+    {ad:'Bugün Gelmeyen',d:gelmeyen,i:'fa-user-xmark',r:'from-rose-500 to-red-600'},
+    {ad:'Toplam Ödev',d:odev.length,i:'fa-paper-plane',r:'from-amber-500 to-orange-600'},
+    {ad:'Toplam Teslim',d:tes.length,i:'fa-clipboard-check',r:'from-violet-500 to-purple-600'},
+    {ad:'Okunmamış Veli Mesajı',d:okunmamis,i:'fa-envelope',r:'from-sky-500 to-cyan-600'},
+  ];
+  return (
+    <div className="bg-white/90 rounded-xl p-3 mt-3">
+      <span className="text-[12px] font-black text-slate-700 uppercase"><i className="fa-solid fa-gauge-high mr-1"></i>Yönetici Genel Bakış (Okul Geneli)</span>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+        {kutu.map((k,i)=>(<div key={i} className={`bg-gradient-to-br ${k.r} rounded-xl p-2.5 text-white`}><div className="flex items-center justify-between"><i className={`fa-solid ${k.i} opacity-80`}></i><span className="text-xl font-black">{k.d}</span></div><div className="text-[10px] font-bold text-white/90 mt-1 leading-tight">{k.ad}</div></div>))}
+      </div>
+      {Object.keys(sinifDagilim).length>0 && <div className="mt-2"><p className="text-[11px] font-black text-slate-600 mb-1">Sınıf Dağılımı:</p><div className="flex flex-wrap gap-1">{Object.keys(sinifDagilim).sort().map(sn=>(<span key={sn} className="bg-slate-100 text-slate-600 text-[11px] font-bold px-2 py-1 rounded-full">{sn}: {sinifDagilim[sn]}</span>))}</div></div>}
+      <button onClick={async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const koleksiyonlar=['k12_ogrenciler','k12_odevler','k12_teslim','k12_mesajlar','k12_yoklama','k12_giris','k12_defter','k12_rehberlik','k12_anket','k12_pano','k12_kulup','k12_haftanin','k12_randevu','k12_ders','k12_yemek','k12_servis','k12_duyuru','k12_etkinlik','k12_global']; const yedek={tarih:new Date().toISOString(),okul:'Değişim Koleji'}; for(let i=0;i<koleksiyonlar.length;i++){ try{ const sn=await getDoc(doc(db,"maas_config",koleksiyonlar[i])); yedek[koleksiyonlar[i]]=sn.exists()?sn.data():null; }catch(e){ yedek[koleksiyonlar[i]]='HATA'; } } const blob=new Blob([JSON.stringify(yedek,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='degisim-koleji-yedek-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); if(typeof showToast==='function') showToast('💾 Yedek indirildi.'); }catch(e){ alert('Yedeklenemedi: '+(e.message||e)); } }} className="mt-3 w-full bg-slate-700 hover:bg-slate-800 text-white font-black py-2.5 rounded-lg text-sm"><i className="fa-solid fa-download mr-1"></i>💾 Tüm Ver/ Yedekle (JSON indir)</button>
+    </div>
+  );
+};
+
 const SistemTest = ({ db, globalConfig, apiKey }) => {
   const [sonuc, setSonuc] = useState(null);
   const [calisiyor, setCalisiyor] = useState(false);
@@ -5160,7 +5284,7 @@ const RehberlikHaritasi = ({ db, ogrenciler, duzenlenebilir, ogrenci }) => {
   return <div className="bg-white border-4 border-cyan-200 rounded-[2rem] p-5 shadow-lg mt-6"><h3 className="text-lg font-black text-cyan-800 mb-3 flex items-center"><i className="fa-solid fa-chart-line text-cyan-500 mr-2"></i>Gelişim Haritası (Rehberlik)</h3><Grafik kayitlar={benim} /></div>;
 };
 
-const OgretmenDefteri = ({ db, duzenlenebilir, user }) => {
+const OgretmenDefteri = ({ db, duzenlenebilir, user, apiKey, modelName }) => {
   const doc = useOkulDoc(db, "k12_defter"); const liste = (doc && doc.liste) || [];
   const [hafta, setHafta] = useState('1'); const [sinif, setSinif] = useState(OKUL_SINIFLAR[0]); const [ders, setDers] = useState(''); const [plan, setPlan] = useState('');
   const kaydet = async () => {
@@ -5170,6 +5294,16 @@ const OgretmenDefteri = ({ db, duzenlenebilir, user }) => {
     if(ok){ setDers(''); setPlan(''); toast('📓 Deftere işlendi.','green'); }
   };
   const sil = async (id) => { await okulYaz(db,"k12_defter",{liste:liste.filter(x=>x.id!==id)}); };
+  const [planYuk,setPlanYuk]=useState(false);
+  const planUret=async()=>{
+    if(!ders.trim())return alert('Önce ders yazın (ör. Türkçe).');
+    const anahtar=apiKey||(typeof cozKey==='function'?cozKey():'');
+    if(!anahtar||anahtar.length<10)return alert('AI anahtarı gerekli (Ayarlar).');
+    setPlanYuk(true);
+    const p='Türkiye 2024 "Türkiye Yüzyılı Maarif Modeli" müfredatına ve '+sinif+' seviyesine uygun, '+ders+' dersi için '+hafta+'. haftanın KAZANIMLARINI ve kısa haftalık ders planını hazırla. Sınıf seviyesinin ve müfredatın DIŞINA ÇIKMA, uydurma kazanım yazma. Kısa ve maddeler halinde: önce "Kazanımlar:" başlığı altında kazanımlar, sonra "İşlenecek Konular:" ve "Önerilen Etkinlikler:".';
+    try{ const c=await geminiMetin(anahtar,modelName||(typeof cozModel==='function'?cozModel():''),p); if(c&&String(c).trim()) setPlan(String(c).trim()); else alert('Üretilemedi, tekrar deneyin.'); }catch(e){ alert('Üretilemedi: '+(e.message||e)); }
+    setPlanYuk(false);
+  };
   const doluHaftalar = new Set(liste.map(r=>r.hafta));
   const haftaKayit = liste.filter(r=>r.hafta===Number(hafta) && r.sinif===sinif).sort((a,b)=>b.ts-a.ts);
   return (
@@ -5181,7 +5315,8 @@ const OgretmenDefteri = ({ db, duzenlenebilir, user }) => {
           <select value={sinif} onChange={e=>setSinif(e.target.value)} className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none">{OKUL_SINIFLAR.map(s=><option key={s}>{s}</option>)}</select>
         </div>
         <input value={ders} onChange={e=>setDers(e.target.value)} placeholder="Ders (ör. Matematik)" className="w-full mb-2 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none" />
-        <textarea value={plan} onChange={e=>setPlan(e.target.value)} rows="2" placeholder="Konu / kazanım / plan…" className="w-full mb-2 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none resize-y"></textarea>
+        <button onClick={planUret} disabled={planYuk} className="w-full mb-2 bg-violet-600 hover:bg-violet-700 text-white font-black py-2 rounded-lg text-sm disabled:opacity-60">{planYuk?'⏳ AI kazanımları hazırlıyor…':'🤖 AI ile Kazanım/Plan Üret (Maarif)'}</button>
+        <textarea value={plan} onChange={e=>setPlan(e.target.value)} rows="4" placeholder="Konu / kazanım / plan… (AI üretebilir)" className="w-full mb-2 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none resize-y"></textarea>
         <button onClick={kaydet} className="w-full bg-amber-500 text-white font-black py-2.5 rounded-lg text-sm">📓 {hafta}. Haftaya İşle</button>
       </div>
       <p className="text-[12px] font-black text-slate-600 mb-1">{hafta}. Hafta · {sinif}</p>
@@ -7107,6 +7242,7 @@ const renderSharedUI = () => (
                                                 <button onClick={async()=>{ try{ const {doc,setDoc}=window.FirebaseSDK; await setDoc(doc(db,"maas_config","k12_global"),{ teachers:(globalConfig?.teachers||""), ogretmenSifreleri:(globalConfig?.ogretmenSifreleri||"") },{merge:true}); setOgrKayitOnay(true); if(typeof showToast==='function') showToast("✅ Kaydedildi!"); setTimeout(function(){ setOgrKayitOnay(false); },3000); }catch(e){ alert("Hata: "+e.message); } }} className={`mt-2 w-full font-black py-3 rounded-lg text-sm text-white transition ${ogrKayitOnay?'bg-emerald-800':'bg-emerald-600 hover:bg-emerald-700'}`}>{ogrKayitOnay?'✅ Kaydedildi!':'💾 Öğretmen İsim & Şifrelerini Kaydet'}</button>
                                                 <div className="mt-3"><GirisKayitlari db={db} /></div>
                                                 <SistemTest db={db} globalConfig={globalConfig} apiKey={apiKey} />
+                                                <YoneticiGenelBakis db={db} />
                                             </div>
                                             <div>
                                                 <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Kurum Giriş Kodu (Şifre)</label>
