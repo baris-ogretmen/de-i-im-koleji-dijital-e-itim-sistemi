@@ -1301,7 +1301,7 @@ const DraggableRobot = ({ apiKey, modelName }) => {
         if (!apiKey || !prompt.trim()) return alert("Sistem yöneticisi API anahtarını girmemiş.");
         setLoading(true);
         try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: [{ parts: [{ text: "Sen Değişim Koleji'nin zeki ve kurumsal eğitim asistanısın. Kısa, prestijli ve net yanıt ver: " + prompt }] }] })
             });
@@ -1476,11 +1476,11 @@ const TeacherPortal = ({ user, db, apiKey, modelName }) => {
     const [sonAtanan, setSonAtanan] = useState('');
 
     const generateAIIdea = async () => {
-        if (!apiKey) return alert("Ayarlardan API anahtarınızı girin.");
+        if (!apiKey && !(typeof cozKey==='function'&&cozKey())) return alert("Yapay zeka anahtarı bulunamadı. Ayarlardan girin ya da yöneticiden ortak anahtar isteyin.");
         setIsAILoading(true);
         try {
             const prompt = `Sen vizyoner bir eğitimcisin. ${selectedGrade} seviyesi, ${selectedSubject} dersi için öğrencilerin çok seveceği, uygulamalı ve yaratıcı 1 adet ev görevi tasarla. ${hwTopic.trim() ? `Konu: ${hwTopic}` : 'Konuyu ve içeriği tamamen sen belirle.'} Klasik test olmasın. Doğrudan görevi ve nasıl yapılacağını kısaca yaz.`;
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
@@ -1518,12 +1518,12 @@ const TeacherPortal = ({ user, db, apiKey, modelName }) => {
     };
 
     const generateRubrik = async () => {
-        if (!apiKey) return alert("Ayarlardan API anahtarınızı girin.");
+        if (!apiKey && !(typeof cozKey==='function'&&cozKey())) return alert("Yapay zeka anahtarı bulunamadı. Ayarlardan girin ya da yöneticiden ortak anahtar isteyin.");
         setRubrikYukleniyor(true); setRubrikSonuc('');
         try {
             const konu = (hwTopic.trim() || hwDetails.trim() || selectedSubject);
             const prompt = `${selectedGrade} ${selectedSubject} dersi "${konu}" ödevi/çalışması için öğretmenin kullanacağı DERECELİ PUANLAMA ANAHTARI (rubrik) ve değerlendirme ölçütleri hazırla. 3-4 ölçüt, her ölçüt için 4 düzey (Geliştirilmeli / Yeterli / İyi / Mükemmel) net betimleyici ifadelerle, puan aralıkları ve öğrenciye kısa geri bildirim önerileriyle. Düzenli, tablo benzeri Türkçe metin olsun.`;
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
             const data = await res.json();
             setRubrikSonuc((data.candidates?.[0]?.content?.parts?.[0]?.text || 'Üretilemedi.').trim());
         } catch(e) { alert("Rubrik üretilemedi."); }
@@ -1998,7 +1998,7 @@ async function geminiMetin(apiKey, modelName, prompt){
   for (let i=0; i<sira.length; i++){
     const m = sira[i];
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`;
       const res = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ contents:[{ parts:[{ text: prompt }] }] }) });
       if (!res.ok) { continue; }  // 404/400/403 → sessizce sonraki çalışan modele geç
       const data = await res.json();
@@ -2712,7 +2712,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
       const hedef = tur==='birey' ? (sinifOgrencileri.find(o=>o.id===ogrenciId)) : null;
       const dnaNot = hedef && hedef.dna ? `Öğrencinin baskın öğrenme stili: ${dnaBaskin(hedef.dna)?.a.ad}. Bu stile uygun tasarla.` : '';
       const p = `Sen vizyoner bir eğitimcisin. ${sinif} seviyesi ${ders} dersi için öğrencilerin çok seveceği, uygulamalı, yaratıcı 1 ödev tasarla. ${konu.trim()?`Konu: ${konu}.`:'Konuyu sen seç.'} ${dnaNot} Klasik test olmasın. Doğrudan görevi ve nasıl yapılacağını kısa ve net yaz.`;
-      const t = await geminiMetin(apiKey, modelName, p);
+      const t = await geminiMetin(apiKey||(typeof cozKey==='function'?cozKey():''), modelName, p);
       if(t) setDetay(t);
     }catch(e){ alert("AI fikir üretemedi."); }
     setAiYukleniyor(false);
@@ -2900,7 +2900,7 @@ const DnaYonetim = ({ db, ogrenciler, apiKey, modelName }) => {
 Aşağıdaki 8 boyutu 0-100 arası PUANLA (toplam 100 olmak zorunda DEĞİL, her biri bağımsız yüzde): gorsel, isitsel, kinestetik, sozel, mantik, sosyal, icsel, doga.
 SADECE şu JSON'u döndür, başka hiçbir şey yazma:
 {"gorsel":0,"isitsel":0,"kinestetik":0,"sozel":0,"mantik":0,"sosyal":0,"icsel":0,"doga":0,"ozet":"1-2 cümle öğrenme profili özeti","oneri":"1-2 cümle çalışma önerisi"}`;
-      let t = await geminiMetin(apiKey, modelName, p);
+      let t = await geminiMetin(apiKey||(typeof cozKey==='function'?cozKey():''), modelName, p);
       t = t.replace(/```json|```/g,'').trim();
       const j = JSON.parse(t);
       const yeni = { ...bosDna() };
@@ -3206,7 +3206,6 @@ const OgrenciMerkezi = ({ db, user }) => {
 
       {ben && <KitapTakip db={db} ogrenciler={ogrenciler} ben={ben} />}
 
-      <EkranSuresiVeli />
 
       <KonuCalisma grade={sinifim} />
 
@@ -3302,8 +3301,11 @@ const VeliMerkezi = ({ db, user }) => {
   const teslimler = (teslimDoc && teslimDoc.liste) ? teslimDoc.liste : [];
 
   const sinifim = (user && user.grade) || '';
+  const _vad=(x)=>String(x||'').replace(/[İIı]/g,'i').replace(/[Ğğ]/g,'g').replace(/[Üü]/g,'u').replace(/[Şş]/g,'s').replace(/[Öö]/g,'o').replace(/[Çç]/g,'c').toLowerCase().replace(/\s+/g,' ').trim();
   const sinifDaki = ogrenciler.filter(o=>o.sinif===sinifim);
+  const gosterilecek = sinifDaki.filter(o=> _vad(o.ad)===_vad((user&&user.name)||''));
   const [cocukId, setCocukId] = useState('');
+  useEffect(()=>{ if(!cocukId && gosterilecek.length>0) setCocukId(gosterilecek[0].id); }, [ogrenciler.length, gosterilecek.length]);
   const cocuk = sinifDaki.find(o=>o.id===cocukId) || null;
 
   const cocukYapilanIds = new Set(teslimler.filter(t=> cocuk && t.ogrenciId===cocuk.id).map(t=>t.odevId));
@@ -3315,12 +3317,13 @@ const VeliMerkezi = ({ db, user }) => {
     <div className="max-w-5xl mx-auto w-full mt-8 space-y-6">
       <div className="bg-white border-4 border-emerald-200 rounded-[2rem] p-6 shadow-lg">
         <h3 className="text-lg font-black text-emerald-800 mb-2"><i className="fa-solid fa-child-reaching text-emerald-500 mr-2"></i>Çocuğunuzu Seçin ({sinifim})</h3>
-        {sinifDaki.length===0 ? (
-          <p className="text-sm text-slate-500 bg-emerald-50 rounded-xl p-3">Bu sınıfta kayıtlı öğrenci görünmüyor. Okul kaydı yapıldığında burada göreceksiniz.</p>
+        {gosterilecek.length===0 ? (
+          <p className="text-sm text-slate-500 bg-emerald-50 rounded-xl p-3">Çocuğunuz bulunamadı. Girişte çocuğunuzun adını okuldaki kayıtla aynı yazdığınızdan emin olun.</p>
+        ) : gosterilecek.length===1 ? (
+          <div className="bg-emerald-50 rounded-xl px-4 py-2.5 text-sm font-black text-emerald-800 inline-block">{gosterilecek[0].ad} · {gosterilecek[0].sinif}</div>
         ) : (
           <select value={cocukId} onChange={e=>setCocukId(e.target.value)} className="px-4 py-2.5 rounded-xl border-2 border-emerald-200 text-sm font-bold outline-none">
-            <option value="">— Öğrenci seç —</option>
-            {sinifDaki.map(o=><option key={o.id} value={o.id}>{o.ad}</option>)}
+            {gosterilecek.map(o=><option key={o.id} value={o.id}>{o.ad}</option>)}
           </select>
         )}
       </div>
@@ -3341,6 +3344,7 @@ const VeliMerkezi = ({ db, user }) => {
           <RehberlikHaritasi db={db} ogrenciler={ogrenciler} duzenlenebilir={false} ogrenci={cocuk} />
           <KitapKurduHaritasi ogrenciler={ogrenciler} />
           <AniDuvari db={db} duzenlenebilir={false} sinif={cocuk.sinif} />
+          <EkranSuresiVeli />
           <AkademiKart rol="veli" />
           <VeliAnketi db={db} duzenlenebilir={false} />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -5976,6 +5980,10 @@ return () => window.removeEventListener('firebase-sdk-ready', listener);
 }, []);
 
 useEffect(() => {
+  if(!db) return;
+  (async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn && sn.exists()){ const _pk=String((sn.data()||{}).paylasilanKey||''); const _arr=_pk.split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); if(_arr.length){ window.ZIRVE_PAYLASILAN_KEYS=_arr; window.ZIRVE_PAYLASILAN_KEY=_arr[0]||''; } } }catch(e){} })();
+}, [db]);
+useEffect(() => {
 if (!isFbReady || !user || !db) return;
 
 // Veritabanı ve Global Config (Şifre ve Ödev) Çekimi
@@ -6039,7 +6047,7 @@ const verifyAndSaveSettings = async () => {
     if (!apiKey) { showToast("API Anahtarı boş olamaz!"); return; }
     showToast("Bağlantı test ediliyor, lütfen bekleyin...");
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}?key=${apiKey}`);
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`);
         if (response.ok) {
             setIsApiValid(true);
             localStorage.setItem('gemini_api_key', apiKey);
@@ -6215,7 +6223,7 @@ const systemInstruction = "Sen Değişim Koleji'nin ordinaryüs profesör seviye
 const userPrompt = `Öğrenci Adı: ${studentName}\n${hitapPrompt}\nTarih: ${date}\nKademe: ${category}\nGözlem: ${observation}\nKurallar:\n1) ${hitapKurali}\n2) gelisim_puani 1-10 arası olmalı.\n3) ${dinamikOdevKurali}\n4) mini_test (3 adet) ve klasik_sorular (2 adet) kısmını bilişim, satranç ve mantık muhakeme üzerine kurgula.\n5) Çift tırnak (") işaretini metinlerin içinde KESİNLİKLE KULLANMA!`;
 
 try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemInstruction }] },
@@ -6762,7 +6770,7 @@ const generateMaterial = async () => {
         const parts = [{ text: prompt + (retry ? `\n\nÖNCEKİ CEVAP GEÇERSİZDİ. ${isTestRequest ? `Kesin olarak ${questionCount} adet standart_soru ve her birinde dört seçenek ver.` : 'Tek, eksiksiz JSON nesnesi ver. Her blokta ilgili alanları MUTLAKA doldur, ASLA boş blok gönderme. cizgi_calismasi istenirse cizim_adimlari dizisine her biri en az 25 kez tekrarlayan desen dizeleri koy.'}` : '') }];
         if (uploadedFileData) parts.push({ inline_data: { mime_type: uploadedFileData.mimeType, data: uploadedFileData.base64 } });
         try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 systemInstruction: { parts: [{ text: 'Sen dünyanın en iyi eğitim materyali editörü ve uzmanısın; aynı zamanda alanında zirvede bir ÖZEL EĞİTİM uzmanı ve İLK OKUMA-YAZMA öğretmenisin. Tüm okuma-yazma yöntemlerine hakimsin: Ses Temelli Cümle (güncel MEB), ses/fonetik, harf/alfabe, hece, Ba-Sa-Ra, çözümleme (cümle), sözcük, cümle, öykü/metin, bireşim (sentez), karma/eklektik ve fiş yöntemi. Özel eğitimde ABA/ayrık denemeler, fırsat öğretimi, görsel destek (PECS), beceri analizi, ipucu silme, pekiştirme ve BEP hazırlama konularında uzmansın. Kullanıcı hangi yöntemi istediyse o yöntemin bilimsel aşamalarına SADIK kal, uydurma yöntem karıştırma. Materyali yaş ve düzeye uygun, çok tekrarlı, görsel destekli, cesaretlendirici ve sınıfta doğrudan kullanılabilir hazırla. Kullanıcının isteğini (sınıf, soru sayısı, zorluk) aynen karşıla. Sadece geçerli JSON üret.' }] },
@@ -6832,7 +6840,7 @@ const generateMaterial = async () => {
     const serbestSonCare = async () => {
         setUretimDurumu('Alternatif yöntemle hazırlanıyor…');
         const sonPrompt = `Sen bir okul öncesi/ilkokul öğretmenine yardımcı olan uzman bir eğitim materyali hazırlayıcısısın. İstek: "${instruction}". ${targetGroup ? 'Hedef grup: ' + targetGroup + '. ' : ''}Bu istek için sınıfta KULLANILABİLİR, yazdırılabilir, düzenli bir çalışma materyali hazırla. Başlıklar, yönergeler, sorular/etkinlikler ve gerekiyorsa cevap anahtarı içersin. Zengin ve dolu bir içerik yaz; asla boş bırakma. Çıktıyı temiz HTML olarak ver: <h2>, <h3>, <p>, <ul>, <li>, <ol>, <strong>, <table> kullan. Sadece HTML gövdesi döndür, markdown veya kod bloğu kullanma.`;
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ contents: [{ parts: [{ text: sonPrompt }] }] })
         });
@@ -6886,7 +6894,7 @@ if (!apiKey || !storyTheme.trim()) { showToast("Tema yazın."); return; }
 setIsGeneratingStory(true);
 let studentContext = matStudentName ? `Hikayenin başrolünde "${matStudentName}" olsun. İlgi alanları: ${matInterests}.` : "Karakter çocuk olsun.";
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi öğretmeni ve çocuk psikolojisi uzmanısın." }] },
@@ -6905,7 +6913,7 @@ const generateGameIdeas = async () => {
 if (!apiKey || !gameTopic.trim()) return;
 setIsGeneratingGame(true);
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi öğretmeni ve yaratıcı eğitsel oyun tasarımcısısın. Sınıfta materyal olmadan oynanacak oyunlar tasarlarsın." }] },
@@ -6924,7 +6932,7 @@ const generateBehaviorAdvice = async () => {
 if (!apiKey || !behaviorIssue.trim()) return;
 setIsGeneratingBehavior(true);
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi öğretmeni ve uzman pedagogusun." }] },
@@ -6942,7 +6950,7 @@ const generateBepGoals = async () => {
 if (!apiKey || !targetSkill.trim() || !studentCurrentLevel.trim()) return;
 setIsGeneratingBep(true);
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi özel eğitimcisi ve BEP danışmanısın." }] },
@@ -6960,7 +6968,7 @@ const generateParentReply = async () => {
 if (!apiKey || !parentMessage.trim()) return;
 setIsGeneratingReply(true);
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi öğretmeni ve veli iletişim uzmanısın. Şefkatli ve profesyonel yanıtlar yazarsın." }] },
@@ -6978,7 +6986,7 @@ const generateGraderFeedback = async () => {
 if (!apiKey || !graderQuestion.trim() || !graderAnswer.trim()) return;
 setIsGeneratingGrader(true);
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en adil ve analitik ölçme değerlendirme uzmanısın." }] },
@@ -7003,7 +7011,7 @@ const generateStudentAnalysis = async () => {
     const ekDenemeMetni = denemeVerisi.trim() !== '' ? `\nÖĞRENCİNİN GÜNCEL DENEME/NOT VERİLERİ: ${denemeVerisi}` : '';
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde bir eğitim koçu ve kariyer danışmanısın. Lise tercih sürecinde veliye hayal satmadan, gerçekçi ama motive edici bir tablo çizersin. ASLA çift tırnak kullanma." }] },
@@ -7058,7 +7066,7 @@ const generateRubric = async () => {
 if (!apiKey || !rubricTopic.trim()) return;
 setIsGeneratingRubric(true);
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi ölçme değerlendirme uzmanısın." }] },
@@ -7076,7 +7084,7 @@ const generateLessonPlan = async () => {
 if (!apiKey || !lessonTopic.trim()) return;
 setIsGeneratingLesson(true);
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en iyi ders tasarımcısı ve usta öğreticisisin." }] },
@@ -7094,7 +7102,7 @@ const generateNewsletter = async () => {
 if (!apiKey || !newsletterTopics.trim()) return;
 setIsGeneratingNewsletter(true);
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde, dünyanın en üretken ve vizyoner öğretmenisin." }] },
@@ -7113,7 +7121,7 @@ const generatePR = async () => {
 if (!apiKey || !prTopic.trim()) return;
 setIsGeneratingPR(true);
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 systemInstruction: { parts: [{ text: "Sen Değişim Koleji'nin üst düzey kurumsal iletişim direktörü ve sosyal medya uzmanısın. Basit sınıf içi aktiviteleri, velileri etkileyecek şık, pedagojik ve vizyoner Instagram/Facebook gönderilerine çevirirsin." }] },
@@ -7133,7 +7141,7 @@ const generateClub = async () => {
 if (!apiKey || !clubStudentInfo.trim()) return;
 setIsGeneratingClub(true);
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde bir yetenek avcısı ve eğitim danışmanısın. Öğrencilerin küçük özelliklerine bakarak onları okulun ücretli kulüplerine (Robotik, Satranç, İngilizce Drama, Jimnastik, Piyano vb.) yönlendiren bilimsel, ikna edici resmi bir analiz raporu yazarsın." }] },
@@ -7153,7 +7161,7 @@ const generateMeeting = async () => {
 if (!apiKey || !meetingContext.trim()) return;
 setIsGeneratingMeeting(true);
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 systemInstruction: { parts: [{ text: "Sen dünyanın en iyi okul müdürü ve kriz yönetimi uzmanısın. Öğretmenlere, zorlu veli toplantılarını yönetmeleri için sandviç metoduyla (İyi-Gelişim Alanı-İyi) strateji hazırlarsın." }] },
@@ -7173,7 +7181,7 @@ const generateAttendance = async () => {
 if (!apiKey || !absentStudentName.trim()) return;
 setIsGeneratingAttendance(true);
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 systemInstruction: { parts: [{ text: "Sen Değişim Koleji'nin kurumsal ve şefkatli öğrenci işleri koordinatörüsün. Sınıfa gelmeyen öğrencilerin velilerine gönderilecek, endişe yaratmayan ama ilgili, şefkatli ve resmi bir WhatsApp/SMS mesajı tasarlarsın." }] },
@@ -7264,7 +7272,7 @@ const sablonlariTestEt = async (limit, devam) => {
         setTestIlerleme(`${i + 1} / ${test.length} — ${s.ad}`);
         let durum = 'ok', notlar = [];
         try {
-            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aktifModel}:generateContent?key=${apiKey}`, {
+            const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aktifModel}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: s.prompt + "\n\nSadece geçerli JSON döndür: {\"dokuman_basligi\":\"...\",\"icerik_bloklari\":[...]}. Her blokta blok_tipi olsun." }] }],
@@ -7336,7 +7344,7 @@ const generateReadiness = async () => {
     if (!apiKey || !(readinessDikkat.trim() || readinessMotor.trim() || readinessSosyal.trim() || readinessDil.trim() || readinessBilissel.trim() || readinessOzbakim.trim() || readinessVeli.trim() || readinessIlgi.trim() || readinessGucluYon.trim())) { showToast("En az bir alanı doldurun (seçeneklere tıklayarak da olur)."); return; }
     setIsGeneratingReadiness(true);
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 systemInstruction: { parts: [{ text: "Sen Değişim Koleji'nin profesör seviyesinde eğitim koordinatörüsün. Çocukları 21. yüzyıl becerileriyle analiz edip veliyi büyüleyen raporlar hazırlarsın. ASLA çift tırnak kullanma." }] },
@@ -7409,7 +7417,7 @@ const expandObservation = async () => {
 if (!apiKey || !observation.trim()) return;
 setIsExpanding(true);
 try {
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey||(typeof cozKey==='function'?cozKey():'')}`, {
 method: 'POST', headers: { 'Content-Type': 'application/json' },
 body: JSON.stringify({
 systemInstruction: { parts: [{ text: "Sen ordinaryüs profesör seviyesinde uzman eğitimcisin. Notları pedagojik ve profesyonel dille genişlet." }] },
