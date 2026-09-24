@@ -1994,7 +1994,7 @@ async function geminiMetin(apiKey, modelName, prompt){
   // MODEL ZİNCİRİ
   let kesif = [];
   try { if(window.ZIRVE && Array.isArray(window.ZIRVE.modeller)) kesif = window.ZIRVE.modeller.filter(Boolean); } catch(e){}
-  const yedek = ['gemini-2.5-flash','gemini-2.0-flash','gemini-flash-latest','gemini-1.5-flash'];
+  const yedek = ['gemini-2.5-flash','gemini-2.5-flash-lite','gemini-2.0-flash','gemini-flash-latest','gemini-1.5-flash'];
   let zincir = kesif.slice();
   yedek.forEach(function(m){ if(zincir.indexOf(m)<0) zincir.push(m); });
   const istenen = modelName || kesif[0] || 'gemini-2.5-flash';
@@ -2537,6 +2537,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
 
       <div className="p-4 md:p-5">
         <CanliSaat />
+        <AiDurum db={db} user={user} rol="teacher" />
         {yukleniyor && <div className="text-center text-slate-400 py-8"><i className="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p className="text-sm font-bold">Veritabanı yükleniyor…</p></div>}
         {!yukleniyor && sekme==='ogrenci' && <OgretmenDashboard db={db} ogrenciler={ogrenciler} odevler={odevler} teslimler={teslimler} mesajlar={mesajlar} />}
         {!yukleniyor && sekme==='ogrenci' && <OgrenciYonetim db={db} ogrenciler={ogrenciler} teslimler={teslimler} />}
@@ -3196,6 +3197,7 @@ const OgrenciMerkezi = ({ db, user }) => {
       )}
 
       <CanliSaat />
+      <AiDurum db={db} user={user} rol="student" />
       <GununSozu />
 
       {ben && <BugununOzeti db={db} ogrenci={ben} />}
@@ -3351,6 +3353,7 @@ const VeliMerkezi = ({ db, user }) => {
           <OkulTakvimi db={db} duzenlenebilir={false} />
           <DersProgrami db={db} duzenlenebilir={false} sinif={cocuk.sinif} />
           <CanliSaat />
+          <AiDurum db={db} user={user} rol="parent" />
           <BugununOzeti db={db} ogrenci={cocuk} />
           <HaftaninOgrencisi db={db} duzenlenebilir={false} ogrenciler={ogrenciler} sinif={cocuk.sinif} />
           <SinifPanosu db={db} duzenlenebilir={false} sinif={cocuk.sinif} />
@@ -5660,6 +5663,78 @@ const KitapKurduHaritasi = ({ ogrenciler }) => {
   );
 };
 
+
+/* ============================================================================
+   AI DURUM + TANI (öğrenci/veli/öğretmen) · CANLI DURUM (yönetici)
+   ============================================================================ */
+const AiDurum = ({ db, user, rol }) => {
+  const [durum, setDurum] = useState('kontrol');
+  const [mesaj, setMesaj] = useState('Yapay zeka bağlantısı kontrol ediliyor…');
+  const [tani, setTani] = useState(null);
+  const [taniAcik, setTaniAcik] = useState(false);
+  const [kopyalandi, setKopyalandi] = useState(false);
+  const heartbeatYaz = async (d) => {
+    try{ const {doc,getDoc,setDoc}=window.FirebaseSDK; if(!db) return; const ref=doc(db,"maas_config","k12_durum");
+      const kimlik=(rol||'x')+'_'+String((user&&user.name)||'').toLocaleLowerCase('tr').replace(/\s+/g,'')+'_'+((user&&user.grade)||'');
+      let liste=[]; try{ const sn=await getDoc(ref); if(sn.exists()&&Array.isArray(sn.data().liste)) liste=sn.data().liste; }catch(e){}
+      liste=liste.filter(x=>x.kimlik!==kimlik);
+      liste.unshift({kimlik, ad:String((user&&user.name)||'').split(' ')[0], sinif:(user&&user.grade)||'', rol:rol||'', durum:d, ts:Date.now()});
+      if(liste.length>500) liste=liste.slice(0,500);
+      await setDoc(ref,{liste},{merge:true});
+    }catch(e){}
+  };
+  useEffect(()=>{ const t=setTimeout(()=>{ try{ const k=(typeof cozKey==='function'?cozKey():''); const havuz=((typeof window!=='undefined'&&window.ZIRVE_PAYLASILAN_KEYS)||[]).length; let d; if(k&&k.length>10){ d='hazir'; setMesaj(havuz>0?('Ortak havuzdan '+havuz+' anahtar ulaştı — yapay zeka üretime hazır ✨'):'Anahtar hazır; dilediğin özeti, etkinliği üretebilirsin.'); } else { d='yok'; setMesaj('Yapay zeka anahtarı bu cihaza henüz ulaşmadı. Yöneticiden ortak anahtar eklenmesini isteyin.'); } setDurum(d); heartbeatYaz(d); }catch(e){} }, 1500); return ()=>clearTimeout(t); },[]);
+  const test = async () => { setDurum('test'); setMesaj('Yapay zeka deneniyor, bir nefeslik sabır… ⏳'); try{ const k=(typeof cozKey==='function'?cozKey():''); if(!k||k.length<10){ setDurum('yok'); setMesaj('Anahtar yok — yöneticiden ortak anahtar isteyin.'); heartbeatYaz('yok'); return; } const c=await geminiMetin(k,(typeof cozModel==='function'?cozModel():''),'Sadece şu kelimeyi yaz: TAMAM'); if(c&&String(c).trim()){ setDurum('ok'); setMesaj('Yapay zeka çalışıyor, her şey yolunda! 🎉'); heartbeatYaz('ok'); } else { setDurum('kota'); setMesaj('Anahtarlar şu an cevap vermiyor (kota dolmuş olabilir). Yöneticiden taze anahtar isteyin.'); heartbeatYaz('kota'); } }catch(e){ setDurum('hata'); setMesaj('Bağlantı sorunu: '+(e.message||e)); heartbeatYaz('kota'); } };
+  const taniYap = async () => {
+    setTaniAcik(true); const r=[]; const ekle=(ad,ok,m)=>{ r.push({ad,ok,mesaj:m}); setTani(r.slice()); };
+    const net=(typeof navigator!=='undefined'&&navigator.onLine); ekle('İnternet Bağlantısı',net,net?'Bağlı':'İnternet yok — Wi-Fi veya mobil veriyi açın');
+    ekle('Sistem Bağlantısı (Firebase)',!!db,db?'Bağlı ve aktif':'Bağlantı yok — sayfayı kapatıp yeniden açın');
+    let poolFromDb=0;
+    try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); const ok=sn&&sn.exists(); const pk=ok?String((sn.data()||{}).paylasilanKey||''):''; poolFromDb=pk.split(/[\s,;]+/).map(x=>x.trim()).filter(x=>x.length>10).length; ekle('Veri Okuma (Firestore)',ok,ok?'Bulut verisi okunuyor':'Okunamıyor — Firestore güvenlik kuralı (read açık) gerekli'); }catch(e){ ekle('Veri Okuma (Firestore)',false,'Hata: '+(e.message||e)+' — Firestore kuralını yayınlayın'); }
+    const havuz=(((typeof window!=='undefined'&&window.ZIRVE_PAYLASILAN_KEYS)||[]).length)||poolFromDb;
+    ekle('Ortak Anahtar Havuzu',havuz>0,havuz>0?(havuz+' anahtar mevcut'):'Havuzda anahtar yok — Yönetici → Ortak Anahtarlar bölümünden ekleyin');
+    try{ const k=(typeof cozKey==='function'?cozKey():''); if(!k){ ekle('Yapay Zeka Çağrısı',false,'Kullanılacak anahtar yok'); } else { const c=await geminiMetin(k,(typeof cozModel==='function'?cozModel():''),'OK'); ekle('Yapay Zeka Çağrısı',!!(c&&String(c).trim()),(c&&String(c).trim())?'AI cevap verdi — her şey çalışıyor ✓':'AI cevap vermedi — tüm anahtarlar kota dolu/geçersiz olabilir, yeni anahtar ekleyin'); } }catch(e){ ekle('Yapay Zeka Çağrısı',false,'Hata: '+(e.message||e)); }
+  };
+  const kopyala = async () => { if(!tani) return; let t='DEĞİŞİM KOLEJİ — AI TANI\n'+new Date().toLocaleString('tr-TR')+'\n'; tani.forEach(x=>{ t+=(x.ok?'[OK] ':'[SORUN] ')+x.ad+': '+x.mesaj+'\n'; }); try{ await navigator.clipboard.writeText(t); setKopyalandi(true); setTimeout(()=>setKopyalandi(false),2500); }catch(e){ alert(t); } };
+  const iyi=durum==='ok'||durum==='hazir'; const kotu=durum==='hata'||durum==='yok'||durum==='kota';
+  const renk=iyi?'from-emerald-500 to-teal-600':kotu?'from-rose-500 to-red-600':'from-slate-500 to-slate-600';
+  const ikon=iyi?'✅':kotu?'⚠️':'⏳';
+  return (
+    <div className={`bg-gradient-to-r ${renk} rounded-2xl p-4 text-white shadow mt-4`}>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2"><span className="text-2xl">{ikon}</span><div><p className="font-black text-sm">Yapay Zeka Durumu</p><p className="text-white/90 text-[12px]">{mesaj}</p></div></div>
+        <div className="flex gap-2">
+          <button onClick={test} disabled={durum==='test'} className="bg-white/20 hover:bg-white/30 text-white font-black px-3 py-2 rounded-lg text-xs whitespace-nowrap disabled:opacity-60"><i className="fa-solid fa-plug mr-1"></i>Test Et</button>
+          <button onClick={taniYap} className="bg-white/20 hover:bg-white/30 text-white font-black px-3 py-2 rounded-lg text-xs whitespace-nowrap"><i className="fa-solid fa-magnifying-glass mr-1"></i>Neden çalışmıyor?</button>
+        </div>
+      </div>
+      {kotu && <p className="text-white/95 text-[12px] mt-2 bg-white/15 rounded-lg p-2">💡 Sorunsuz üretim için: yöneticiden bol anahtar isteyin → Ayarlar → Ortak Anahtarlar → yapıştır → <b>Kaydet</b> → yeniden deneyin.</p>}
+      {taniAcik && tani && <div className="mt-2 bg-white rounded-xl p-2 text-slate-700">
+        <div className="space-y-1">{tani.map((x,i)=>(<div key={i} className={`text-[12px] flex items-start gap-2 rounded px-2 py-1 ${x.ok?'bg-emerald-50 text-emerald-700':'bg-rose-50 text-rose-700'}`}><span>{x.ok?'✅':'⛔'}</span><div><b>{x.ad}</b><div>{x.mesaj}</div></div></div>))}</div>
+        <button onClick={kopyala} className="mt-2 w-full bg-slate-700 hover:bg-slate-800 text-white font-black py-1.5 rounded-lg text-xs">{kopyalandi?'✅ Kopyalandı — yöneticiye iletin':'📋 Nedeni Kopyala'}</button>
+      </div>}
+    </div>
+  );
+};
+
+const CanliDurum = ({ db }) => {
+  const doc=useOkulDoc(db,"k12_durum"); const liste=((doc&&doc.liste)||[]).slice().sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const [ara,setAra]=useState('');
+  const temizle=async()=>{ if(!window.confirm('Canlı durum listesi temizlensin mi?'))return; await okulYaz(db,"k12_durum",{liste:[]}); };
+  const rk=(d)=> d==='ok'?{r:'🟢',t:'çalışıyor',c:'text-emerald-600'}:d==='hazir'?{r:'🔵',t:'hazır',c:'text-sky-600'}:d==='kota'?{r:'🟡',t:'kota dolu',c:'text-amber-600'}:{r:'🔴',t:'anahtar yok',c:'text-rose-600'};
+  const say=(d)=>liste.filter(x=>x.durum===d).length;
+  const rolAd=(r)=> r==='teacher'?'öğretmen':r==='parent'?'veli':'öğrenci';
+  const gor=liste.filter(x=>!ara || String(x.ad||'').toLocaleLowerCase('tr').indexOf(ara.toLocaleLowerCase('tr'))>=0);
+  return (
+    <div className="bg-white/90 rounded-xl p-3 mt-3">
+      <div className="flex items-center justify-between mb-2"><span className="text-[12px] font-black text-slate-700 uppercase"><i className="fa-solid fa-tower-broadcast mr-1"></i>Canlı Durum — AI Kimde Çalışıyor?</span>{liste.length>0&&<button onClick={temizle} className="text-[10px] text-rose-500 font-bold">Temizle</button>}</div>
+      <div className="flex gap-2 mb-2 text-[11px] font-black flex-wrap"><span className="text-emerald-600">🟢 {say('ok')} çalışıyor</span><span className="text-sky-600">🔵 {say('hazir')} hazır</span><span className="text-amber-600">🟡 {say('kota')} kota</span><span className="text-rose-600">🔴 {say('yok')} yok</span></div>
+      <input value={ara} onChange={e=>setAra(e.target.value)} placeholder="🔍 İsimle ara…" className="w-full mb-2 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none" />
+      <div className="space-y-1 max-h-64 overflow-auto">{gor.length===0?<p className="text-slate-400 text-[12px] text-center py-2">Henüz cihaz durumu gelmedi. Kullanıcılar girince burada canlı görünür.</p>:gor.map((x,i)=>{ const k=rk(x.durum); const d=new Date(x.ts); return (<div key={i} className="flex items-center gap-2 text-[12px] bg-slate-50 rounded px-2 py-1.5"><span>{k.r}</span><span className="font-bold text-slate-700">{x.ad||'—'}</span><span className="text-slate-400 text-[10px]">{x.sinif} · {rolAd(x.rol)}</span><span className={`ml-auto ${k.c} font-bold`}>{k.t}</span><span className="text-slate-300 text-[10px] whitespace-nowrap">{d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</span></div>);})}</div>
+      <p className="text-[10px] text-slate-400 mt-2">📡 Her kullanıcı girince AI durumu buraya düşer. KVKK: yalnızca ad + sınıf gösterilir.</p>
+    </div>
+  );
+};
 const AkademiKart = ({ rol }) => (
   <button onClick={()=>window.open('https://baris-ogretmen.github.io/site-1/','_blank')} className="w-full bg-white border-4 border-slate-100 hover:border-cyan-400 p-6 rounded-[2.5rem] shadow-xl hover:-translate-y-1 transition-all flex flex-col items-center justify-center gap-4 group relative overflow-hidden mt-8 mb-24">
     <div className="absolute top-0 right-0 bg-cyan-100 text-cyan-700 text-[10px] font-black px-4 py-2 rounded-bl-2xl uppercase tracking-widest">Akademi</div>
@@ -5995,7 +6070,12 @@ return () => window.removeEventListener('firebase-sdk-ready', listener);
 
 useEffect(() => {
   if(!db) return;
-  (async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn && sn.exists()){ const _pk=String((sn.data()||{}).paylasilanKey||''); const _arr=_pk.split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); if(_arr.length){ window.ZIRVE_PAYLASILAN_KEYS=_arr; window.ZIRVE_PAYLASILAN_KEY=_arr[0]||''; } } }catch(e){} })();
+  const tazele=async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn && sn.exists()){ const _pk=String((sn.data()||{}).paylasilanKey||''); const _arr=_pk.split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); if(_arr.length){ window.ZIRVE_PAYLASILAN_KEYS=_arr; window.ZIRVE_PAYLASILAN_KEY=_arr[0]||''; } } }catch(e){} };
+  tazele();
+  const _iv=setInterval(tazele,120000);
+  const _vis=()=>{ if(document.visibilityState==='visible') tazele(); };
+  document.addEventListener('visibilitychange',_vis);
+  return ()=>{ clearInterval(_iv); document.removeEventListener('visibilitychange',_vis); };
 }, [db]);
 useEffect(() => {
 if (!isFbReady || !user || !db) return;
@@ -7554,6 +7634,7 @@ const renderSharedUI = () => (
                                                 <div className="mt-3"><GirisKayitlari db={db} /></div>
                                                 <SistemTest db={db} globalConfig={globalConfig} apiKey={apiKey} />
                                                 <YoneticiGenelBakis db={db} />
+                                                <CanliDurum db={db} />
                                             </div>
                                             <div>
                                                 <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Kurum Giriş Kodu (Şifre)</label>
@@ -7563,7 +7644,7 @@ const renderSharedUI = () => (
                                                 <div className="grid grid-cols-3 gap-2 mt-2">
                                                     <button onClick={()=>{ try{ navigator.clipboard.writeText(globalConfig?.paylasilanKey||''); showToast('📋 Tüm anahtarlar kopyalandı.'); }catch(e){ alert(globalConfig?.paylasilanKey||''); } }} className="bg-slate-200 text-slate-700 font-bold py-2 rounded-lg text-xs">📋 Tümünü Kopyala</button>
                                                     <button onClick={()=>{ if(!window.confirm('Tüm ortak anahtarlar SİLİNSİN mi? (Kaydet\'e basınca kalıcı olur)')) return; setGlobalConfig({...globalConfig, paylasilanKey:''}); showToast('🗑️ Anahtarlar temizlendi — Kaydet\'e basmayı unutmayın.'); }} className="bg-rose-500 text-white font-bold py-2 rounded-lg text-xs">🗑️ Tümünü Sil</button>
-                                                    <button onClick={async()=>{ try{ const t=await navigator.clipboard.readText(); const hepsi=((globalConfig?.paylasilanKey||'')+'\n'+t).split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); const tekil=[]; hepsi.forEach(function(k){ if(tekil.indexOf(k)<0) tekil.push(k); }); setGlobalConfig({...globalConfig, paylasilanKey:tekil.join('\n')}); showToast('📥 '+tekil.length+' anahtar birleştirildi.'); }catch(e){ alert('Pano okunamadı, elle yapıştırın.'); } }} className="bg-blue-600 text-white font-bold py-2 rounded-lg text-xs">📥 Panodan Yapıştır</button>
+                                                    <button onClick={async()=>{ try{ const t=await navigator.clipboard.readText(); const hepsi=((globalConfig?.paylasilanKey||'')+'\n'+t).split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); const tekil=[]; let cift=0; hepsi.forEach(function(k){ if(tekil.indexOf(k)<0) tekil.push(k); else cift++; }); setGlobalConfig({...globalConfig, paylasilanKey:tekil.join('\n')}); showToast(cift>0?('📥 '+tekil.length+' anahtar hazır. ⚠️ '+cift+' tekrar eden anahtar temizlendi (bu anahtarları daha önce eklemiştin).'):('📥 '+tekil.length+' anahtar birleştirildi.')); }catch(e){ alert('Pano okunamadı, elle yapıştırın.'); } }} className="bg-blue-600 text-white font-bold py-2 rounded-lg text-xs">📥 Panodan Yapıştır</button>
                                                 </div>
                                                 <button onClick={async()=>{ const keys=(globalConfig?.paylasilanKey||'').split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); if(keys.length===0){ alert('Önce anahtar ekleyin.'); return; } setKeyTestCalisiyor(true); setKeyTestSonuc([]); const test=keys.slice(0,50); for(let i=0;i<test.length;i++){ let ok=false; try{ const c=await geminiMetin(test[i],(typeof cozModel==='function'?cozModel():''),'OK'); ok=!!(c&&String(c).trim()); }catch(e){ ok=false; } setKeyTestSonuc(function(p){ return p.concat([{key:test[i].slice(0,8)+'…'+test[i].slice(-4), ok:ok}]); }); } setKeyTestCalisiyor(false); }} disabled={keyTestCalisiyor} className="mt-2 w-full bg-fuchsia-600 text-white font-bold py-2 rounded-lg text-xs hover:bg-fuchsia-700 disabled:opacity-60">{keyTestCalisiyor?('🧪 Test ediliyor… ('+keyTestSonuc.length+')'):'🧪 Anahtarları Test Et (anlık sonuç)'}</button>
                                                 {(keyTestSonuc.length>0 || keyTestCalisiyor) && <div className="mt-2 bg-white rounded-lg p-2 border border-slate-200">
@@ -7571,7 +7652,7 @@ const renderSharedUI = () => (
                                                   <div className="space-y-1 max-h-52 overflow-auto">{keyTestSonuc.map(function(x,i){ return <div key={i} className={`text-[11px] font-mono flex items-center justify-between px-2 py-1 rounded ${x.ok?'bg-emerald-50 text-emerald-700':'bg-rose-50 text-rose-700'}`}><span>{i+1}. {x.key}</span><span>{x.ok?'✅':'❌'}</span></div>; })}</div>
                                                   <p className="text-[9px] text-slate-400 mt-1">Not: Google kalan kotayı API ile vermez; anahtarın çalışıp çalışmadığı test edilir.</p>
                                                 </div>}
-                                                <button onClick={async()=>{ try{ const {doc,setDoc}=window.FirebaseSDK; const temiz=(globalConfig?.paylasilanKey||'').split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); const metin=temiz.join('\n'); await setDoc(doc(db,"maas_config","k12_global"),{paylasilanKey:metin},{merge:true}); try{ window.ZIRVE_PAYLASILAN_KEYS=temiz; window.ZIRVE_PAYLASILAN_KEY=temiz[0]||''; }catch(e){} showToast(temiz.length+' ortak anahtar kaydedildi — herkeste AI açıldı.'); }catch(e){ alert('Hata: '+e.message); } }} className="mt-2 w-full bg-emerald-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-emerald-700">Ortak Anahtarları Kaydet (herkeste çalışsın)</button>
+                                                <button onClick={async()=>{ try{ const {doc,setDoc}=window.FirebaseSDK; const _ham=(globalConfig?.paylasilanKey||'').split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); const temiz=[]; let _cift=0; _ham.forEach(function(k){ if(temiz.indexOf(k)<0) temiz.push(k); else _cift++; }); const metin=temiz.join('\n'); await setDoc(doc(db,"maas_config","k12_global"),{paylasilanKey:metin},{merge:true}); try{ setGlobalConfig({...globalConfig, paylasilanKey:metin}); }catch(e){} try{ window.ZIRVE_PAYLASILAN_KEYS=temiz; window.ZIRVE_PAYLASILAN_KEY=temiz[0]||''; }catch(e){} showToast('🌍 '+temiz.length+' ortak anahtar HERKESE AÇILDI — AI aktif.'+(_cift>0?(' ('+_cift+' tekrar eden temizlendi)'):'')); }catch(e){ alert('Hata: '+e.message); } }} className="mt-2 w-full bg-emerald-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-emerald-700">Ortak Anahtarları Kaydet (herkeste çalışsın)</button>
                                             </div>
                                         </div>
                                     </div>
