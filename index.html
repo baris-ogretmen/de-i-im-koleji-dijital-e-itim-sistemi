@@ -3354,7 +3354,7 @@ const VeliMerkezi = ({ db, user }) => {
           <DersProgrami db={db} duzenlenebilir={false} sinif={cocuk.sinif} />
           <CanliSaat />
           <AiDurum db={db} user={user} rol="parent" />
-          <BugununOzeti db={db} ogrenci={cocuk} />
+          <BugununOzeti db={db} ogrenci={cocuk} paylas={true} />
           <HaftaninOgrencisi db={db} duzenlenebilir={false} ogrenciler={ogrenciler} sinif={cocuk.sinif} />
           <SinifPanosu db={db} duzenlenebilir={false} sinif={cocuk.sinif} />
           <KulupEtkinlik db={db} duzenlenebilir={false} />
@@ -5188,7 +5188,7 @@ const SinifPanosu = ({ db, duzenlenebilir, sinif, user }) => {
   return <div className="bg-white border-4 border-yellow-200 rounded-[2rem] p-5 shadow-lg mt-6"><h3 className="text-lg font-black text-yellow-700 mb-3 flex items-center"><i className="fa-solid fa-thumbtack text-yellow-500 mr-2"></i>Sınıf Panosu</h3>{kutu}</div>;
 };
 
-const BugununOzeti = ({ db, ogrenci }) => {
+const BugununOzeti = ({ db, ogrenci, paylas }) => {
   const yokDoc=useOkulDoc(db,"k12_yoklama"); const yoklama=(yokDoc&&yokDoc.liste)||[];
   const odevDoc=useOkulDoc(db,"k12_odevler"); const odevler=(odevDoc&&odevDoc.liste)||[];
   const mesDoc=useOkulDoc(db,"k12_mesajlar"); const mesajlar=(mesDoc&&mesDoc.liste)||[];
@@ -5209,6 +5209,7 @@ const BugununOzeti = ({ db, ogrenci }) => {
           <div className="bg-white/15 rounded-xl p-3"><div className="text-2xl font-black">{bugunOdev}</div><div className="text-[10px] text-white/80 mt-1">Bugünkü Ödev</div></div>
           <div className="bg-white/15 rounded-xl p-3"><div className="text-2xl font-black">{okunmamis}</div><div className="text-[10px] text-white/80 mt-1">Yeni Mesaj</div></div>
         </div>
+        {paylas && <button onClick={()=>{ const ad=String(ogrenci.ad||'').split(' ')[0]; const t='📋 '+ad+' — Bugünün Özeti ('+new Date().toLocaleDateString('tr-TR')+')\n\n✅ Yoklama: '+(yok?(yokAd[yok.durum]||'-'):'Girilmedi')+'\n📚 Bugünkü Ödev: '+bugunOdev+'\n✉️ Yeni Mesaj: '+okunmamis+'\n\nDeğişim Koleji'; window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank'); }} className="mt-3 w-full bg-white/20 hover:bg-white/30 text-white font-black py-2 rounded-lg text-sm"><i className="fa-brands fa-whatsapp mr-1"></i>Çocuğumun Bugününü WhatsApp'ta Paylaş</button>}
       </div>
     </>
   );
@@ -5683,7 +5684,7 @@ const AiDurum = ({ db, user, rol }) => {
       await setDoc(ref,{liste},{merge:true});
     }catch(e){}
   };
-  useEffect(()=>{ const t=setTimeout(()=>{ try{ const k=(typeof cozKey==='function'?cozKey():''); const havuz=((typeof window!=='undefined'&&window.ZIRVE_PAYLASILAN_KEYS)||[]).length; let d; if(k&&k.length>10){ d='hazir'; setMesaj(havuz>0?('Ortak havuzdan '+havuz+' anahtar ulaştı — yapay zeka üretime hazır ✨'):'Anahtar hazır; dilediğin özeti, etkinliği üretebilirsin.'); } else { d='yok'; setMesaj('Yapay zeka anahtarı bu cihaza henüz ulaşmadı. Yöneticiden ortak anahtar eklenmesini isteyin.'); } setDurum(d); heartbeatYaz(d); }catch(e){} }, 1500); return ()=>clearTimeout(t); },[]);
+  useEffect(()=>{ const t=setTimeout(()=>{ try{ const k=(typeof cozKey==='function'?cozKey():''); const havuz=((typeof window!=='undefined'&&window.ZIRVE_PAYLASILAN_KEYS)||[]).length; let d; if(k&&k.length>10){ d='hazir'; setMesaj(havuz>0?('Ortak havuzdan '+havuz+' anahtar ulaştı — yapay zeka üretime hazır ✨'):'Anahtar hazır; dilediğin özeti, etkinliği üretebilirsin.'); } else { d='yok'; setMesaj('Yapay zeka anahtarı bu cihaza henüz ulaşmadı. Yöneticiden ortak anahtar eklenmesini isteyin.'); } setDurum(d); heartbeatYaz(d); if(d==='hazir' && (rol==='student'||rol==='parent')){ try{ if(!sessionStorage.getItem('_zhosgeldin')){ sessionStorage.setItem('_zhosgeldin','1'); if(typeof toast==='function') toast('✅ Tüm sistemler sizde hazır — hoş geldiniz! 🎉','green'); } }catch(e){} } }catch(e){} }, 1500); return ()=>clearTimeout(t); },[]);
   const test = async () => { setDurum('test'); setMesaj('Yapay zeka deneniyor, bir nefeslik sabır… ⏳'); try{ const k=(typeof cozKey==='function'?cozKey():''); if(!k||k.length<10){ setDurum('yok'); setMesaj('Anahtar yok — yöneticiden ortak anahtar isteyin.'); heartbeatYaz('yok'); return; } const c=await geminiMetin(k,(typeof cozModel==='function'?cozModel():''),'Sadece şu kelimeyi yaz: TAMAM'); if(c&&String(c).trim()){ setDurum('ok'); setMesaj('Yapay zeka çalışıyor, her şey yolunda! 🎉'); heartbeatYaz('ok'); } else { setDurum('kota'); setMesaj('Anahtarlar şu an cevap vermiyor (kota dolmuş olabilir). Yöneticiden taze anahtar isteyin.'); heartbeatYaz('kota'); } }catch(e){ setDurum('hata'); setMesaj('Bağlantı sorunu: '+(e.message||e)); heartbeatYaz('kota'); } };
   const taniYap = async () => {
     setTaniAcik(true); const r=[]; const ekle=(ad,ok,m)=>{ r.push({ad,ok,mesaj:m}); setTani(r.slice()); };
@@ -5702,13 +5703,17 @@ const AiDurum = ({ db, user, rol }) => {
   return (
     <div className={`bg-gradient-to-r ${renk} rounded-2xl p-4 text-white shadow mt-4`}>
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2"><span className="text-2xl">{ikon}</span><div><p className="font-black text-sm">Yapay Zeka Durumu</p><p className="text-white/90 text-[12px]">{mesaj}</p></div></div>
+        <div className="flex items-center gap-2"><span className="text-2xl">{ikon}</span><div><p className="font-black text-sm flex items-center gap-2">Yapay Zeka Durumu {iyi && <span className="bg-white/25 text-white text-[10px] font-black px-2 py-0.5 rounded-full">🟢 Bağlı</span>}</p><p className="text-white/90 text-[12px]">{mesaj}</p></div></div>
         <div className="flex gap-2">
           <button onClick={test} disabled={durum==='test'} className="bg-white/20 hover:bg-white/30 text-white font-black px-3 py-2 rounded-lg text-xs whitespace-nowrap disabled:opacity-60"><i className="fa-solid fa-plug mr-1"></i>Test Et</button>
           <button onClick={taniYap} className="bg-white/20 hover:bg-white/30 text-white font-black px-3 py-2 rounded-lg text-xs whitespace-nowrap"><i className="fa-solid fa-magnifying-glass mr-1"></i>Neden çalışmıyor?</button>
         </div>
       </div>
-      {kotu && <p className="text-white/95 text-[12px] mt-2 bg-white/15 rounded-lg p-2">💡 Sorunsuz üretim için: yöneticiden bol anahtar isteyin → Ayarlar → Ortak Anahtarlar → yapıştır → <b>Kaydet</b> → yeniden deneyin.</p>}
+      {kotu && <div className="mt-2 bg-white/15 rounded-lg p-3 text-white/95 text-[12px] space-y-1.5">
+        <p className="font-black">ℹ️ Sistemde bir sorun YOK — her şey çalışıyor.</p>
+        <p>Sadece yapay zeka anahtarının <b>günlük kotası dolmuş</b> olabilir. Biraz bekleyin ya da yöneticiye haber verin; kısa sürede tekrar açılır.</p>
+        <p className="bg-white/15 rounded-lg p-2">💚 <b>Barış Öğretmen</b>, bu sistemi velilerimize <b>ücretsiz</b> sunmak için kurdu. Kesintisiz ve sınırsız yapay zeka isterseniz, yönetici tek bir <b>ücretli anahtar</b> ekleyerek her şeyi anında sınırsız hale getirebilir. 🌟</p>
+      </div>}
       {taniAcik && tani && <div className="mt-2 bg-white rounded-xl p-2 text-slate-700">
         <div className="space-y-1">{tani.map((x,i)=>(<div key={i} className={`text-[12px] flex items-start gap-2 rounded px-2 py-1 ${x.ok?'bg-emerald-50 text-emerald-700':'bg-rose-50 text-rose-700'}`}><span>{x.ok?'✅':'⛔'}</span><div><b>{x.ad}</b><div>{x.mesaj}</div></div></div>))}</div>
         <button onClick={kopyala} className="mt-2 w-full bg-slate-700 hover:bg-slate-800 text-white font-black py-1.5 rounded-lg text-xs">{kopyalandi?'✅ Kopyalandı — yöneticiye iletin':'📋 Nedeni Kopyala'}</button>
@@ -5729,8 +5734,9 @@ const CanliDurum = ({ db }) => {
     <div className="bg-white/90 rounded-xl p-3 mt-3">
       <div className="flex items-center justify-between mb-2"><span className="text-[12px] font-black text-slate-700 uppercase"><i className="fa-solid fa-tower-broadcast mr-1"></i>Canlı Durum — AI Kimde Çalışıyor?</span>{liste.length>0&&<button onClick={temizle} className="text-[10px] text-rose-500 font-bold">Temizle</button>}</div>
       <div className="flex gap-2 mb-2 text-[11px] font-black flex-wrap"><span className="text-emerald-600">🟢 {say('ok')} çalışıyor</span><span className="text-sky-600">🔵 {say('hazir')} hazır</span><span className="text-amber-600">🟡 {say('kota')} kota</span><span className="text-rose-600">🔴 {say('yok')} yok</span></div>
+      {(say('kota')+say('yok'))>0 && (say('kota')+say('yok'))>=say('ok') && <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 text-[11px] text-amber-700 font-bold">⚠️ Bazı cihazlarda anahtar kotası dolmuş görünüyor. Ortak Anahtarlar'a yeni anahtar ekleyin ya da 1 ücretli anahtar ile sınırsız yapın.</div>}
       <input value={ara} onChange={e=>setAra(e.target.value)} placeholder="🔍 İsimle ara…" className="w-full mb-2 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none" />
-      <div className="space-y-1 max-h-64 overflow-auto">{gor.length===0?<p className="text-slate-400 text-[12px] text-center py-2">Henüz cihaz durumu gelmedi. Kullanıcılar girince burada canlı görünür.</p>:gor.map((x,i)=>{ const k=rk(x.durum); const d=new Date(x.ts); return (<div key={i} className="flex items-center gap-2 text-[12px] bg-slate-50 rounded px-2 py-1.5"><span>{k.r}</span><span className="font-bold text-slate-700">{x.ad||'—'}</span><span className="text-slate-400 text-[10px]">{x.sinif} · {rolAd(x.rol)}</span><span className={`ml-auto ${k.c} font-bold`}>{k.t}</span><span className="text-slate-300 text-[10px] whitespace-nowrap">{d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</span></div>);})}</div>
+      <div className="space-y-1 max-h-64 overflow-auto">{gor.length===0?<p className="text-slate-400 text-[12px] text-center py-2">Henüz cihaz durumu gelmedi. Kullanıcılar girince burada canlı görünür.</p>:gor.map((x,i)=>{ const k=rk(x.durum); const d=new Date(x.ts); return (<div key={i} className="flex items-center gap-2 text-[12px] bg-slate-50 rounded px-2 py-1.5"><span>{k.r}</span><span className="font-bold text-slate-700">{x.ad||'—'}</span><span className="text-slate-400 text-[10px]">{x.sinif} · {rolAd(x.rol)}</span>{(x.durum==='ok'||x.durum==='hazir') && <span className="bg-emerald-100 text-emerald-700 text-[9px] font-black px-1.5 py-0.5 rounded-full">Bağlı</span>}<span className={`ml-auto ${k.c} font-bold`}>{k.t}</span><span className="text-slate-300 text-[10px] whitespace-nowrap">{(function(){ var fark=Math.round((Date.now()-(x.ts||0))/60000); return fark<1?'şimdi':fark<60?(fark+' dk önce'):d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}); })()}</span></div>);})}</div>
       <p className="text-[10px] text-slate-400 mt-2">📡 Her kullanıcı girince AI durumu buraya düşer. KVKK: yalnızca ad + sınıf gösterilir.</p>
     </div>
   );
