@@ -5712,8 +5712,15 @@ const AiDurum = ({ db, user, rol }) => {
       </div>
       {kotu && <div className="mt-2 bg-white/15 rounded-lg p-3 text-white/95 text-[12px] space-y-1.5">
         <p className="font-black">ℹ️ Sistemde bir sorun YOK — her şey çalışıyor.</p>
-        <p>Sadece yapay zeka anahtarının <b>günlük kotası dolmuş</b> olabilir. Biraz bekleyin ya da yöneticiye haber verin; kısa sürede tekrar açılır.</p>
-        <p className="bg-white/15 rounded-lg p-2">💚 <b>Barış Öğretmen</b>, bu sistemi velilerimize <b>ücretsiz</b> sunmak için kurdu. Kesintisiz ve sınırsız yapay zeka isterseniz, yönetici tek bir <b>ücretli anahtar</b> ekleyerek her şeyi anında sınırsız hale getirebilir. 🌟</p>
+        {rol==='student'
+          ? <p>Yapay zeka şu an biraz yoğun 😊 <b>Biraz sonra tekrar dene</b> ya da öğretmenine söyle — kısa sürede tekrar açılır. Sen hiçbir şey yapma, her şey yolunda! 🌈</p>
+          : <>
+              <p>Sadece yapay zeka anahtarının <b>günlük kotası dolmuş</b> olabilir. Biraz bekleyin; kısa sürede tekrar açılır.</p>
+              <div className="bg-gradient-to-br from-amber-300/30 to-orange-300/30 rounded-xl p-2.5 border border-white/25">
+                <p className="font-black text-white">💛 Kesintisiz kullanmak ister misiniz?</p>
+                <p className="mt-1">💚 <b>Barış Öğretmen</b> bu sistemi sizlere <b>ücretsiz</b> sunuyor. Ücretsiz anahtarların günlük bir sınırı var; çok kişi kullanınca dolabiliyor. <b>Hiç kesinti istemiyorsanız</b>, kendi <b>sabit (ücretli) anahtarınızı</b> alıp yöneticiye iletebilirsiniz — o zaman sınırsız çalışır. Detay ve yardım için okul yönetimine / Barış Öğretmen'e ulaşın. 🌟</p>
+              </div>
+            </>}
       </div>}
       {taniAcik && tani && <div className="mt-2 bg-white rounded-xl p-2 text-slate-700">
         <div className="space-y-1">{tani.map((x,i)=>(<div key={i} className={`text-[12px] flex items-start gap-2 rounded px-2 py-1 ${x.ok?'bg-emerald-50 text-emerald-700':'bg-rose-50 text-rose-700'}`}><span>{x.ok?'✅':'⛔'}</span><div><b>{x.ad}</b><div>{x.mesaj}</div></div></div>))}</div>
