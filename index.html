@@ -3198,6 +3198,7 @@ const OgrenciMerkezi = ({ db, user }) => {
 
       <CanliSaat />
       <AiDurum db={db} user={user} rol="student" />
+      {ben && <EvcilHayvan ben={ben} />}
       <GununSozu />
 
       {ben && <BugununOzeti db={db} ogrenci={ben} />}
@@ -5741,6 +5742,79 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
+const LOCAL_SURUM = 12;
+const SurumBanner = ({ db }) => {
+  const [yeni,setYeni]=useState(false);
+  useEffect(()=>{ if(!db) return; const kontrol=async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn&&sn.exists()){ const sv=Number((sn.data()||{}).surum||0); if(sv>LOCAL_SURUM) setYeni(true); } }catch(e){} }; kontrol(); const iv=setInterval(kontrol,120000); const vis=()=>{ if(document.visibilityState==='visible') kontrol(); }; document.addEventListener('visibilitychange',vis); return ()=>{ clearInterval(iv); document.removeEventListener('visibilitychange',vis); }; },[db]);
+  if(!yeni) return null;
+  return (
+    <div className="fixed top-0 left-0 right-0 z-[2147483000] bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-4 py-2.5 flex items-center justify-between gap-2 shadow-lg">
+      <span className="text-[13px] font-black"><i className="fa-solid fa-rotate mr-1"></i>Yeni sürüm yayında! En son özellikler için sayfayı yenileyin.</span>
+      <button onClick={()=>{ try{ location.reload(true); }catch(e){ location.reload(); } }} className="bg-white text-indigo-700 font-black px-4 py-1.5 rounded-lg text-[13px] whitespace-nowrap">🔄 Yenile</button>
+    </div>
+  );
+};
+
+
+/* ============================================================================
+   EVCİL HAYVANIM — öğrenci hayvan seçer, ödev/kitap/hedefle (yıldız) büyür
+   ============================================================================ */
+const EvcilHayvan = ({ ben }) => {
+  const HAYVANLAR = [
+    {k:'aslan', ad:'Aslan', e:'🦁'}, {k:'fil', ad:'Fil', e:'🐘'}, {k:'yunus', ad:'Yunus', e:'🐬'},
+    {k:'tilki', ad:'Tilki', e:'🦊'}, {k:'panda', ad:'Panda', e:'🐼'}, {k:'unicorn', ad:'Tek Boynuz', e:'🦄'},
+    {k:'penguen', ad:'Penguen', e:'🐧'}, {k:'kaplan', ad:'Kaplan', e:'🐯'}, {k:'kurbaga', ad:'Kurbağa', e:'🐸'},
+    {k:'baykus', ad:'Baykuş', e:'🦉'}, {k:'ejder', ad:'Ejderha', e:'🐲'}, {k:'kedi', ad:'Kedi', e:'🐱'}
+  ];
+  const [secili, setSecili] = useState('');
+  useEffect(()=>{ if(!ben) return; try{ const k=localStorage.getItem('evcil_'+ben.id); if(k) setSecili(k); }catch(e){} }, [ben&&ben.id]);
+  const sec = (k) => { setSecili(k); try{ localStorage.setItem('evcil_'+ben.id, k); }catch(e){} try{ if(typeof toast==='function') toast('🎉 Yeni dostun seni bekliyor! Ödev yaptıkça büyüyecek.','green'); window.ZKUTLA&&window.ZKUTLA(); }catch(e){} };
+  if(!ben) return null;
+  const puan = ben.puan||0;
+  // 5 seviye: yumurta → yavru → küçük → büyük → efsane
+  const seviyeler = [
+    {ad:'Yumurta', e:'🥚', min:0, boyut:'text-6xl', mesaj:'Dostun yumurtada! İlk ödevini yap, çıksın.'},
+    {ad:'Yavru', e:'🐣', min:10, boyut:'text-6xl', mesaj:'Yavrun çıktı! Beslemeye devam et.'},
+    {ad:'Küçük', e:null, min:30, boyut:'text-7xl', mesaj:'Büyüyor! Harika gidiyorsun.'},
+    {ad:'Büyük', e:null, min:60, boyut:'text-8xl', mesaj:'Kocaman oldu! Sen bir yıldızsın.'},
+    {ad:'Efsane', e:null, min:100, boyut:'text-9xl', mesaj:'👑 EFSANE seviye! İnanılmazsın!'}
+  ];
+  let sev=0; for(let i=seviyeler.length-1;i>=0;i--){ if(puan>=seviyeler[i].min){ sev=i; break; } }
+  const s=seviyeler[sev];
+  const hayvan = HAYVANLAR.find(h=>h.k===secili);
+  const gorunum = s.e || (hayvan?hayvan.e:'🐾');
+  const sonraki = sev<4 ? seviyeler[sev+1] : null;
+  const kalan = sonraki ? (sonraki.min-puan) : 0;
+  const yuzde = sonraki ? Math.min(100, Math.round((puan-s.min)/(sonraki.min-s.min)*100)) : 100;
+  if(!secili){
+    return (
+      <div className="bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-[2rem] p-5 shadow-lg mt-6 text-white">
+        <h3 className="text-lg font-black mb-1"><i className="fa-solid fa-paw mr-2"></i>Evcil Dostunu Seç! 🐾</h3>
+        <p className="text-white/90 text-[13px] mb-3">Bir hayvan seç — ödev yaptıkça, kitap okudukça <b>büyüyecek!</b> Hangisini istersin?</p>
+        <div className="grid grid-cols-4 gap-2">
+          {HAYVANLAR.map(h=>(
+            <button key={h.k} onClick={()=>sec(h.k)} className="bg-white/20 hover:bg-white/35 rounded-2xl p-3 transition text-center">
+              <div className="text-4xl">{h.e}</div><div className="text-[10px] font-bold mt-1">{h.ad}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-[2rem] p-5 shadow-lg mt-6 text-white text-center">
+      <h3 className="text-lg font-black mb-1"><i className="fa-solid fa-paw mr-2"></i>{hayvan?hayvan.ad:'Dostum'} · {s.ad} Seviye</h3>
+      <div className={`${s.boyut} my-3 leading-none`} style={{filter:'drop-shadow(0 8px 16px rgba(0,0,0,.3))'}}>{gorunum}</div>
+      <p className="text-white/95 text-sm font-bold mb-3">{s.mesaj}</p>
+      <div className="bg-white/20 rounded-full h-4 overflow-hidden mb-1"><div className="h-4 bg-yellow-300 rounded-full transition-all" style={{width:yuzde+'%'}}></div></div>
+      {sonraki
+        ? <p className="text-white/90 text-[12px]">⭐ {puan} yıldız · <b>{kalan} yıldız</b> sonra <b>{sonraki.ad}</b> olacak!</p>
+        : <p className="text-yellow-300 font-black text-sm">👑 En yüksek seviye! Efsane oldun! 🎉</p>}
+      <button onClick={()=>{ if(window.confirm('Hayvanını değiştirmek istersen ilerlemen (seviye) korunur. Değiştirilsin mi?')){ try{localStorage.removeItem('evcil_'+ben.id);}catch(e){} setSecili(''); } }} className="mt-3 text-white/70 text-[11px] underline">Hayvanı değiştir</button>
+    </div>
+  );
+};
+
 const AkademiKart = ({ rol }) => (
   <button onClick={()=>window.open('https://baris-ogretmen.github.io/site-1/','_blank')} className="w-full bg-white border-4 border-slate-100 hover:border-cyan-400 p-6 rounded-[2.5rem] shadow-xl hover:-translate-y-1 transition-all flex flex-col items-center justify-center gap-4 group relative overflow-hidden mt-8 mb-24">
     <div className="absolute top-0 right-0 bg-cyan-100 text-cyan-700 text-[10px] font-black px-4 py-2 rounded-bl-2xl uppercase tracking-widest">Akademi</div>
@@ -7541,6 +7615,7 @@ setTimeout(() => setPickedStudent(null), 3000);
 // K12 GİRİŞ YÖNLENDİRİCİSİ VE GLOBAL ARAYÜZ (DUYURULAR VE YÖNETİM)
 const renderSharedUI = () => (
     <>
+        <SurumBanner db={db} />
         <DraggableRobot apiKey={apiKey} modelName={modelName} />
         {adminAsli && <AdminOnizlemeBar current={systemRole} ogrenciler={kayitliOgrenciler} onRol={(r,u)=>{ setSystemRole(r); setK12User(u); window.scrollTo(0,0); }} onCikis={()=>{ try{ window.FirebaseSDK && window.FirebaseSDK.getAuth && window.FirebaseSDK.getAuth().signOut(); }catch(e){} try{ window.ZIRVE_admin=false; localStorage.removeItem('k12_oturum'); }catch(e){} setAdminAsli(false); setK12User(null); setSystemRole(null); }} />}
         {systemRole && <button id="zu-ayar" onClick={()=>setShowSettings(true)} title="Ayarlar" className="fixed left-3 bottom-16 z-[99990] w-10 h-10 rounded-full bg-slate-700/80 hover:bg-slate-800 text-white shadow-lg flex items-center justify-center no-print">⚙️</button>}
@@ -7659,6 +7734,23 @@ const renderSharedUI = () => (
                                                   <p className="text-[9px] text-slate-400 mt-1">Not: Google kalan kotayı API ile vermez; anahtarın çalışıp çalışmadığı test edilir.</p>
                                                 </div>}
                                                 <button onClick={async()=>{ try{ const {doc,setDoc}=window.FirebaseSDK; const _ham=(globalConfig?.paylasilanKey||'').split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); const temiz=[]; let _cift=0; _ham.forEach(function(k){ if(temiz.indexOf(k)<0) temiz.push(k); else _cift++; }); const metin=temiz.join('\n'); await setDoc(doc(db,"maas_config","k12_global"),{paylasilanKey:metin},{merge:true}); try{ setGlobalConfig({...globalConfig, paylasilanKey:metin}); }catch(e){} try{ window.ZIRVE_PAYLASILAN_KEYS=temiz; window.ZIRVE_PAYLASILAN_KEY=temiz[0]||''; }catch(e){} showToast('🌍 '+temiz.length+' ortak anahtar HERKESE AÇILDI — AI aktif.'+(_cift>0?(' ('+_cift+' tekrar eden temizlendi)'):'')); }catch(e){ alert('Hata: '+e.message); } }} className="mt-2 w-full bg-emerald-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-emerald-700">Ortak Anahtarları Kaydet (herkeste çalışsın)</button>
+                                                <button onClick={async()=>{ try{ const {doc,setDoc}=window.FirebaseSDK; await setDoc(doc(db,"maas_config","k12_global"),{surum:LOCAL_SURUM},{merge:true}); showToast('🚀 Yeni sürüm yayınlandı — açık cihazlara "yenile" bildirimi gidecek.'); }catch(e){ alert('Hata: '+e.message); } }} className="mt-2 w-full bg-indigo-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-indigo-700"><i className="fa-solid fa-cloud-arrow-up mr-1"></i>🚀 Yeni Sürüm Yayınla</button>
+                                                <div className="mt-3 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-3">
+                                                  <p className="font-black text-amber-800 text-sm mb-1">🚀 Hiç kesinti istemiyorsan (okul/kurumsal için)</p>
+                                                  <p className="text-[12px] text-slate-600 mb-2">Ücretsiz anahtarların günlük kotası vardır; çok kullanıcıda dolabilir. Kesintisiz kullanım için Google'dan <b>FATURALI (ücretli)</b> bir anahtar alıp havuza ekleyin — kod tarafında fark yok, sadece kotası çok büyük olur.</p>
+                                                  <ol className="text-[12px] text-slate-700 space-y-1 mb-2 list-decimal list-inside">
+                                                    <li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-bold underline">AI Studio'da proje/anahtar aç</a></li>
+                                                    <li><a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-bold underline">Google Cloud → Faturalandırma</a> (kart ekle)</li>
+                                                    <li><a href="https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-bold underline">Generative Language API'yi etkinleştir</a></li>
+                                                    <li>Anahtarı oluştur/kopyala, güvenlik için kısıtlama koy</li>
+                                                    <li>Ücretli anahtarı yukarıdaki havuza ekle → <b>Kaydet</b> (önce ücretsizler, dolunca ücretli devreye girer → kesinti olmaz)</li>
+                                                  </ol>
+                                                  <p className="text-[11px] text-amber-700 bg-amber-100 rounded-lg p-2 mb-2">⚠️ Ücretli anahtarda kullandıkça ödersiniz. Google Cloud'da <b>Bütçe & Uyarı</b> koymanızı öneririz.</p>
+                                                  <div className="flex gap-2">
+                                                    <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener noreferrer" className="flex-1 text-center bg-amber-500 text-white font-black py-2 rounded-lg text-xs">🔗 Ücretli Anahtar Al</a>
+                                                    <a href="https://wa.me/905076319287" target="_blank" rel="noopener noreferrer" className="flex-1 text-center bg-green-600 text-white font-black py-2 rounded-lg text-xs">📱 WhatsApp Yardım</a>
+                                                  </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
