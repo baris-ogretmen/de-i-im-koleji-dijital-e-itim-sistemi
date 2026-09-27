@@ -2549,7 +2549,8 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
 
       <div className="p-4 md:p-5">
         <CanliSaat />
-        {!yukleniyor && <HizliOgrenciBul ogrenciler={ogrenciler} teslimler={teslimler} />}
+        <ProfilKarti db={db} user={user} rol="teacher" />
+        {!yukleniyor && <HizliOgrenciBul db={db} ogrenciler={ogrenciler} teslimler={teslimler} />}
         <BugunDerslerim db={db} user={user} />
         <AiDurum db={db} user={user} rol="teacher" />
         {yukleniyor && <div className="text-center text-slate-400 py-8"><i className="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p className="text-sm font-bold">Veritabanı yükleniyor…</p></div>}
@@ -3212,7 +3213,8 @@ const OgrenciMerkezi = ({ db, user }) => {
   const sinifDaki = ogrenciler.filter(o=>o.sinif===sinifim);
   const otoEslesme = sinifDaki.find(o=> okulNorm(o.ad)===okulNorm(user && user.name));
   const [secId, setSecId] = useState('');
-  const ben = otoEslesme || sinifDaki.find(o=>o.id===secId) || null;
+  const _ikinci = otoEslesme ? null : sinifDaki.find(o=> zNorm(o.ad)===zNorm(user && user.name));
+  const ben = otoEslesme || _ikinci || ((typeof window!=='undefined' && window.ZIRVE_admin===true) ? (sinifDaki.find(o=>o.id===secId) || null) : null);
 
   const [mesajTaslak, setMesajTaslak] = useState({});
   const [teslimResim, setTeslimResim] = useState({});
@@ -3258,16 +3260,17 @@ const OgrenciMerkezi = ({ db, user }) => {
 
   return (
     <div className="max-w-5xl mx-auto w-full mt-8 space-y-6">
+      {ben && <ProfilKarti db={db} user={{...user, name:ben.ad, grade:ben.sinif}} rol="student" />}
       {/* Kimlik / eşleşme */}
       {!ben && (
         <div className="bg-white border-4 border-indigo-200 rounded-[2rem] p-6 shadow-lg text-center">
           <i className="fa-solid fa-id-card text-4xl text-indigo-400 mb-2"></i>
           <p className="font-black text-slate-700 mb-2">Seni listeden seç</p>
           <p className="text-xs text-slate-500 mb-3">Kişisel ödev, DNA ve Yıldız'lerini görmek için kaydını seç. (Öğretmenin seni kaydetmediyse söyle.)</p>
-          <select value={secId} onChange={e=>setSecId(e.target.value)} className="px-4 py-2.5 rounded-xl border-2 border-indigo-200 text-sm font-bold outline-none">
+          {(typeof window!=='undefined' && window.ZIRVE_admin===true) ? <select value={secId} onChange={e=>setSecId(e.target.value)} className="px-4 py-2.5 rounded-xl border-2 border-indigo-200 text-sm font-bold outline-none">
             <option value="">— {sinifim} listesi —</option>
             {sinifDaki.map(o=><option key={o.id} value={o.id}>{o.ad}</option>)}
-          </select>
+          </select> : <p className="text-[13px] font-bold text-rose-600">Adın {sinifim} listesinde bulunamadı. Çıkış yapıp öğretmeninin kaydettiği ad-soyadı aynen yazarak tekrar gir.</p>}
         </div>
       )}
 
@@ -3453,6 +3456,7 @@ const VeliMerkezi = ({ db, user }) => {
       {cocuk && (
         <>
           <VeliHizliMenu />
+          <ProfilKarti db={db} user={{name:cocuk.ad, grade:cocuk.sinif}} rol="parent" />
           <SistemDurumu db={db} />
           <div id="vb-hatirlat"><HatirlatmaKarti db={db} sinif={cocuk.sinif} bilgiler={cocukBilgiler} yapilanIds={cocukYapilanIds} veli={true} /></div>
           <div id="vb-dersozet"><DersOzetleri db={db} sinif={cocuk.sinif} /></div>
@@ -4288,7 +4292,9 @@ const RandevuVeli = ({ db, user }) => {
   const ogrenciler = (ogrDoc && ogrDoc.liste) || [];
   const [cocukId, setCocukId] = useState('');
   const [not, setNot] = useState('');
-  const cocuk = ogrenciler.find(o=>o.id===cocukId);
+  const kendiCocuklari = ogrenciler.filter(o=> (!(user&&user.grade) || String(o.sinif)===String(user.grade)) && zNorm(o.ad)===zNorm(user&&user.name));
+  useEffect(()=>{ if(!cocukId && kendiCocuklari.length) setCocukId(kendiCocuklari[0].id); }, [kendiCocuklari.length]);
+  const cocuk = kendiCocuklari.find(o=>o.id===cocukId) || kendiCocuklari[0];
   const bugun = new Date().toISOString().slice(0,10);
   const bos = liste.filter(r=>r.durum==='bos' && r.tarih>=bugun).sort((a,b)=>(a.tarih+a.saat).localeCompare(b.tarih+b.saat));
   const benim = liste.filter(r=> r.durum!=='bos' && ((cocuk && r.ogrenciId===cocuk.id) || okulNorm(r.veliAd)===okulNorm(user && user.name)));
@@ -4304,10 +4310,9 @@ const RandevuVeli = ({ db, user }) => {
     <div className="bg-white border-4 border-purple-200 rounded-[2rem] p-6 shadow-lg mt-6">
       <h3 className="text-xl font-black text-purple-800 mb-1 flex items-center"><i className="fa-solid fa-calendar-check text-purple-500 mr-2"></i>Öğretmen Randevusu</h3>
       <p className="text-sm text-slate-500 mb-4">Öğretmenlerin açtığı görüşme saatlerinden randevu alın.</p>
-      <select value={cocukId} onChange={e=>setCocukId(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none mb-3">
-        <option value="">— Çocuğunuzu seçin —</option>
-        {ogrenciler.map(o=><option key={o.id} value={o.id}>{o.ad} · {o.sinif}</option>)}
-      </select>
+      {kendiCocuklari.length>1 ? <select value={cocukId} onChange={e=>setCocukId(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none mb-3">
+        {kendiCocuklari.map(o=><option key={o.id} value={o.id}>{o.ad} · {o.sinif}</option>)}
+      </select> : cocuk ? <div className="bg-purple-50 rounded-xl px-4 py-2.5 text-sm font-black text-purple-800 inline-block mb-3">👧 {cocuk.ad} · {cocuk.sinif}</div> : <p className="text-[12px] text-rose-500 font-bold mb-3">Çocuğunuzun kaydı bulunamadı.</p>}
 
       {benim.length>0 && (
         <div className="mb-4">
@@ -4508,6 +4513,7 @@ const MesajOgretmen = ({ db, user, mesajlar, ogrenciler }) => {
   const [yeniMetin, setYeniMetin] = useState('');
   const [dil, setDil] = useState('');
   const [ceviriYuk, setCeviriYuk] = useState(false);
+  const _mpd = useOkulDoc(db, "k12_profil"); const _mkisiler = (_mpd && _mpd.kisiler) || {};
   const yoneticiMi = (typeof window!=='undefined' && window.ZIRVE_admin===true);
   const cevir = async () => {
     if(!yeniMetin.trim()||!dil) return alert('Önce mesaj yazın ve dil seçin.');
@@ -4551,6 +4557,12 @@ const MesajOgretmen = ({ db, user, mesajlar, ogrenciler }) => {
     return (
       <div>
         <button onClick={()=>setSeciliId('')} className="text-xs font-black text-indigo-600 mb-2"><i className="fa-solid fa-arrow-left mr-1"></i>Tüm mesajlar</button>
+        {(()=>{ const g=grup[seciliId]; const vp=zProfilBul(_mkisiler,'parent',g.ad,g.sinif); const op=zProfilBul(_mkisiler,'student',g.ad,g.sinif); return (
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 mb-2">
+            <Avatar db={db} p={op} ad={g.ad} boyut={36} />
+            <div className="flex-1 min-w-0"><p className="text-[13px] font-black text-slate-800 truncate">{g.ad} <span className="text-slate-400 font-bold">· {g.sinif}</span></p><p className="text-[11px] text-slate-500 truncate">{vp ? ('👪 Veli'+(vp.ek?(' ('+vp.ek+')'):'')+(vp.bio?(': '+vp.bio):'')) : '👪 Veli profili henüz eklenmemiş'}</p></div>
+            {vp && vp.foto && <Avatar db={db} p={vp} ad="V" boyut={30} />}
+          </div>); })()}
         <p className="text-[11px] font-bold text-emerald-700 bg-emerald-50 rounded-lg px-3 py-1.5 mb-2">🔒 Bu yazışmayı yalnızca siz ve veli görürsünüz — diğer öğretmenler göremez.{_yonetici && grup[seciliId].sahip ? (' (Öğretmen: '+grup[seciliId].sahip+')') : ''}</p>
         <div className="bg-slate-50 rounded-xl p-3 mb-2 max-h-72 overflow-auto">
           <div className="flex items-center justify-between mb-2"><p className="text-sm font-black text-slate-700">{grup[seciliId].ad} · {grup[seciliId].sinif}</p><button onClick={sohbetTemizle} className="text-[11px] text-rose-500 font-bold"><i className="fa-solid fa-trash mr-1"></i>Geçmişi Sil</button></div>
@@ -4619,6 +4631,8 @@ const MesajVeli = ({ db, cocuk, user }) => {
   const glob = useOkulDoc(db, "k12_global") || {};
   const [metin, setMetin] = useState('');
   const [ogrt, setOgrt] = useState('');
+  const [listeAcik, setListeAcik] = useState(false); const [bioAcik, setBioAcik] = useState(false);
+  const _pd = useOkulDoc(db, "k12_profil"); const kisiler = (_pd && _pd.kisiler) || {};
   const [duzenleId, setDuzenleId] = useState(''); const [duzenleMetin, setDuzenleMetin] = useState('');
   const sahip = zMesajSahipleri(mesajlar);
   const tumu = cocuk ? mesajlar.filter(m=>m.ogrenciId===cocuk.id) : [];
@@ -4641,12 +4655,22 @@ const MesajVeli = ({ db, cocuk, user }) => {
     <div className="bg-white border-4 border-sky-200 rounded-[2rem] p-6 shadow-lg mt-6">
       <h3 className="text-xl font-black text-sky-800 mb-1 flex items-center"><i className="fa-solid fa-comments text-sky-500 mr-2"></i>Öğretmenle Mesajlaşma</h3>
       <p className="text-[12px] font-bold text-emerald-700 bg-emerald-50 rounded-lg px-3 py-1.5 mb-2">🔒 Yazışmanızı yalnızca seçtiğiniz öğretmen görür; diğer öğretmenler ve veliler göremez.</p>
-      <p className="text-[12px] font-black text-slate-600 mb-1">Hangi öğretmene yazıyorsunuz?</p>
-      <div className="flex flex-wrap gap-1.5 mb-3">
-        {liste.map(a=>{ const n=okunmayan(a); return (<button key={a} onClick={()=>setOgrt(a)} className={`px-3 py-1.5 rounded-full text-[12px] font-black border ${zAyniKisi(secili,a)?'bg-sky-600 text-white border-sky-600':'bg-white text-slate-600 border-slate-200'}`}>👩‍🏫 {a}{n>0?(' · '+n+' yeni'):''}</button>); })}
-        {sahipsizVar && <button onClick={()=>setOgrt('__genel__')} className={`px-3 py-1.5 rounded-full text-[12px] font-black border ${secili==='__genel__'?'bg-slate-600 text-white border-slate-600':'bg-white text-slate-500 border-slate-200'}`}>📁 Önceki mesajlar</button>}
-        {liste.length===0 && <span className="text-[12px] text-slate-400">Öğretmen listesi yükleniyor…</span>}
-      </div>
+      {(()=>{ const sp = secili && secili!=='__genel__' ? zProfilBul(kisiler,'teacher',secili) : null; const toplamYeni = liste.reduce((t,a)=>t+okunmayan(a),0); return (
+        <div className="mb-3">
+          <button onClick={()=>setListeAcik(!listeAcik)} className="w-full flex items-center gap-2 bg-sky-50 border-2 border-sky-200 rounded-2xl px-3 py-2 text-left">
+            {secili && secili!=='__genel__' ? <Avatar db={db} p={sp} ad={secili} boyut={34} /> : <span className="text-2xl">👩‍🏫</span>}
+            <span className="flex-1 min-w-0"><span className="block text-[11px] font-bold text-sky-700">Yazıştığınız öğretmen</span><span className="block text-[14px] font-black text-slate-800 truncate">{secili==='__genel__'?'Önceki mesajlar':(secili||'Öğretmen seçin')}{sp&&sp.ek?<span className="font-bold text-slate-400"> · {sp.ek}</span>:null}</span></span>
+            {toplamYeni>0 && <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">{toplamYeni} yeni</span>}
+            <span className="text-sky-600 font-black text-[12px] whitespace-nowrap">{listeAcik?'Kapat ▲':'Değiştir ▼'}</span>
+          </button>
+          {sp && sp.bio && !listeAcik && <button onClick={()=>setBioAcik(!bioAcik)} className="text-[11px] font-black text-sky-700 mt-1 ml-1">{bioAcik?'▲ Tanıtımı gizle':'ℹ️ Öğretmeni tanıyın'}</button>}
+          {sp && sp.bio && bioAcik && !listeAcik && <p className="text-[12px] text-slate-600 bg-slate-50 rounded-xl px-3 py-2 mt-1 whitespace-pre-wrap">{sp.bio}</p>}
+          {(listeAcik || !secili) && <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-64 overflow-auto p-1">
+            {liste.map(a=>{ const n=okunmayan(a); const pp=zProfilBul(kisiler,'teacher',a); return (<button key={a} onClick={()=>{ setOgrt(a); setListeAcik(false); setBioAcik(false); }} className={`flex items-center gap-2 rounded-xl px-2 py-1.5 border text-left ${zAyniKisi(secili,a)?'bg-sky-600 text-white border-sky-600':'bg-white text-slate-700 border-slate-200'}`}><Avatar db={db} p={pp} ad={a} boyut={28} /><span className="flex-1 min-w-0"><span className="block text-[12px] font-black truncate">{a}</span>{pp&&pp.ek && <span className="block text-[10px] opacity-75 truncate">{pp.ek}</span>}</span>{n>0 && <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{n}</span>}</button>); })}
+            {sahipsizVar && <button onClick={()=>{ setOgrt('__genel__'); setListeAcik(false); }} className="flex items-center gap-2 rounded-xl px-2 py-1.5 border bg-white text-slate-500 border-slate-200 text-[12px] font-black">📁 Önceki mesajlar</button>}
+            {liste.length===0 && <span className="text-[12px] text-slate-400 p-2">Öğretmen listesi yükleniyor…</span>}
+          </div>}
+        </div>); })()}
       {secili && <div className="flex items-center justify-between mb-2"><p className="text-sm text-slate-500">{secili==='__genel__'?'Öğretmen seçilmeden yazılmış önceki mesajlar':(<>{cocuk.ad} hakkında <b>{secili}</b> ile yazışma</>)}</p>{thread.length>0 && <button onClick={sohbetTemizle} className="text-[11px] text-rose-500 font-bold whitespace-nowrap ml-2"><i className="fa-solid fa-trash mr-1"></i>Geçmişi Sil</button>}</div>}
       <div className="bg-slate-50 rounded-xl p-3 mb-2 max-h-64 overflow-auto">
         {!secili ? <p className="text-center text-slate-400 text-sm py-3">Yukarıdan bir öğretmen seçin.</p> : thread.length===0 ? <p className="text-center text-slate-400 text-sm py-3">Henüz mesaj yok. İlk mesajı siz yazın.</p> : thread.map(m=>(
@@ -5807,7 +5831,7 @@ const YoneticiGenelBakis = ({ db }) => {
         {kutu.map((k,i)=>(<div key={i} className={`bg-gradient-to-br ${k.r} rounded-xl p-2.5 text-white`}><div className="flex items-center justify-between"><i className={`fa-solid ${k.i} opacity-80`}></i><span className="text-xl font-black">{k.d}</span></div><div className="text-[10px] font-bold text-white/90 mt-1 leading-tight">{k.ad}</div></div>))}
       </div>
       {Object.keys(sinifDagilim).length>0 && <div className="mt-2"><p className="text-[11px] font-black text-slate-600 mb-1">Sınıf Dağılımı:</p><div className="flex flex-wrap gap-1">{Object.keys(sinifDagilim).sort().map(sn=>(<span key={sn} className="bg-slate-100 text-slate-600 text-[11px] font-bold px-2 py-1 rounded-full">{sn}: {sinifDagilim[sn]}</span>))}</div></div>}
-      <button onClick={async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const koleksiyonlar=['k12_ogrenciler','k12_odevler','k12_teslim','k12_mesajlar','k12_yoklama','k12_giris','k12_katilim','k12_defter','k12_rehberlik','k12_anket','k12_pano','k12_kulup','k12_haftanin','k12_randevu','k12_ders','k12_yemek','k12_servis','k12_duyuru','k12_etkinlik','k12_global']; const yedek={tarih:new Date().toISOString(),okul:'Değişim Koleji'}; for(let i=0;i<koleksiyonlar.length;i++){ try{ const sn=await getDoc(doc(db,"maas_config",koleksiyonlar[i])); yedek[koleksiyonlar[i]]=sn.exists()?sn.data():null; }catch(e){ yedek[koleksiyonlar[i]]='HATA'; } } const blob=new Blob([JSON.stringify(yedek,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='degisim-koleji-yedek-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); if(typeof showToast==='function') showToast('💾 Yedek indirildi.'); }catch(e){ alert('Yedeklenemedi: '+(e.message||e)); } }} className="mt-3 w-full bg-slate-700 hover:bg-slate-800 text-white font-black py-2.5 rounded-lg text-sm"><i className="fa-solid fa-download mr-1"></i>💾 Tüm Ver/ Yedekle (JSON indir)</button>
+      <button onClick={async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const koleksiyonlar=['k12_ogrenciler','k12_odevler','k12_teslim','k12_mesajlar','k12_yoklama','k12_giris','k12_katilim','k12_profil','k12_mebkaynak','k12_kaynak','k12_tekrar','k12_oprog','k12_defter','k12_rehberlik','k12_anket','k12_pano','k12_kulup','k12_haftanin','k12_randevu','k12_ders','k12_yemek','k12_servis','k12_duyuru','k12_etkinlik','k12_global']; const yedek={tarih:new Date().toISOString(),okul:'Değişim Koleji'}; for(let i=0;i<koleksiyonlar.length;i++){ try{ const sn=await getDoc(doc(db,"maas_config",koleksiyonlar[i])); yedek[koleksiyonlar[i]]=sn.exists()?sn.data():null; }catch(e){ yedek[koleksiyonlar[i]]='HATA'; } } const blob=new Blob([JSON.stringify(yedek,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='degisim-koleji-yedek-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); if(typeof showToast==='function') showToast('💾 Yedek indirildi.'); }catch(e){ alert('Yedeklenemedi: '+(e.message||e)); } }} className="mt-3 w-full bg-slate-700 hover:bg-slate-800 text-white font-black py-2.5 rounded-lg text-sm"><i className="fa-solid fa-download mr-1"></i>💾 Tüm Ver/ Yedekle (JSON indir)</button>
     </div>
   );
 };
@@ -6319,7 +6343,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 22;
+const LOCAL_SURUM = 23;
 const SurumBanner = ({ db }) => {
   const [yeni,setYeni]=useState(false); const [yeniNo,setYeniNo]=useState(0);
   useEffect(()=>{ if(!db) return; const kontrol=async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn&&sn.exists()){ const sv=Number((sn.data()||{}).surum||0); if(sv>LOCAL_SURUM){ setYeni(true); setYeniNo(sv); } } }catch(e){}
@@ -6746,8 +6770,9 @@ const TopluKitap = ({ db, ogrenciler }) => {
 };
 
 /* Öğretmen: hızlı öğrenci bul (telefonda kolay) */
-const HizliOgrenciBul = ({ ogrenciler, teslimler }) => {
+const HizliOgrenciBul = ({ db, ogrenciler, teslimler }) => {
   const [ara,setAra]=useState(''); const [sec,setSec]=useState(null);
+  const _hp=useOkulDoc(db,"k12_profil"); const _hk=(_hp&&_hp.kisiler)||{};
   const q=zNorm(ara); const bul=q?(ogrenciler||[]).filter(o=>zNorm(o.ad+' '+o.sinif+' '+(o.veliAdi||'')).indexOf(q)>=0).slice(0,8):[];
   const o=sec&&(ogrenciler||[]).find(x=>x.id===sec);
   return (
@@ -6756,7 +6781,8 @@ const HizliOgrenciBul = ({ ogrenciler, teslimler }) => {
       {bul.length>0 && !o && <div className="mt-2 bg-white rounded-xl overflow-hidden">{bul.map(x=>(<button key={x.id} onClick={()=>setSec(x.id)} className="block w-full text-left px-3 py-2 text-[13px] text-slate-700 border-b border-slate-100 hover:bg-indigo-50"><b>{x.ad}</b> <span className="text-slate-400">· {x.sinif}</span></button>))}</div>}
       {q && !bul.length && <p className="text-[12px] mt-2 text-white/90">Bulunamadı.</p>}
       {o && <div className="mt-2 bg-white text-slate-700 rounded-xl p-3">
-        <div className="flex items-center justify-between"><p className="font-black text-sm">{o.ad} <span className="text-slate-400 font-bold">· {o.sinif}</span></p><button onClick={()=>{setSec(null); setAra('');}} className="text-slate-400 text-xs">✕</button></div>
+        <div className="flex items-center gap-2"><Avatar db={db} p={zProfilBul(_hk,'student',o.ad,o.sinif)} ad={o.ad} boyut={38} /><p className="font-black text-sm flex-1">{o.ad} <span className="text-slate-400 font-bold">· {o.sinif}</span></p><button onClick={()=>{setSec(null); setAra('');}} className="text-slate-400 text-xs">✕</button></div>
+        {(()=>{ const sp=zProfilBul(_hk,'student',o.ad,o.sinif); const vp=zProfilBul(_hk,'parent',o.ad,o.sinif); return (sp&&sp.bio)||(vp&&(vp.bio||vp.ek)) ? <div className="mt-1 text-[11px] text-slate-600 space-y-0.5">{sp&&sp.bio && <p>🧑‍🎓 {sp.bio}</p>}{vp&&(vp.bio||vp.ek) && <p>👪 {vp.ek?vp.ek+': ':''}{vp.bio}</p>}</div> : null; })()}
         <div className="grid grid-cols-3 gap-2 text-center my-2">
           <div className="bg-amber-50 rounded-lg p-1.5"><div className="font-black text-amber-600">{o.puan||0}</div><div className="text-[9px] font-bold">⭐ Yıldız</div></div>
           <div className="bg-emerald-50 rounded-lg p-1.5"><div className="font-black text-emerald-600">{(teslimler||[]).filter(t=>t.ogrenciId===o.id).length}</div><div className="text-[9px] font-bold">✅ Teslim</div></div>
@@ -7001,6 +7027,78 @@ const MebKitaplar = ({ db, user, sinif, duzenlenebilir }) => {
       <h3 className="text-lg font-black text-indigo-800 mb-3 flex items-center"><span className="mr-2">📚</span>Ders Kitaplarım & Kaynaklar</h3>
       {govde}
     </div>
+  );
+};
+
+
+/* ============================================================================
+   PROFİL — herkes (öğretmen · öğrenci · veli) fotoğraf + hakkında ekleyebilir
+   k12_profil {kisiler:{key:{ad,rol,sinif,bio,ek,foto,ts}}}  ·  fotoğraf: k12_pfoto_{key} {data}
+   ============================================================================ */
+function zProfilKey(rol,ad,sinif){ return (rol||'x')+'__'+zAnahtar(ad)+'__'+zAnahtar(rol==='teacher'?'':(sinif||'')); }
+function zProfilBul(kisiler, rol, ad, sinif){ const l=Object.keys(kisiler||{}).map(k=>({...kisiler[k],key:k})); return l.find(p=>p.rol===rol && (rol==='teacher'?zAyniKisi(p.ad,ad):(zNorm(p.ad)===zNorm(ad) && (!sinif||String(p.sinif)===String(sinif))))) || null; }
+const ROL_AD={teacher:'Öğretmen',student:'Öğrenci',parent:'Veli'};
+const Avatar = ({ db, p, ad, boyut }) => {
+  const b=boyut||36;
+  const f=useOkulDoc(db, (p&&p.foto)?("k12_pfoto_"+p.key):"k12_pfoto__yok");
+  const src=p&&p.foto&&f&&f.data;
+  const harf=String(ad||(p&&p.ad)||'?').trim().charAt(0).toLocaleUpperCase('tr');
+  return src ? <img src={src} alt="" className="rounded-full object-cover shrink-0 border-2 border-white shadow" style={{width:b,height:b}} />
+             : <span className="rounded-full shrink-0 inline-flex items-center justify-center font-black text-white bg-gradient-to-br from-indigo-500 to-fuchsia-500 border-2 border-white shadow" style={{width:b,height:b,fontSize:Math.round(b*0.42)}}>{harf}</span>;
+};
+const ProfilKarti = ({ db, user, rol }) => {
+  const d=useOkulDoc(db,"k12_profil"); const kisiler=(d&&d.kisiler)||{};
+  const ad=(user&&user.name)||''; const sinif=(user&&user.grade)||'';
+  const key=zProfilKey(rol,ad,sinif);
+  const p=kisiler[key]?{...kisiler[key],key}:null;
+  const [acik,setAcik]=useState(false);
+  const [bio,setBio]=useState(''); const [ek,setEk]=useState(''); const [foto,setFoto]=useState(null); const [kay,setKay]=useState(false);
+  const ac=()=>{ setBio((p&&p.bio)||''); setEk((p&&p.ek)||''); setFoto(null); setAcik(true); };
+  const sec=(e)=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return; if(f.type.indexOf('image/')!==0) return alert('Lütfen bir fotoğraf seçin.');
+    const r=new FileReader(); r.onload=ev=>{ const img=new Image(); img.onload=()=>{ const s=320; const c=document.createElement('canvas'); c.width=s; c.height=s; const k=Math.min(img.width,img.height); c.getContext('2d').drawImage(img,(img.width-k)/2,(img.height-k)/2,k,k,0,0,s,s); setFoto(c.toDataURL('image/jpeg',0.72)); }; img.src=ev.target.result; }; r.readAsDataURL(f); };
+  const kaydet=async()=>{
+    if(!ad) return; setKay(true);
+    try{
+      const {doc,setDoc}=window.FirebaseSDK;
+      if(foto==='__sil__'){ await okulYaz(db,"k12_pfoto_"+key,{data:''}); }
+      else if(foto){ await okulYaz(db,"k12_pfoto_"+key,{data:foto}); }
+      const kay={ad, rol, sinif:rol==='teacher'?'':sinif, bio:String(bio).trim().slice(0,400), ek:String(ek).trim().slice(0,80), foto: foto==='__sil__'?false:(foto?true:!!(p&&p.foto)), ts:Date.now()};
+      const k={}; k[key]=kay; await setDoc(doc(db,"maas_config","k12_profil"),{kisiler:k},{merge:true});
+      toast('✅ Profiliniz kaydedildi.','green'); setAcik(false);
+    }catch(e){ alert('Kaydedilemedi, internet bağlantınızı kontrol edin.'); }
+    setKay(false);
+  };
+  const ekEtiket = rol==='teacher'?'Branşınız (örn: Matematik, Satranç)':rol==='parent'?'Yakınlığınız (örn: Annesi, Babası)':'Sevdiğin şeyler (örn: resim, futbol)';
+  const fotoGoster = foto==='__sil__'?null:(foto||null);
+  return (
+    <>
+      <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-2xl px-3 py-2 mt-3 shadow-sm">
+        <Avatar db={db} p={p} ad={ad} boyut={40} />
+        <div className="flex-1 min-w-0"><p className="text-[13px] font-black text-slate-800 truncate">{ad}{p&&p.ek?<span className="font-bold text-slate-400"> · {p.ek}</span>:null}</p><p className="text-[11px] text-slate-500 truncate">{(p&&p.bio)||(ROL_AD[rol]+(sinif&&rol!=='teacher'?(' · '+sinif):'')+' — profil fotoğrafı ve kısa tanıtım ekleyebilirsiniz')}</p></div>
+        <button onClick={ac} className="shrink-0 bg-indigo-600 text-white font-black text-[11px] px-3 py-1.5 rounded-lg">👤 Profilim</button>
+      </div>
+      {acik && <div className="fixed inset-0 z-[99995] bg-black/50 flex items-end sm:items-center justify-center p-3" onClick={()=>setAcik(false)}>
+        <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-auto p-5 shadow-2xl" onClick={e=>e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-3"><p className="font-black text-indigo-700 text-lg">👤 Profilim</p><button onClick={()=>setAcik(false)} className="text-slate-400 text-xl">✕</button></div>
+          <div className="flex flex-col items-center gap-2 mb-3">
+            {fotoGoster ? <img src={fotoGoster} className="w-28 h-28 rounded-full object-cover border-4 border-indigo-100" /> : (foto==='__sil__' ? <Avatar db={db} p={null} ad={ad} boyut={112} /> : <Avatar db={db} p={p} ad={ad} boyut={112} />)}
+            <div className="flex gap-2 flex-wrap justify-center">
+              <label className="bg-indigo-600 text-white font-black text-[12px] px-3 py-2 rounded-xl cursor-pointer">📷 Fotoğraf çek<input type="file" accept="image/*" capture="user" onChange={sec} className="hidden" /></label>
+              <label className="bg-slate-700 text-white font-black text-[12px] px-3 py-2 rounded-xl cursor-pointer">🖼️ Galeriden seç<input type="file" accept="image/*" onChange={sec} className="hidden" /></label>
+              {((p&&p.foto)||foto) && foto!=='__sil__' && <button onClick={()=>setFoto('__sil__')} className="bg-rose-50 text-rose-600 font-black text-[12px] px-3 py-2 rounded-xl">Fotoğrafı kaldır</button>}
+            </div>
+          </div>
+          <p className="text-center font-black text-slate-800">{ad}</p>
+          <p className="text-center text-[12px] text-slate-400 mb-3">{ROL_AD[rol]}{sinif&&rol!=='teacher'?(' · '+sinif):''}</p>
+          <label className="block text-[12px] font-black text-slate-600 mb-1">{ekEtiket}</label>
+          <input value={ek} onChange={e=>setEk(e.target.value)} maxLength={80} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none mb-3" />
+          <label className="block text-[12px] font-black text-slate-600 mb-1">Hakkımda <span className="font-bold text-slate-400">({String(bio).length}/400)</span></label>
+          <textarea value={bio} onChange={e=>setBio(e.target.value.slice(0,400))} rows="4" placeholder={rol==='teacher'?'Kendinizi velilere kısaca tanıtın (deneyim, dersleriniz, görüşme saatleriniz)…':rol==='parent'?'Öğretmenin bilmesini istediğiniz kısa bilgi…':'Kendini kısaca anlat…'} className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none resize-y mb-3"></textarea>
+          <p className="text-[11px] text-slate-500 bg-slate-50 rounded-lg px-3 py-2 mb-3">🔒 {rol==='teacher'?'Profiliniz velilere ve öğrencilere görünür; mesaj yazarken sizi tanırlar.':rol==='parent'?'Profiliniz yalnızca öğretmenlere görünür.':'Profilin öğretmenlerine görünür.'}</p>
+          <button onClick={kaydet} disabled={kay} className="w-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white font-black py-3 rounded-xl text-sm disabled:opacity-50">{kay?'⏳ Kaydediliyor…':'💾 Profili Kaydet'}</button>
+        </div>
+      </div>}
+    </>
   );
 };
 
