@@ -2450,11 +2450,13 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
   const okunmamisMesaj = mesajlar.filter(function(m){return m.gonderen==='veli' && !m.okOgretmen;}).length;
 
   const [sekme, setSekme] = useState('ogrenci');
+  useEffect(()=>{ if(db) zOtoTemizle(db); },[db]);
   const yukleniyor = (ogrDoc===null || odevDoc===null);
 
   const sekmeler = [
     { k:'ogrenci', ad:'Öğrenciler', ikon:'fa-user-graduate', grup:'sinif' },
     { k:'odev',    ad:'Ödev Ata',   ikon:'fa-paper-plane', grup:'sinif' },
+    { k:'tekrar',  ad:'Haftalık Hatırlatma', ikon:'fa-repeat', grup:'sinif' },
     { k:'teslim',  ad:'Teslimler',  ikon:'fa-clipboard-check', grup:'sinif' },
     { k:'yoklama', ad:'Yoklama', ikon:'fa-clipboard-user', grup:'sinif' },
     { k:'devamsizlik', ad:'Devamsızlık', ikon:'fa-calendar-xmark', grup:'sinif' },
@@ -2478,6 +2480,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
     { k:'anket',   ad:'Veli Anketi', ikon:'fa-square-poll-vertical', grup:'iletisim' },
     { k:'pano',    ad:'Sınıf Panosu', ikon:'fa-thumbtack', grup:'iletisim' },
     { k:'duyuru',  ad:'Duyuru',     ikon:'fa-bullhorn', grup:'iletisim' },
+    { k:'sinifozet', ad:'Günün/Haftanın Özeti', ikon:'fa-newspaper', grup:'iletisim' },
     { k:'ozetaktar', ad:'Özet Aktar & Dağıt', ikon:'fa-share-nodes', grup:'iletisim' },
     { k:'devammesaj', ad:'Devamsızlık Veli Mesajı', ikon:'fa-bell', grup:'iletisim' },
     { k:'whatsapp', ad:'Veli WhatsApp', ikon:'fa-whatsapp', grup:'iletisim' },
@@ -2539,6 +2542,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
 
       <div className="p-4 md:p-5">
         <CanliSaat />
+        <BugunDerslerim db={db} user={user} />
         <AiDurum db={db} user={user} rol="teacher" />
         {yukleniyor && <div className="text-center text-slate-400 py-8"><i className="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p className="text-sm font-bold">Veritabanı yükleniyor…</p></div>}
         {!yukleniyor && sekme==='ogrenci' && <OgretmenDashboard db={db} ogrenciler={ogrenciler} odevler={odevler} teslimler={teslimler} mesajlar={mesajlar} />}
@@ -2562,6 +2566,8 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='anket'   && <VeliAnketi db={db} duzenlenebilir={true} user={user} />}
         {!yukleniyor && sekme==='pano'    && <SinifPanosu db={db} duzenlenebilir={true} user={user} />}
         {!yukleniyor && sekme==='katilim' && <KatilimTakip db={db} />}
+        {!yukleniyor && sekme==='tekrar' && <TekrarHatirlatma db={db} user={user} />}
+        {!yukleniyor && sekme==='sinifozet' && <SinifOzeti db={db} user={user} />}
         {!yukleniyor && sekme==='ozetaktar' && zBarisMi(user) && <OzetAktar db={db} user={user} />}
         {!yukleniyor && sekme==='kulup'   && <KulupEtkinlik db={db} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='gurultu' && <GurultuMetre />}
@@ -2580,7 +2586,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='kitapharita' && <KitapKurduHaritasi ogrenciler={ogrenciler} />}
         {!yukleniyor && sekme==='sinav'   && <SinavUret apiKey={apiKey} modelName={modelName} />}
         <AkademiKart rol="ogretmen" />
-        {!yukleniyor && sekme==='ders'    && <DersProgrami db={db} duzenlenebilir={true} />}
+        {!yukleniyor && sekme==='ders'    && <ProgramMerkezi db={db} user={user} />}
         {!yukleniyor && sekme==='yemek'   && <YemekListesi db={db} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='servis'  && <ServisTakip db={db} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='duyuru'  && <DuyuruYonetim db={db} user={user} duyurular={duyurular} />}
@@ -2692,7 +2698,8 @@ const OgrenciYonetim = ({ db, ogrenciler, teslimler }) => {
 /* --- Ödev Ata (sınıf + bireysel + son teslim + geçmiş) --- */
 const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
   const [tur, setTur] = useState('sinif');
-  const [bilgi, setBilgi] = useState(false);
+  const [bilgi, setBilgi] = useState(false); const bilgiSec = bilgi;
+  const [sure, setSure] = useState('7');
   const [hepsiniGor, setHepsiniGor] = useState(()=>{ try{ return window.ZIRVE_admin===true && zNorm(user&&user.name)==='yonetici'; }catch(e){ return false; } });
   const [duzYuk, setDuzYuk] = useState(false);
   const [sinif, setSinif] = useState(OKUL_SINIFLAR[0]);
@@ -2757,6 +2764,8 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
   const ata = async () => {
     if(!detay.trim()) return alert("Görev detayı boş olamaz.");
     if(tur==='birey' && !ogrenciId) return alert("Bir öğrenci seçin.");
+    let bilgi = bilgiSec;
+    if(!bilgi && zHatirlatmaGibi(detay) && window.confirm('📢 Bu bir ödevden çok HATIRLATMA gibi görünüyor ("getirin" vb.).\n\nÖğrenci ve veliye ödev olarak değil, "Hatırlatmalar & Getirilecekler" bölümünde gösterilsin mi?\n\nTamam = Hatırlatma olarak gönder\nİptal = Ödev olarak gönder')) { bilgi = true; setBilgi(true); }
     setKaydediliyor(true);
     const hedef = tur==='birey' ? ogrenciler.find(o=>o.id===ogrenciId) : null;
     const kayit = {
@@ -2765,7 +2774,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
       ogrenciAd: hedef ? hedef.ad : '',
       ders, konu: konu.trim(), detay: detay.trim(),
       ekleyen: (user && user.name) || 'Öğretmen',
-      sonTeslim: bilgi ? '' : (sonTeslim || ''), link: link.trim(), resimVar: !!resim, resimTur: resim?resimTur:'', tarih: Date.now(), bilgi: !!bilgi
+      sonTeslim: bilgi ? '' : (sonTeslim || ''), link: link.trim(), resimVar: !!resim, resimTur: resim?resimTur:'', tarih: Date.now(), bilgi: !!bilgi, bitis: bilgi ? zBitis(sure) : 0
     };
     const ok = await okulYaz(db, "k12_odevler", { liste: [kayit, ...odevler] });
     if(ok && resim){ try{ await okulYaz(db, "k12_res_"+kayit.id, { data: resim, tur: resimTur }); }catch(e){} }
@@ -2798,7 +2807,10 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
           <button onClick={()=>setBilgi(false)} className={`flex-1 py-2 rounded-lg text-xs font-black transition ${!bilgi?'bg-orange-500 text-white shadow':'text-slate-500'}`}>📝 Ödev <span className="font-bold opacity-80">(cevap ister)</span></button>
           <button onClick={()=>setBilgi(true)} className={`flex-1 py-2 rounded-lg text-xs font-black transition ${bilgi?'bg-sky-500 text-white shadow':'text-slate-500'}`}>📢 Bilgilendirme <span className="font-bold opacity-80">(sadece "Okudum")</span></button>
         </div>
+        {!bilgi && zHatirlatmaGibi(detay) && <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 mb-2 font-bold flex items-center gap-2 flex-wrap">💡 Bu bir ödev değil, hatırlatma gibi görünüyor. <button onClick={()=>setBilgi(true)} className="bg-sky-500 text-white px-2.5 py-1 rounded-lg font-black">📢 Bilgilendirme yap</button></div>}
+        {bilgi && <p className="text-[11px] text-sky-700 bg-sky-50 border border-sky-200 rounded-lg px-3 py-2 mb-2 font-bold">🔁 Her hafta aynı şeyi mi söylüyorsunuz (satranç takımı, tablet…)? Üstteki <b>"Haftalık Hatırlatma"</b> sekmesinden bir kez kurun, her hafta kendiliğinden çıksın.</p>}
         {bilgi && <p className="text-[11px] text-sky-700 bg-sky-50 border border-sky-200 rounded-lg px-3 py-2 mb-2 font-bold">📢 "Yarın tablet getirsin", "Pazartesi gezi var" gibi haberler için. Öğrenci yazı yazmak zorunda kalmaz, sadece <b>👍 Okudum</b>'a basar; siz kimin okuduğunu Teslimler'de görürsünüz.</p>}
+        {bilgi && <div className="flex items-center gap-1.5 flex-wrap mb-2"><span className="text-[11px] font-black text-sky-700">⏳ Ne zaman kendiliğinden kalksın?</span>{SURE_SECENEK.map(x=>(<button key={x[0]} onClick={()=>setSure(x[0])} className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${sure===x[0]?'bg-sky-600 text-white border-sky-600':'bg-white text-slate-600 border-slate-200'}`}>{x[1]}</button>))}</div>}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
           <select value={sinif} onChange={e=>{setSinif(e.target.value); setOgrenciId('');}} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none">
             {OKUL_SINIFLAR.map(s=><option key={s} value={s}>{s}</option>)}
@@ -2869,6 +2881,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
                   {o.tur==='birey' ? <span className="text-violet-600"><i className="fa-solid fa-user mr-1"></i>{o.ogrenciAd}</span> : <span className="text-rose-600"><i className="fa-solid fa-users mr-1"></i>{o.sinif}</span>}
                   {' · '}{o.ders}{o.konu?` · ${o.konu}`:''}
                   {o.bilgi && <span className="ml-1 text-[9px] bg-sky-500 text-white font-black px-1.5 py-0.5 rounded-full">📢 BİLGİ</span>}
+                  {o.bitis>0 && <span className={`ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${zAktifMi(o)?'bg-amber-100 text-amber-700':'bg-slate-200 text-slate-500'}`}>⏳ {zKalan(o.bitis)}</span>}
                   {(yonetici&&hepsiniGor&&o.ekleyen) && <span className="ml-1 text-[9px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded-full">{o.ekleyen}</span>}
                 </p>
                 <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{o.detay}</p>
@@ -2877,6 +2890,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
               </div>
               <div className="flex flex-col">
                 <button onClick={()=>setDuzenle({id:o.id,konu:o.konu||'',detay:o.detay||'',sonTeslim:o.sonTeslim||'',link:o.link||''})} className="text-slate-300 hover:text-amber-500 p-1" title="Düzenle"><i className="fa-solid fa-pen"></i></button>
+                {!o.bilgi && <button onClick={async()=>{ if(!window.confirm('Bu kayıt ödev yerine "Hatırlatma" olarak gösterilsin mi? (1 hafta sonra kendiliğinden kalkar)')) return; const ok=await okulYaz(db,"k12_odevler",{liste:odevler.map(x=>x.id===o.id?{...x,bilgi:true,sonTeslim:'',bitis:zBitis('7')}:x)}); if(ok) toast('📢 Hatırlatmaya çevrildi.','green'); }} className="text-slate-300 hover:text-sky-500 p-1" title="Hatırlatmaya çevir">📢</button>}
                 <button onClick={()=>sil(o.id)} className="text-slate-300 hover:text-red-500 p-1" title="Sil"><i className="fa-solid fa-trash-can"></i></button>
               </div>
             </div>
@@ -3173,7 +3187,9 @@ const OgrenciMerkezi = ({ db, user }) => {
   };
   const yapilanIds = new Set(teslimler.filter(t=> ben && t.ogrenciId===ben.id).map(t=>t.odevId));
 
-  const benimOdevler = odevler.filter(o=> o.sinif===sinifim && (o.tur==='sinif' || (ben && o.ogrenciId===ben.id)));
+  const benimTumu = odevler.filter(o=> o.sinif===sinifim && (o.tur==='sinif' || (ben && o.ogrenciId===ben.id)) && zAktifMi(o));
+  const benimOdevler = benimTumu.filter(o=>!o.bilgi);
+  const benimBilgiler = benimTumu.filter(o=>o.bilgi);
   const benimDuyurular = duyurular.filter(d=> d.sinif==='hepsi' || d.sinif===sinifim).slice(0,5);
   const sirali = sinifDaki.slice().sort((a,b)=>(b.puan||0)-(a.puan||0));
 
@@ -3266,6 +3282,8 @@ const OgrenciMerkezi = ({ db, user }) => {
 
 
       <KonuCalisma grade={sinifim} />
+
+      <HatirlatmaKarti db={db} sinif={sinifim} bilgiler={benimBilgiler} yapilanIds={yapilanIds} onOkudum={ben?okudum:null} />
 
       {/* Ödevlerim */}
       <div className="bg-white border-4 border-orange-200 rounded-[2rem] p-6 shadow-lg">
@@ -3369,7 +3387,9 @@ const VeliMerkezi = ({ db, user }) => {
   const cocuk = sinifDaki.find(o=>o.id===cocukId) || null;
 
   const cocukYapilanIds = new Set(teslimler.filter(t=> cocuk && t.ogrenciId===cocuk.id).map(t=>t.odevId));
-  const cocukOdevler = cocuk ? odevler.filter(o=> o.sinif===sinifim && (o.tur==='sinif' || o.ogrenciId===cocuk.id)) : [];
+  const cocukTumu = cocuk ? odevler.filter(o=> o.sinif===sinifim && (o.tur==='sinif' || o.ogrenciId===cocuk.id) && zAktifMi(o)) : [];
+  const cocukOdevler = cocukTumu.filter(o=>!o.bilgi);
+  const cocukBilgiler = cocukTumu.filter(o=>o.bilgi);
 
   if(ogrDoc===null) return null;
 
@@ -3391,6 +3411,8 @@ const VeliMerkezi = ({ db, user }) => {
       {cocuk && (
         <>
           <VeliHizliMenu />
+          <SistemDurumu db={db} />
+          <div id="vb-hatirlat"><HatirlatmaKarti db={db} sinif={cocuk.sinif} bilgiler={cocukBilgiler} yapilanIds={cocukYapilanIds} veli={true} /></div>
           <div id="vb-pano"><SinifPanosu db={db} duzenlenebilir={false} sinif={cocuk.sinif} /></div>
           <div id="vb-yoklama"><YoklamaVeli db={db} ogrenciler={ogrenciler} cocuk={cocuk} /></div>
           <div id="vb-mesaj"><MesajVeli db={db} cocuk={cocuk} user={user} /></div>
@@ -4920,41 +4942,360 @@ const AdminOnizlemeBar = ({ current, ogrenciler, onRol, onCikis }) => {
    ============================================================================ */
 const HAFTA_GUN = ['Pazartesi','Salı','Çarşamba','Perşembe','Cuma'];
 
+/* ============================================================================
+   DERS PROGRAMI 2.0 — fotoğraftan yapay zekâ ile okuma · bugünü renkli gösterme
+   Veri: k12_ders {liste:[{id,sinif,gun,saat,ders}]}  (eski biçim AYNEN korunur)
+         k12_oprog {liste:[{id,ogretmen,gun,saat,ders,sinif}]}  (öğretmenin kendi programı)
+   ============================================================================ */
+async function geminiGorsel(prompt, base64, mime){
+  let anahtarlar=[];
+  try{ const c=(typeof cozKey==='function'?cozKey():''); if(c && String(c).trim().length>10) anahtarlar.push(String(c).trim()); }catch(e){}
+  try{ (window.ZIRVE_PAYLASILAN_KEYS||[]).slice().sort(function(){return Math.random()-0.5;}).forEach(function(k){ k=String(k||'').trim(); if(k.length>10 && anahtarlar.indexOf(k)<0) anahtarlar.push(k); }); }catch(e){}
+  if(!anahtarlar.length) return '';
+  const modeller=['gemini-2.5-flash','gemini-2.0-flash','gemini-flash-latest','gemini-2.5-flash-lite','gemini-1.5-flash'];
+  for(let ai=0; ai<anahtarlar.length; ai++){
+    for(let i=0;i<modeller.length;i++){
+      try{
+        const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+modeller[i]+':generateContent?key='+anahtarlar[ai],{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:mime,data:base64}}]}]})});
+        if(!res.ok){ if(res.status===429||res.status===403) break; continue; }
+        const d=await res.json(); const t=(d.candidates&&d.candidates[0]&&d.candidates[0].content&&d.candidates[0].content.parts||[]).map(function(p){return p.text||'';}).join('').trim();
+        if(t) return t;
+      }catch(e){ continue; }
+    }
+  }
+  return '';
+}
+function zGunBul(x){ const n=zNorm(x).replace(/[^a-z]/g,''); if(n.indexOf('pzt')===0||n.indexOf('pazartesi')===0) return 'Pazartesi'; if(n.indexOf('sal')===0) return 'Salı'; if(n.indexOf('car')===0||n.indexOf('crs')===0) return 'Çarşamba'; if(n.indexOf('per')===0||n.indexOf('prs')===0) return 'Perşembe'; if(n.indexOf('cum')===0) return 'Cuma'; return ''; }
+function zBugunGun(){ const d=new Date().getDay(); return (d>=1&&d<=5)?HAFTA_GUN[d-1]:''; }
+function zSaatDk(s){ const m=String(s||'').match(/(\d{1,2})[:.](\d{2})/); return m?(Number(m[1])*60+Number(m[2])):null; }
+function zSiraAnahtar(r){ const dk=zSaatDk(r.saat); if(dk!==null) return dk; const m=String(r.saat||'').match(/\d+/); return m?Number(m[0])*1000:99999; }
+function zGorselHazirla(file){ return new Promise(function(res,rej){ try{
+  if(file.type==='application/pdf'){ const r=new FileReader(); r.onload=function(ev){ const b=String(ev.target.result); res({base64:b.split(',')[1], mime:'application/pdf', onizleme:''}); }; r.onerror=rej; r.readAsDataURL(file); return; }
+  const r=new FileReader(); r.onload=function(ev){ const img=new Image(); img.onload=function(){ const max=1800; let w=img.width,h=img.height; if(w>max||h>max){ if(w>h){h=Math.round(h*max/w);w=max;}else{w=Math.round(w*max/h);h=max;} } const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); const u=c.toDataURL('image/jpeg',0.85); res({base64:u.split(',')[1], mime:'image/jpeg', onizleme:u}); }; img.onerror=rej; img.src=ev.target.result; }; r.onerror=rej; r.readAsDataURL(file);
+}catch(e){ rej(e); } }); }
+function zJsonDizi(t){ let c=String(t||'').replace(/```json/gi,'').replace(/```/g,'').trim(); try{ const j=JSON.parse(c); return Array.isArray(j)?j:(j&&Array.isArray(j.dersler)?j.dersler:[]); }catch(e){} const m=c.match(/\[[\s\S]*\]/); if(m){ try{ return JSON.parse(m[0]); }catch(e){} } return []; }
+
+/* Renkli haftalık ızgara — bugün canlı, şu anki ders "ŞİMDİ" */
+const DERS_RENK = ['from-rose-500 to-pink-500','from-orange-500 to-amber-500','from-emerald-500 to-teal-500','from-sky-500 to-blue-600','from-violet-500 to-purple-600'];
+const ProgramIzgara = ({ satirlar, onSil, sinifGoster }) => {
+  const bugun=zBugunGun();
+  const [simdi,setSimdi]=useState(Date.now());
+  useEffect(()=>{ const t=setInterval(()=>setSimdi(Date.now()),60000); return ()=>clearInterval(t); },[]);
+  const d=new Date(simdi); const nowDk=d.getHours()*60+d.getMinutes();
+  const bugunDersleri=satirlar.filter(r=>r.gun===bugun).sort((a,b)=>zSiraAnahtar(a)-zSiraAnahtar(b));
+  let simdiId=null, sonrakiId=null;
+  bugunDersleri.forEach(function(r,i){ const b=zSaatDk(r.saat); if(b===null) return; const nx=bugunDersleri[i+1]; const son=(nx&&zSaatDk(nx.saat)!==null)?zSaatDk(nx.saat):b+40; if(nowDk>=b && nowDk<son) simdiId=r.id; if(!sonrakiId && b>nowDk) sonrakiId=r.id; });
+  if(!satirlar.length) return <p className="text-slate-400 text-sm text-center py-4">Program henüz girilmedi.</p>;
+  return (
+    <div>
+      {!bugun && <p className="text-[12px] font-bold text-indigo-600 bg-indigo-50 rounded-lg px-3 py-2 mb-2">🌤️ Hafta sonu — iyi dinlenmeler! Pazartesi programı aşağıda.</p>}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+        {HAFTA_GUN.map((g,gi)=>{ const dg=satirlar.filter(r=>r.gun===g).sort((a,b)=>zSiraAnahtar(a)-zSiraAnahtar(b)); const bu=g===bugun; return (
+          <div key={g} className={`rounded-2xl p-2 transition ${bu?('bg-gradient-to-br '+DERS_RENK[gi]+' text-white shadow-xl ring-4 ring-yellow-300 md:scale-[1.03] order-first md:order-none'):'bg-slate-50 border border-slate-200 opacity-90'}`}>
+            <div className="flex items-center justify-between mb-1.5 px-1">
+              <span className={`text-[13px] font-black ${bu?'text-white':'text-slate-600'}`}>{g}</span>
+              {bu && <span className="text-[9px] font-black bg-yellow-300 text-slate-900 px-2 py-0.5 rounded-full animate-pulse">BUGÜN</span>}
+            </div>
+            {dg.length===0 ? <p className={`text-[11px] px-1 ${bu?'text-white/80':'text-slate-300'}`}>—</p> : dg.map((r,i)=>{ const sm=bu&&r.id===simdiId, sr=bu&&!simdiId&&r.id===sonrakiId; return (
+              <div key={r.id} className={`flex items-center gap-1.5 rounded-xl px-2 py-1.5 mb-1 ${bu?(sm?'bg-yellow-300 text-slate-900 font-black':'bg-white/20'):'bg-white'}`}>
+                <span className={`text-[10px] font-black w-11 shrink-0 ${bu?(sm?'text-slate-800':'text-white/90'):'text-slate-400'}`}>{r.saat||((i+1)+'.')}</span>
+                <span className={`flex-1 text-[12px] leading-tight ${bu?'font-bold':'text-slate-700 font-semibold'}`}>{r.ders}{sinifGoster&&r.sinif?<span className={`block text-[10px] ${bu?'opacity-90':'text-slate-400'}`}>{r.sinif}</span>:null}</span>
+                {sm && <span className="text-[8px] font-black bg-rose-600 text-white px-1.5 py-0.5 rounded-full">ŞİMDİ</span>}
+                {sr && <span className="text-[8px] font-black bg-white text-slate-700 px-1.5 py-0.5 rounded-full">SIRADAKİ</span>}
+                {onSil && <button onClick={()=>onSil(r.id)} className={`${bu?'text-white/70':'text-slate-300'} hover:text-rose-500 text-[10px]`}><i className="fa-solid fa-xmark"></i></button>}
+              </div>
+            );})}
+          </div>
+        );})}
+      </div>
+    </div>
+  );
+};
+
+/* Fotoğraftan program okuma kutusu (sınıf ya da öğretmen) */
+const ProgramFotoOku = ({ ogretmenModu, onKaydet, renk }) => {
+  const [yuk,setYuk]=useState(false); const [onizleme,setOnizleme]=useState(''); const [satirlar,setSatirlar]=useState([]); const [bilgi,setBilgi]=useState('');
+  const sec=async(e)=>{
+    const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
+    if(!(f.type.indexOf('image/')===0 || f.type==='application/pdf')) return alert('Fotoğraf veya PDF seçin.');
+    setYuk(true); setSatirlar([]); setBilgi('📸 Fotoğraf okunuyor… (10-30 sn)');
+    try{
+      const g=await zGorselHazirla(f); setOnizleme(g.onizleme||'');
+      const p='Bu görsel bir okul HAFTALIK DERS PROGRAMI. Pazartesi-Cuma arasındaki tüm dersleri çıkar.\nSADECE geçerli JSON dizi döndür, başka hiçbir şey yazma:\n[{"gun":"Pazartesi","saat":"08:30","ders":"Matematik"'+(ogretmenModu?',"sinif":"4-A"':'')+'}]\nKurallar: gün adlarını tam olarak şöyle yaz: Pazartesi, Salı, Çarşamba, Perşembe, Cuma. Saat yazıyorsa başlangıç saatini "HH:MM" yaz; saat yoksa "1. Ders", "2. Ders" gibi sıra yaz. Boş hücreleri, teneffüs ve öğle arasını ATLA. '+(ogretmenModu?'Hücrede sınıf/şube adı varsa "sinif" alanına yaz. ':'Hücrede öğretmen adı varsa ders adının yanına parantez içinde ekle. ')+'Görselde olmayan hiçbir şeyi UYDURMA.';
+      const t=await geminiGorsel(p,g.base64,g.mime);
+      const dizi=zJsonDizi(t).map(function(r){ return {id:yeniId(), gun:zGunBul(r.gun)||'Pazartesi', saat:String(r.saat||'').trim(), ders:String(r.ders||'').trim(), sinif:String(r.sinif||'').trim()}; }).filter(function(r){ return r.ders; });
+      if(dizi.length){ setSatirlar(dizi); setBilgi('✅ '+dizi.length+' ders okundu. Kontrol edin, gerekirse düzeltin, sonra Kaydet.'); }
+      else setBilgi(t?'⚠️ Görsel okunamadı. Daha net/yakın bir fotoğraf deneyin.':'⚠️ Yapay zekâ şu an yanıt vermedi (anahtar/kota). Birazdan tekrar deneyin.');
+    }catch(err){ setBilgi('⚠️ Fotoğraf işlenemedi.'); }
+    setYuk(false);
+  };
+  const gunc=(i,k,v)=>setSatirlar(ss=>ss.map((r,j)=>j===i?{...r,[k]:v}:r));
+  return (
+    <div className={`rounded-2xl p-3 mb-3 border-2 ${renk||'border-violet-200 bg-violet-50'}`}>
+      <label className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl text-white font-black text-sm cursor-pointer shadow ${yuk?'bg-slate-400':'bg-gradient-to-r from-violet-600 to-fuchsia-600'}`}>
+        {yuk?<><i className="fa-solid fa-spinner fa-spin"></i> Okunuyor…</>:<>📸 Programın fotoğrafını yükle — yapay zekâ okusun</>}
+        <input type="file" accept="image/*,application/pdf" onChange={sec} className="hidden" disabled={yuk} />
+      </label>
+      <p className="text-[11px] text-slate-500 mt-1.5 text-center">Kâğıttaki programın fotoğrafını çekin ya da ekran görüntüsü/PDF seçin. Günler ve dersler otomatik yerleşir.</p>
+      {bilgi && <p className="text-[12px] font-bold text-violet-700 mt-2">{bilgi}</p>}
+      {onizleme && satirlar.length>0 && <img src={onizleme} className="max-h-40 rounded-lg border border-slate-200 mt-2 mx-auto" />}
+      {satirlar.length>0 && <div className="mt-2 space-y-1 max-h-80 overflow-auto pr-1">
+        {satirlar.map((r,i)=>(
+          <div key={r.id} className="flex gap-1 items-center bg-white rounded-lg p-1">
+            <select value={r.gun} onChange={e=>gunc(i,'gun',e.target.value)} className="px-1 py-1 rounded border border-slate-200 text-[11px] font-bold">{HAFTA_GUN.map(g=><option key={g}>{g}</option>)}</select>
+            <input value={r.saat} onChange={e=>gunc(i,'saat',e.target.value)} className="w-16 px-1 py-1 rounded border border-slate-200 text-[11px]" />
+            <input value={r.ders} onChange={e=>gunc(i,'ders',e.target.value)} className="flex-1 min-w-0 px-1 py-1 rounded border border-slate-200 text-[11px]" />
+            {ogretmenModu && <input value={r.sinif} onChange={e=>gunc(i,'sinif',e.target.value)} placeholder="sınıf" className="w-14 px-1 py-1 rounded border border-slate-200 text-[11px]" />}
+            <button onClick={()=>setSatirlar(ss=>ss.filter((x,j)=>j!==i))} className="text-rose-400 px-1"><i className="fa-solid fa-trash-can text-[11px]"></i></button>
+          </div>
+        ))}
+      </div>}
+      {satirlar.length>0 && <div className="grid grid-cols-2 gap-2 mt-2">
+        <button onClick={async()=>{ const ok=await onKaydet(satirlar,true); if(ok){ setSatirlar([]); setOnizleme(''); setBilgi(''); } }} className="bg-emerald-600 text-white font-black py-2 rounded-lg text-[12px]">✅ Kaydet (eskisinin yerine)</button>
+        <button onClick={async()=>{ const ok=await onKaydet(satirlar,false); if(ok){ setSatirlar([]); setOnizleme(''); setBilgi(''); } }} className="bg-sky-600 text-white font-black py-2 rounded-lg text-[12px]">➕ Mevcut programa ekle</button>
+      </div>}
+    </div>
+  );
+};
+
 const DersProgrami = ({ db, duzenlenebilir, sinif }) => {
   const doc=useOkulDoc(db,"k12_ders"); const liste=(doc&&doc.liste)||[];
+  const _o=useOkulDoc(db,"k12_ogrenciler"); const snfListe=zSiniflar((_o&&_o.liste)||[]);
   const [snf,setSnf]=useState(sinif||OKUL_SINIFLAR[0]);
   const aktif = duzenlenebilir ? snf : sinif;
-  const [gun,setGun]=useState('Pazartesi'); const [saat,setSaat]=useState(''); const [ders,setDers]=useState('');
+  const [gun,setGun]=useState(zBugunGun()||'Pazartesi'); const [saat,setSaat]=useState(''); const [ders,setDers]=useState('');
   const satir=liste.filter(r=>r.sinif===aktif);
-  const ekle=async()=>{ if(!saat.trim()||!ders.trim())return alert('Saat ve ders gerekli.'); const yeni={id:yeniId(),sinif:aktif,gun,saat:saat.trim(),ders:ders.trim()}; const ok=await okulYaz(db,"k12_ders",{liste:[...liste,yeni]}); if(ok){setSaat('');setDers(''); toast('Derse eklendi.','green');} };
+  const ekle=async()=>{ if(!ders.trim())return alert('Ders adı gerekli.'); const yeni={id:yeniId(),sinif:aktif,gun,saat:saat.trim(),ders:ders.trim()}; const ok=await okulYaz(db,"k12_ders",{liste:[...liste,yeni]}); if(ok){setSaat('');setDers(''); toast('Derse eklendi.','green');} };
   const sil=async(id)=>{ await okulYaz(db,"k12_ders",{liste:liste.filter(r=>r.id!==id)}); };
+  const fotoKaydet=async(yeniler,degistir)=>{
+    if(degistir && satir.length && !window.confirm(aktif+' sınıfının mevcut programı ('+satir.length+' ders) yenisiyle değiştirilecek. Onaylıyor musunuz?')) return false;
+    const eklenen=yeniler.map(r=>({id:yeniId(),sinif:aktif,gun:r.gun,saat:r.saat,ders:r.ders}));
+    const taban=degistir?liste.filter(r=>r.sinif!==aktif):liste;
+    const ok=await okulYaz(db,"k12_ders",{liste:taban.concat(eklenen)});
+    if(ok){ toast('📅 '+aktif+' programı kaydedildi — öğrenci ve veliler görüyor.','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
+    return ok;
+  };
+  const bugunDers=satir.filter(r=>r.gun===zBugunGun()).sort((a,b)=>zSiraAnahtar(a)-zSiraAnahtar(b));
   const body=(
     <div>
-      {duzenlenebilir && (
-        <div className="bg-sky-50 border border-sky-200 rounded-xl p-3 mb-3">
-          <select value={snf} onChange={e=>setSnf(e.target.value)} className="w-full mb-2 px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none">{OKUL_SINIFLAR.map(s=><option key={s}>{s}</option>)}</select>
-          <div className="grid grid-cols-2 gap-2 mb-2">
+      {duzenlenebilir && (<>
+        <select value={snf} onChange={e=>setSnf(e.target.value)} className="w-full mb-2 px-3 py-2.5 rounded-xl border-2 border-sky-200 text-sm font-black outline-none">{snfListe.map(s=><option key={s}>{s}</option>)}</select>
+        <ProgramFotoOku onKaydet={fotoKaydet} />
+        <details className="bg-sky-50 border border-sky-200 rounded-xl p-3 mb-3">
+          <summary className="text-[12px] font-black text-sky-700 cursor-pointer">✍️ Elle tek ders ekle</summary>
+          <div className="grid grid-cols-2 gap-2 my-2">
             <select value={gun} onChange={e=>setGun(e.target.value)} className="px-2 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none">{HAFTA_GUN.map(g=><option key={g}>{g}</option>)}</select>
             <input value={saat} onChange={e=>setSaat(e.target.value)} placeholder="Saat (09:00)" className="px-2 py-2 rounded-lg border border-gray-200 text-sm outline-none" />
           </div>
           <input value={ders} onChange={e=>setDers(e.target.value)} placeholder="Ders (Matematik)" className="w-full px-2 py-2 rounded-lg border border-gray-200 text-sm outline-none mb-2" />
           <button onClick={ekle} className="w-full bg-sky-600 text-white font-black py-2 rounded-lg text-sm">+ Programa Ekle ({aktif})</button>
-        </div>
-      )}
-      {HAFTA_GUN.map(g=>{ const dg=satir.filter(r=>r.gun===g).sort((a,b)=>String(a.saat).localeCompare(String(b.saat))); if(!dg.length && !duzenlenebilir) return null; return (
-        <div key={g} className="mb-2">
-          <div className="text-[11px] font-black text-sky-700 uppercase mb-0.5">{g}</div>
-          {dg.length===0?<div className="text-[12px] text-slate-300 pl-1">—</div>:dg.map(r=>(
-            <div key={r.id} className="flex items-center gap-2 text-[13px] py-0.5 pl-1"><span className="font-bold text-slate-500 w-14 shrink-0">{r.saat}</span><span className="flex-1 text-slate-700">{r.ders}</span>{duzenlenebilir&&<button onClick={()=>sil(r.id)} className="text-slate-300 hover:text-rose-500 text-xs"><i className="fa-solid fa-xmark"></i></button>}</div>
-          ))}
-        </div>
-      );})}
-      {!duzenlenebilir && satir.length===0 && <p className="text-slate-400 text-sm text-center py-2">Ders programı henüz girilmedi.</p>}
+        </details>
+      </>)}
+      {!duzenlenebilir && bugunDers.length>0 && <p className="text-[12px] font-bold text-sky-700 bg-sky-50 rounded-xl px-3 py-2 mb-2">📌 Bugün {bugunDers.length} ders var: {bugunDers.map(r=>r.ders).join(' · ')}</p>}
+      <ProgramIzgara satirlar={satir} onSil={duzenlenebilir?sil:null} />
+      {duzenlenebilir && satir.length>0 && <button onClick={async()=>{ if(!window.confirm(aktif+' programının TAMAMI silinsin mi?')) return; await okulYaz(db,"k12_ders",{liste:liste.filter(r=>r.sinif!==aktif)}); toast('Program temizlendi.','green'); }} className="mt-2 text-[11px] text-rose-500 font-bold underline">🗑️ {aktif} programını tamamen temizle</button>}
     </div>
   );
   if(duzenlenebilir) return body;
   return <div className="bg-white border-4 border-sky-200 rounded-[2rem] p-5 shadow-lg mt-6"><h3 className="text-lg font-black text-sky-800 mb-3 flex items-center"><i className="fa-solid fa-table-list text-sky-500 mr-2"></i>Ders Programı{sinif?` · ${sinif}`:''}</h3>{body}</div>;
 };
+
+/* Öğretmenin kendi haftalık programı */
+const OgretmenProgrami = ({ db, user }) => {
+  const doc=useOkulDoc(db,"k12_oprog"); const liste=(doc&&doc.liste)||[];
+  const ad=(user&&user.name)||'Öğretmen';
+  const benim=liste.filter(r=>zAyniKisi(r.ogretmen,ad));
+  const [gun,setGun]=useState(zBugunGun()||'Pazartesi'); const [saat,setSaat]=useState(''); const [ders,setDers]=useState(''); const [snf,setSnf]=useState('');
+  const kaydet=async(yeniler,degistir)=>{
+    if(degistir && benim.length && !window.confirm('Mevcut programınız ('+benim.length+' ders) yenisiyle değiştirilecek. Onaylıyor musunuz?')) return false;
+    const eklenen=yeniler.map(r=>({id:yeniId(),ogretmen:ad,gun:r.gun,saat:r.saat,ders:r.ders,sinif:r.sinif||''}));
+    const taban=degistir?liste.filter(r=>!zAyniKisi(r.ogretmen,ad)):liste;
+    const ok=await okulYaz(db,"k12_oprog",{liste:taban.concat(eklenen)});
+    if(ok){ toast('📅 Programınız kaydedildi.','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
+    return ok;
+  };
+  const ekle=async()=>{ if(!ders.trim()) return alert('Ders adı gerekli.'); await kaydet([{gun,saat:saat.trim(),ders:ders.trim(),sinif:snf.trim()}],false); setDers(''); setSaat(''); setSnf(''); };
+  const sil=async(id)=>{ await okulYaz(db,"k12_oprog",{liste:liste.filter(r=>r.id!==id)}); };
+  return (
+    <div>
+      <ProgramFotoOku ogretmenModu={true} onKaydet={kaydet} renk="border-emerald-200 bg-emerald-50" />
+      <details className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-3">
+        <summary className="text-[12px] font-black text-emerald-700 cursor-pointer">✍️ Elle tek ders ekle</summary>
+        <div className="grid grid-cols-2 gap-2 my-2">
+          <select value={gun} onChange={e=>setGun(e.target.value)} className="px-2 py-2 rounded-lg border border-gray-200 text-sm font-bold outline-none">{HAFTA_GUN.map(g=><option key={g}>{g}</option>)}</select>
+          <input value={saat} onChange={e=>setSaat(e.target.value)} placeholder="Saat (09:00)" className="px-2 py-2 rounded-lg border border-gray-200 text-sm outline-none" />
+        </div>
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <input value={ders} onChange={e=>setDers(e.target.value)} placeholder="Ders (Satranç)" className="px-2 py-2 rounded-lg border border-gray-200 text-sm outline-none" />
+          <input value={snf} onChange={e=>setSnf(e.target.value)} placeholder="Sınıf (4. Sınıf)" className="px-2 py-2 rounded-lg border border-gray-200 text-sm outline-none" />
+        </div>
+        <button onClick={ekle} className="w-full bg-emerald-600 text-white font-black py-2 rounded-lg text-sm">+ Programıma Ekle</button>
+      </details>
+      <ProgramIzgara satirlar={benim} onSil={sil} sinifGoster={true} />
+      {benim.length>0 && <button onClick={async()=>{ if(!window.confirm('Programınızın TAMAMI silinsin mi?')) return; await okulYaz(db,"k12_oprog",{liste:liste.filter(r=>!zAyniKisi(r.ogretmen,ad))}); toast('Program temizlendi.','green'); }} className="mt-2 text-[11px] text-rose-500 font-bold underline">🗑️ Programımı tamamen temizle</button>}
+      <p className="text-[10px] text-slate-400 mt-2">🔒 Bu program yalnızca size görünür; paneli açınca "Bugünkü Derslerim" şeridinde de çıkar.</p>
+    </div>
+  );
+};
+
+const ProgramMerkezi = ({ db, user }) => {
+  const [mod,setMod]=useState('benim');
+  return (
+    <div>
+      <div className="flex gap-2 mb-3 p-1 bg-slate-100 rounded-xl">
+        <button onClick={()=>setMod('benim')} className={`flex-1 py-2 rounded-lg text-xs font-black ${mod==='benim'?'bg-emerald-600 text-white shadow':'text-slate-500'}`}>👩‍🏫 Benim Programım</button>
+        <button onClick={()=>setMod('sinif')} className={`flex-1 py-2 rounded-lg text-xs font-black ${mod==='sinif'?'bg-sky-600 text-white shadow':'text-slate-500'}`}>🏫 Sınıf Programları <span className="opacity-80">(öğrenci+veli görür)</span></button>
+      </div>
+      {mod==='benim' ? <OgretmenProgrami db={db} user={user} /> : <DersProgrami db={db} duzenlenebilir={true} />}
+    </div>
+  );
+};
+
+/* Öğretmen paneli üstünde: Bugünkü Derslerim şeridi */
+const BugunDerslerim = ({ db, user }) => {
+  const doc=useOkulDoc(db,"k12_oprog"); const liste=(doc&&doc.liste)||[];
+  const bugun=zBugunGun(); if(!bugun) return null;
+  const dg=liste.filter(r=>r.gun===bugun && zAyniKisi(r.ogretmen,user&&user.name)).sort((a,b)=>zSiraAnahtar(a)-zSiraAnahtar(b));
+  if(!dg.length) return null;
+  const d=new Date(); const now=d.getHours()*60+d.getMinutes();
+  return (
+    <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-3 mb-3 text-white shadow-lg">
+      <p className="text-[12px] font-black mb-2">📅 Bugün ({bugun}) {dg.length} dersiniz var</p>
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {dg.map((r,i)=>{ const b=zSaatDk(r.saat); const nx=dg[i+1]; const son=(nx&&zSaatDk(nx.saat)!==null)?zSaatDk(nx.saat):(b!==null?b+40:null); const sm=b!==null&&now>=b&&now<son; const bitti=son!==null&&now>=son; return (
+          <div key={r.id} className={`shrink-0 rounded-xl px-3 py-1.5 text-center ${sm?'bg-yellow-300 text-slate-900':bitti?'bg-white/10 opacity-60':'bg-white/20'}`}>
+            <div className="text-[10px] font-black">{r.saat||((i+1)+'. ders')}{sm?' · ŞİMDİ':''}</div>
+            <div className="text-[12px] font-black leading-tight">{r.ders}</div>
+            {r.sinif && <div className="text-[10px] opacity-90">{r.sinif}</div>}
+          </div>
+        );})}
+      </div>
+    </div>
+  );
+};
+
+/* ============================================================================
+   GÜNÜN / HAFTANIN ÖZETİ — öğretmen hazırlar → panoya + WhatsApp
+   ============================================================================ */
+function zHaftaBasi(){ const d=new Date(); d.setHours(0,0,0,0); const g=d.getDay()||7; d.setDate(d.getDate()-g+1); return d.getTime(); }
+function zGunBasi(){ const d=new Date(); d.setHours(0,0,0,0); return d.getTime(); }
+function zTarihStr(ts){ const d=new Date(ts); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function zAktifMi(x){ return !(x && x.bitis && x.bitis < Date.now()); }
+
+const SinifOzeti = ({ db, user }) => {
+  const oD=useOkulDoc(db,"k12_ogrenciler"); const ogr=(oD&&oD.liste)||[];
+  const odD=useOkulDoc(db,"k12_odevler"); const odev=(odD&&odD.liste)||[];
+  const tD=useOkulDoc(db,"k12_teslim"); const tes=(tD&&tD.liste)||[];
+  const yD=useOkulDoc(db,"k12_yoklama"); const yok=(yD&&yD.liste)||[];
+  const pD=useOkulDoc(db,"k12_pano"); const pano=(pD&&pD.liste)||[];
+  const dD=useOkulDoc(db,"k12_ders"); const dersP=(dD&&dD.liste)||[];
+  const siniflar=zSiniflar(ogr);
+  const [snf,setSnf]=useState(siniflar[0]||OKUL_SINIFLAR[0]);
+  const [donem,setDonem]=useState('gun');
+  const [not,setNot]=useState('');
+  const [metin,setMetin]=useState('');
+  const [yuk,setYuk]=useState(false);
+  const bas = donem==='gun'?zGunBasi():zHaftaBasi();
+  const sOgr=ogr.filter(o=>o.sinif===snf);
+  const sOdev=odev.filter(o=>o.sinif===snf && (o.tarih||0)>=bas);
+  const sinifOdev=sOdev.filter(o=>o.tur!=='birey' && !o.bilgi);
+  const bilgiler=sOdev.filter(o=>o.bilgi && o.tur!=='birey');
+  const sPano=pano.filter(p=>(p.sinif===snf||p.sinif==='TÜM OKUL') && (p.ts||0)>=bas && p.kaynak!=='sinifozet');
+  const basStr=zTarihStr(bas);
+  const sYok=yok.filter(r=>r.tarih>=basStr && sOgr.some(o=>o.id===r.ogrenciId));
+  const gelmeyen=sYok.filter(r=>r.durum==='gelmedi').length;
+  const teslimOran=(()=>{ if(!sinifOdev.length||!sOgr.length) return null; let y=0; sinifOdev.forEach(o=>{ y+=tes.filter(t=>t.odevId===o.id).length; }); return Math.round(y/(sinifOdev.length*sOgr.length)*100); })();
+  const bugunDers=dersP.filter(r=>r.sinif===snf && r.gun===zBugunGun()).sort((a,b)=>zSiraAnahtar(a)-zSiraAnahtar(b));
+  const baslik=(donem==='gun'?'📋 Günün Özeti':'📰 Haftanın Özeti')+' · '+snf+' · '+(donem==='gun'?new Date().toLocaleDateString('tr-TR'):(new Date(bas).toLocaleDateString('tr-TR')+' haftası'));
+  const hamMetin=()=>{
+    const s=[baslik,''];
+    if(donem==='gun' && bugunDers.length) s.push('📚 Bugünkü dersler: '+bugunDers.map(r=>r.ders).join(', '));
+    if(not.trim()) s.push('✨ Neler yaptık: '+not.trim());
+    if(sinifOdev.length) s.push('📝 Ödevler:\n'+sinifOdev.map(o=>'• '+o.ders+(o.konu?(' – '+o.konu):'')+': '+String(o.detay||'').slice(0,160)+(o.sonTeslim?(' (son: '+o.sonTeslim+')'):'')).join('\n'));
+    if(bilgiler.length) s.push('📢 Hatırlatmalar:\n'+bilgiler.map(o=>'• '+String(o.detay||'').slice(0,160)).join('\n'));
+    if(sPano.length) s.push('📌 Duyurular:\n'+sPano.slice(0,5).map(p=>'• '+String(p.metin||'').split('\n')[0].slice(0,140)).join('\n'));
+    if(teslimOran!==null) s.push('✅ Ödev tamamlama oranı: %'+teslimOran);
+    s.push('','Değişim Koleji · '+((user&&user.name)||'Öğretmen'));
+    return s.join('\n');
+  };
+  const hazirla=()=>setMetin(hamMetin());
+  const aiGuzel=async()=>{
+    const k=(typeof cozKey==='function'?cozKey():''); if(!k||k.length<10) { setMetin(hamMetin()); return alert('Yapay zekâ anahtarı yok — düz özet hazırlandı.'); }
+    setYuk(true);
+    try{
+      const p='Aşağıdaki bilgilerden velilere gönderilecek sıcak, kısa, düzenli bir '+(donem==='gun'?'GÜNÜN':'HAFTANIN')+' ÖZETİ yaz (Türkçe). Başlık satırını koru; emojili kısa maddeler kullan; en fazla 12 satır. Verilen bilgilerin DIŞINDA hiçbir şey uydurma, öğrenci adı yazma. Sonunda kısa bir teşekkür/motivasyon cümlesi olsun.\n\nBİLGİLER:\n'+hamMetin();
+      const t=await geminiMetin(k,(typeof cozModel==='function'?cozModel():''),p);
+      setMetin(String(t||'').trim()||hamMetin());
+    }catch(e){ setMetin(hamMetin()); }
+    setYuk(false);
+  };
+  const yayinla=async()=>{
+    const m=(metin||hamMetin()).trim(); if(!m) return;
+    const gun=donem==='gun'?7:30;
+    const ok=await okulYaz(db,"k12_pano",{liste:[{id:yeniId(),sinif:snf,metin:m,ogretmen:(user&&user.name)||'Öğretmen',ts:Date.now(),kaynak:'sinifozet',bitis:Date.now()+gun*86400000}].concat(pano)});
+    if(ok){ toast('🚀 '+snf+' velileri ve öğrencileri özeti panoda görüyor.','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
+  };
+  return (
+    <div>
+      <div className="bg-gradient-to-br from-fuchsia-50 to-indigo-50 border border-indigo-200 rounded-2xl p-3 mb-3">
+        <p className="font-black text-indigo-800 text-sm mb-1">📰 Günün / Haftanın Özeti</p>
+        <p className="text-[12px] text-slate-600 mb-2">Sistem ödevleri, hatırlatmaları, duyuruları ve yoklamayı <b>kendisi toplar</b>. Siz isterseniz bir cümle ekleyin → <b>🚀 Yayınla</b>. Veliler ve öğrenciler panoda görür.</p>
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <select value={snf} onChange={e=>{setSnf(e.target.value); setMetin('');}} className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-black outline-none">{siniflar.map(s=><option key={s}>{s}</option>)}</select>
+          <div className="flex gap-1 p-1 bg-white rounded-lg border border-gray-200">
+            <button onClick={()=>{setDonem('gun'); setMetin('');}} className={`flex-1 rounded-md text-[11px] font-black ${donem==='gun'?'bg-indigo-600 text-white':'text-slate-500'}`}>Bugün</button>
+            <button onClick={()=>{setDonem('hafta'); setMetin('');}} className={`flex-1 rounded-md text-[11px] font-black ${donem==='hafta'?'bg-indigo-600 text-white':'text-slate-500'}`}>Bu Hafta</button>
+          </div>
+        </div>
+        <div className="grid grid-cols-4 gap-1.5 text-center mb-2">
+          <div className="bg-white rounded-lg p-1.5"><div className="text-lg font-black text-rose-600">{sinifOdev.length}</div><div className="text-[9px] font-bold text-slate-500">Ödev</div></div>
+          <div className="bg-white rounded-lg p-1.5"><div className="text-lg font-black text-sky-600">{bilgiler.length}</div><div className="text-[9px] font-bold text-slate-500">Hatırlatma</div></div>
+          <div className="bg-white rounded-lg p-1.5"><div className="text-lg font-black text-amber-600">{sPano.length}</div><div className="text-[9px] font-bold text-slate-500">Duyuru</div></div>
+          <div className="bg-white rounded-lg p-1.5"><div className="text-lg font-black text-emerald-600">{teslimOran===null?'—':('%'+teslimOran)}</div><div className="text-[9px] font-bold text-slate-500">Tamamlama</div></div>
+        </div>
+        <textarea value={not} onChange={e=>setNot(e.target.value)} rows="2" placeholder="İsteğe bağlı: bugün sınıfta neler yaptık? (örn: satrançta rok hamlesini öğrendik)" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none resize-y mb-2"></textarea>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={hazirla} className="bg-slate-700 text-white font-black py-2 rounded-lg text-[12px]">📋 Özeti Hazırla</button>
+          <button onClick={aiGuzel} disabled={yuk} className="bg-violet-600 text-white font-black py-2 rounded-lg text-[12px] disabled:opacity-50">{yuk?'⏳ Yazılıyor…':'🤖 AI ile Güzelleştir'}</button>
+        </div>
+      </div>
+      {metin && <div className="bg-white border-2 border-indigo-200 rounded-2xl p-3">
+        <textarea value={metin} onChange={e=>setMetin(e.target.value)} rows="10" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-[13px] outline-none resize-y mb-2"></textarea>
+        <div className="grid grid-cols-3 gap-2">
+          <button onClick={yayinla} className="bg-emerald-600 text-white font-black py-2 rounded-lg text-[12px]">🚀 Panoya Yayınla</button>
+          <a href={'https://wa.me/?text='+encodeURIComponent(metin)} target="_blank" rel="noopener noreferrer" className="text-center bg-green-600 text-white font-black py-2 rounded-lg text-[12px]"><i className="fa-brands fa-whatsapp mr-1"></i>WhatsApp</a>
+          <button onClick={async()=>{ try{ await navigator.clipboard.writeText(metin); toast('📋 Kopyalandı','green'); }catch(e){ alert(metin); } }} className="bg-slate-200 text-slate-700 font-black py-2 rounded-lg text-[12px]">📋 Kopyala</button>
+        </div>
+        <p className="text-[10px] text-slate-400 mt-1.5">⏳ Panodaki özet {donem==='gun'?'7 gün':'30 gün'} sonra kendiliğinden kalkar (liste şişmesin diye).</p>
+      </div>}
+    </div>
+  );
+};
+
+/* ============================================================================
+   OTOMATİK TEMİZLİK — yalnızca "bitiş" tarihi verilmiş geçici kayıtlar
+   (Bilgilendirme/hatırlatma, süreli pano notu). Gerçek ÖDEVLER ve teslimler ASLA silinmez.
+   ============================================================================ */
+async function zOtoTemizle(db){
+  try{
+    if(!db || !window.FirebaseSDK) return;
+    const bugun=new Date().toISOString().slice(0,10);
+    try{ if(localStorage.getItem('z_temizlik')===bugun) return; localStorage.setItem('z_temizlik',bugun); }catch(e){}
+    const {doc,getDoc,setDoc}=window.FirebaseSDK; const simdi=Date.now();
+    // Pano
+    const pR=doc(db,"maas_config","k12_pano"); const pS=await getDoc(pR);
+    if(pS.exists()){ const l=(pS.data()||{}).liste||[]; const k=l.filter(p=>!(p&&p.bitis&&p.bitis<simdi)); if(k.length!==l.length) await setDoc(pR,{liste:k},{merge:true}); }
+    // Bilgilendirmeler (sadece bilgi:true ve bitişi geçmiş olanlar)
+    const oR=doc(db,"maas_config","k12_odevler"); const oS=await getDoc(oR);
+    if(oS.exists()){ const l=(oS.data()||{}).liste||[]; const silinen=l.filter(o=>o&&o.bilgi&&o.bitis&&o.bitis<simdi).map(o=>o.id);
+      if(silinen.length){ await setDoc(oR,{liste:l.filter(o=>silinen.indexOf(o.id)<0)},{merge:true});
+        const tR=doc(db,"maas_config","k12_teslim"); const tS=await getDoc(tR);
+        if(tS.exists()){ const tl=(tS.data()||{}).liste||[]; const tk=tl.filter(t=>!(t&&t.durum==='okundu'&&silinen.indexOf(t.odevId)>=0)); if(tk.length!==tl.length) await setDoc(tR,{liste:tk},{merge:true}); } } }
+  }catch(e){}
+}
+const SURE_SECENEK=[['1','1 gün'],['3','3 gün'],['7','1 hafta'],['30','1 ay'],['0','Kalıcı']];
+function zBitis(g){ const n=Number(g||0); return n>0?(Date.now()+n*86400000):0; }
+function zKalan(bitis){ if(!bitis) return ''; const ms=bitis-Date.now(); if(ms<=0) return 'süresi doldu'; const g=Math.ceil(ms/86400000); return g<=1?'yarın kalkar':(g+' gün sonra kalkar'); }
 
 const YemekListesi = ({ db, duzenlenebilir }) => {
   const doc=useOkulDoc(db,"k12_yemek"); const liste=(doc&&doc.liste)||[];
@@ -5210,7 +5551,7 @@ const SinifPanosu = ({ db, duzenlenebilir, sinif, user }) => {
   const doc = useOkulDoc(db, "k12_pano"); const liste = (doc && doc.liste) || [];
   const [snf, setSnf] = useState(sinif || OKUL_SINIFLAR[0]); const [metin, setMetin] = useState('');
   const _spo = useOkulDoc(db, "k12_ogrenciler"); const spSiniflar = zSiniflar((_spo && _spo.liste) || []);
-  const [aiYuk, setAiYuk] = useState(false); const [eskiMetin, setEskiMetin] = useState('');
+  const [aiYuk, setAiYuk] = useState(false); const [eskiMetin, setEskiMetin] = useState(''); const [sure, setSure] = useState('7');
   const aiDuzelt = async () => {
     if(!metin.trim()) return alert('Önce kısa bir not yazın (örn: yarın tablet getirsinler).');
     const k=(typeof cozKey==='function'?cozKey():''); if(!k||k.length<10) return alert('Yapay zeka anahtarı bu cihaza henüz ulaşmadı.');
@@ -5225,10 +5566,10 @@ const SinifPanosu = ({ db, duzenlenebilir, sinif, user }) => {
   };
   const SABLONLAR = [['📱 Tablet','Yarın '+snf+' sınıfında dijital çalışmamız olacak; öğrencilerimiz tabletlerini şarjlı olarak getirsinler.'],['✂️ Malzeme','Yarın etkinliğimiz için öğrencilerimiz şu malzemeleri getirsin: '],['📝 Sınav','Önümüzdeki hafta … dersinden kısa bir değerlendirme yapacağız; evde tekrar etmeleri faydalı olur.'],['🎉 Etkinlik','… günü sınıfımızda … etkinliğimiz olacak; heyecanla bekliyoruz!'],['🤖 Robotik','Bu hafta robotik-kodlama dersimizde … konusunu işledik. Evde çocuğunuza sorabilirsiniz: …']];
   const aktif = duzenlenebilir ? snf : sinif;
-  const gorunen = liste.filter(p=>p.sinif===aktif || p.sinif==='TÜM OKUL').sort((a,b)=>b.ts-a.ts);
+  const gorunen = liste.filter(p=>(p.sinif===aktif || p.sinif==='TÜM OKUL') && (duzenlenebilir || zAktifMi(p))).sort((a,b)=>b.ts-a.ts);
   const paylas = async () => {
     if(!metin.trim()) return alert('Bir şeyler yazın.');
-    const yeni = [{id:yeniId(), sinif:snf, metin:metin.trim(), ogretmen:(user&&user.name)||'Öğretmen', ts:Date.now()}, ...liste];
+    const yeni = [{id:yeniId(), sinif:snf, metin:metin.trim(), ogretmen:(user&&user.name)||'Öğretmen', ts:Date.now(), bitis:zBitis(sure)}, ...liste];
     const ok = await okulYaz(db,"k12_pano",{liste:yeni}); if(ok){ setMetin(''); toast('📌 Panoya eklendi.','green'); }
   };
   const sil = async (id) => { await okulYaz(db,"k12_pano",{liste:liste.filter(p=>p.id!==id)}); };
@@ -5236,7 +5577,7 @@ const SinifPanosu = ({ db, duzenlenebilir, sinif, user }) => {
     <div className="space-y-2">
       {gorunen.length===0 ? <p className="text-center text-slate-400 py-3 text-sm">Henüz duyuru yok.</p> : gorunen.map(p=>(
         <div key={p.id} className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
-          {(Date.now()-(p.ts||0))<172800000 && <span className="inline-block mb-1 text-[9px] font-black bg-rose-500 text-white px-2 py-0.5 rounded-full">YENİ</span>}{p.kaynak==='ozet' && <span className="inline-block mb-1 ml-1 text-[9px] font-black bg-indigo-500 text-white px-2 py-0.5 rounded-full">📚 Ders Özeti</span>}
+          {(Date.now()-(p.ts||0))<172800000 && <span className="inline-block mb-1 text-[9px] font-black bg-rose-500 text-white px-2 py-0.5 rounded-full">YENİ</span>}{p.kaynak==='ozet' && <span className="inline-block mb-1 ml-1 text-[9px] font-black bg-indigo-500 text-white px-2 py-0.5 rounded-full">📚 Ders Özeti</span>}{p.kaynak==='sinifozet' && <span className="inline-block mb-1 ml-1 text-[9px] font-black bg-fuchsia-500 text-white px-2 py-0.5 rounded-full">📰 Özet</span>}{duzenlenebilir && p.bitis>0 && <span className={`inline-block mb-1 ml-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${zAktifMi(p)?'bg-amber-100 text-amber-700':'bg-slate-200 text-slate-500'}`}>⏳ {zKalan(p.bitis)}</span>}
           <p className="text-sm text-slate-700 whitespace-pre-wrap">{p.metin}</p>
           <div className="flex items-center justify-between mt-1"><span className="text-[10px] text-slate-400">{p.ogretmen} · {p.sinif} · {new Date(p.ts).toLocaleDateString('tr-TR')}</span>{duzenlenebilir && <button onClick={()=>sil(p.id)} className="text-slate-300 hover:text-rose-500 text-xs"><i className="fa-solid fa-xmark"></i></button>}</div>
         </div>
@@ -5255,6 +5596,7 @@ const SinifPanosu = ({ db, duzenlenebilir, sinif, user }) => {
             {eskiMetin ? <button onClick={()=>{ setMetin(eskiMetin); setEskiMetin(''); }} className="bg-slate-200 text-slate-600 font-bold py-2 rounded-lg text-[12px]">↩️ Eski haline dön</button>
                        : <a href={'https://wa.me/?text='+encodeURIComponent((snf!=='TÜM OKUL'?('📚 '+snf+'\n'):'')+metin)} target="_blank" rel="noopener noreferrer" className="text-center bg-green-600 text-white font-black py-2 rounded-lg text-[12px]"><i className="fa-brands fa-whatsapp mr-1"></i>WhatsApp'a da at</a>}
           </div>
+          <div className="flex items-center gap-1.5 flex-wrap mb-2"><span className="text-[11px] font-black text-yellow-800">⏳ Ne zaman kalksın?</span>{SURE_SECENEK.map(x=>(<button key={x[0]} onClick={()=>setSure(x[0])} className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${sure===x[0]?'bg-yellow-500 text-white border-yellow-500':'bg-white text-slate-600 border-slate-200'}`}>{x[1]}</button>))}</div>
           <button onClick={paylas} className="w-full bg-yellow-500 text-white font-black py-2.5 rounded-lg text-sm">📌 Panoya Ekle</button>
           <p className="text-[10px] text-yellow-800 mt-1.5">Seçili sınıfın öğrenci ve velileri bu notu kendi ekranlarındaki "Sınıf Panosu"nda hemen görür.</p>
         </div>
@@ -5270,6 +5612,11 @@ const BugununOzeti = ({ db, ogrenci, paylas }) => {
   const yokDoc=useOkulDoc(db,"k12_yoklama"); const yoklama=(yokDoc&&yokDoc.liste)||[];
   const odevDoc=useOkulDoc(db,"k12_odevler"); const odevler=(odevDoc&&odevDoc.liste)||[];
   const mesDoc=useOkulDoc(db,"k12_mesajlar"); const mesajlar=(mesDoc&&mesDoc.liste)||[];
+  const tesDoc=useOkulDoc(db,"k12_teslim"); const teslimler=(tesDoc&&tesDoc.liste)||[];
+  const panoDoc=useOkulDoc(db,"k12_pano"); const pano=(panoDoc&&panoDoc.liste)||[];
+  const dersDoc=useOkulDoc(db,"k12_ders"); const dersP=(dersDoc&&dersDoc.liste)||[];
+  const _tk=useOkulDoc(db,"k12_tekrar");
+  const [donem,setDonem]=useState('gun');
   if(!ogrenci) return null;
   const bugunStr=new Date().toISOString().slice(0,10);
   const yok=yoklama.find(r=>r.tarih===bugunStr && r.ogrenciId===ogrenci.id);
@@ -5277,17 +5624,52 @@ const BugununOzeti = ({ db, ogrenci, paylas }) => {
   const okunmamis=mesajlar.filter(m=>m.ogrenciId===ogrenci.id && m.gonderen==='ogretmen' && !m.okVeli).length;
   const dt=ogrenci.dogumTarihi||''; const dg = dt && dt.length>=10 && dt.slice(5)===bugunStr.slice(5);
   const yokAd={geldi:'Geldi ✅',gelmedi:'Gelmedi ❌',gec:'Geç ⏰'};
+  // Hafta
+  const hb=zHaftaBasi(), hbStr=zTarihStr(hb);
+  const benimMi=(o)=> (o.tur!=='birey'&&o.sinif===ogrenci.sinif)||(o.tur==='birey'&&o.ogrenciId===ogrenci.id);
+  const haftaOdev=odevler.filter(o=>benimMi(o) && (o.tarih||0)>=hb && !o.bilgi && zAktifMi(o));
+  const yapilan=new Set(teslimler.filter(t=>t.ogrenciId===ogrenci.id).map(t=>t.odevId));
+  const haftaYapilan=haftaOdev.filter(o=>yapilan.has(o.id)).length;
+  const haftaYok=yoklama.filter(r=>r.ogrenciId===ogrenci.id && r.tarih>=hbStr);
+  const geldiGun=haftaYok.filter(r=>r.durum==='geldi'||r.durum==='gec').length;
+  const tekrarlar=zTekrarAktif((_tk&&_tk.liste)||[], ogrenci.sinif);
+  const hatirlat=tekrarlar.map(r=>({id:'t'+r.id, detay:'🎒 '+r.etiket+': '+r.metin})).concat(odevler.filter(o=>benimMi(o) && o.bilgi && zAktifMi(o) && !yapilan.has(o.id)));
+  const bas=donem==='gun'?zGunBasi():hb;
+  const duyurular=pano.filter(p=>(p.sinif===ogrenci.sinif||p.sinif==='TÜM OKUL') && zAktifMi(p) && (p.ts||0)>=bas);
+  const bugunDers=dersP.filter(r=>r.sinif===ogrenci.sinif && r.gun===zBugunGun()).sort((a,b)=>zSiraAnahtar(a)-zSiraAnahtar(b));
+  const ad=String(ogrenci.ad||'').split(' ')[0];
+  const paylasMetni=()=> donem==='gun'
+    ? ('📋 '+ad+' — Bugünün Özeti ('+new Date().toLocaleDateString('tr-TR')+')\n\n✅ Yoklama: '+(yok?(yokAd[yok.durum]||'-'):'Girilmedi')+'\n📚 Bugünkü Ödev: '+bugunOdev+(bugunDers.length?('\n🗓️ Dersler: '+bugunDers.map(r=>r.ders).join(', ')):'')+(hatirlat.length?('\n📢 Hatırlatma: '+hatirlat.map(o=>String(o.detay||'').slice(0,90)).join(' | ')):'')+'\n✉️ Yeni Mesaj: '+okunmamis+'\n\nDeğişim Koleji')
+    : ('📰 '+ad+' — Haftanın Özeti\n\n🏫 Okula geldiği gün: '+geldiGun+'/'+haftaYok.length+'\n📝 Bu haftaki ödev: '+haftaOdev.length+' (tamamlanan '+haftaYapilan+')\n📌 Yeni duyuru: '+duyurular.length+'\n⭐ Toplam yıldız: '+(ogrenci.puan||0)+'\n\nDeğişim Koleji');
   return (
     <>
-      {dg && <div className="bg-gradient-to-r from-pink-500 via-fuchsia-500 to-purple-600 rounded-[2rem] p-6 text-white text-center shadow-lg mt-6"><div className="text-5xl mb-1">🎂🎉</div><p className="text-2xl font-black">İyi ki doğdun {String(ogrenci.ad||'').split(' ')[0]}!</p><p className="text-white/90 text-sm">Bugün senin doğum günün — nice mutlu, sağlıklı yıllara! 🥳</p></div>}
+      {dg && <div className="bg-gradient-to-r from-pink-500 via-fuchsia-500 to-purple-600 rounded-[2rem] p-6 text-white text-center shadow-lg mt-6"><div className="text-5xl mb-1">🎂🎉</div><p className="text-2xl font-black">İyi ki doğdun {ad}!</p><p className="text-white/90 text-sm">Bugün senin doğum günün — nice mutlu, sağlıklı yıllara! 🥳</p></div>}
       <div className="bg-gradient-to-br from-indigo-500 to-blue-600 rounded-[2rem] p-5 text-white shadow-lg mt-6">
-        <h3 className="font-black text-lg mb-3"><i className="fa-solid fa-calendar-day mr-2"></i>Bugünün Özeti</h3>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="bg-white/15 rounded-xl p-3"><div className="text-base font-black">{yok?(yokAd[yok.durum]||'-'):'—'}</div><div className="text-[10px] text-white/80 mt-1">Yoklama</div></div>
-          <div className="bg-white/15 rounded-xl p-3"><div className="text-2xl font-black">{bugunOdev}</div><div className="text-[10px] text-white/80 mt-1">Bugünkü Ödev</div></div>
-          <div className="bg-white/15 rounded-xl p-3"><div className="text-2xl font-black">{okunmamis}</div><div className="text-[10px] text-white/80 mt-1">Yeni Mesaj</div></div>
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h3 className="font-black text-lg"><i className="fa-solid fa-calendar-day mr-2"></i>{donem==='gun'?'Bugünün Özeti':'Haftanın Özeti'}</h3>
+          <div className="flex bg-white/15 rounded-xl p-1 text-[11px] font-black">
+            <button onClick={()=>setDonem('gun')} className={`px-3 py-1 rounded-lg ${donem==='gun'?'bg-white text-indigo-700':'text-white'}`}>Bugün</button>
+            <button onClick={()=>setDonem('hafta')} className={`px-3 py-1 rounded-lg ${donem==='hafta'?'bg-white text-indigo-700':'text-white'}`}>Bu Hafta</button>
+          </div>
         </div>
-        {paylas && <button onClick={()=>{ const ad=String(ogrenci.ad||'').split(' ')[0]; const t='📋 '+ad+' — Bugünün Özeti ('+new Date().toLocaleDateString('tr-TR')+')\n\n✅ Yoklama: '+(yok?(yokAd[yok.durum]||'-'):'Girilmedi')+'\n📚 Bugünkü Ödev: '+bugunOdev+'\n✉️ Yeni Mesaj: '+okunmamis+'\n\nDeğişim Koleji'; window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank'); }} className="mt-3 w-full bg-white/20 hover:bg-white/30 text-white font-black py-2 rounded-lg text-sm"><i className="fa-brands fa-whatsapp mr-1"></i>Çocuğumun Bugününü WhatsApp'ta Paylaş</button>}
+        {donem==='gun' ? (
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="bg-white/15 rounded-xl p-3"><div className="text-base font-black">{yok?(yokAd[yok.durum]||'-'):'—'}</div><div className="text-[10px] text-white/80 mt-1">Yoklama</div></div>
+            <div className="bg-white/15 rounded-xl p-3"><div className="text-2xl font-black">{bugunOdev}</div><div className="text-[10px] text-white/80 mt-1">Bugünkü Ödev</div></div>
+            <div className="bg-white/15 rounded-xl p-3"><div className="text-2xl font-black">{okunmamis}</div><div className="text-[10px] text-white/80 mt-1">Yeni Mesaj</div></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-4 gap-2 text-center">
+            <div className="bg-white/15 rounded-xl p-2"><div className="text-xl font-black">{geldiGun}/{haftaYok.length||'—'}</div><div className="text-[10px] text-white/80 mt-1">Okula geldi</div></div>
+            <div className="bg-white/15 rounded-xl p-2"><div className="text-xl font-black">{haftaYapilan}/{haftaOdev.length}</div><div className="text-[10px] text-white/80 mt-1">Ödev</div></div>
+            <div className="bg-white/15 rounded-xl p-2"><div className="text-xl font-black">{duyurular.length}</div><div className="text-[10px] text-white/80 mt-1">Duyuru</div></div>
+            <div className="bg-white/15 rounded-xl p-2"><div className="text-xl font-black">{ogrenci.puan||0}</div><div className="text-[10px] text-white/80 mt-1">⭐ Yıldız</div></div>
+          </div>
+        )}
+        {donem==='gun' && bugunDers.length>0 && <div className="mt-3 bg-white/10 rounded-xl p-2"><p className="text-[11px] font-black text-white/90 mb-1">🗓️ Bugünkü dersler</p><div className="flex flex-wrap gap-1">{bugunDers.map(r=><span key={r.id} className="bg-white/20 rounded-lg px-2 py-0.5 text-[11px] font-bold">{r.saat?(r.saat+' '):''}{r.ders}</span>)}</div></div>}
+        {hatirlat.length>0 && <div className="mt-2 bg-yellow-300 text-slate-900 rounded-xl p-2"><p className="text-[11px] font-black mb-0.5">📢 Unutma!</p>{hatirlat.slice(0,3).map(o=><p key={o.id} className="text-[12px] font-bold leading-snug">• {o.detay}</p>)}</div>}
+        {duyurular.length>0 && <div className="mt-2 bg-white/10 rounded-xl p-2"><p className="text-[11px] font-black text-white/90 mb-0.5">📌 {donem==='gun'?'Bugünkü':'Bu haftaki'} duyurular</p>{duyurular.slice(0,3).map(p=><p key={p.id} className="text-[12px] leading-snug">• {String(p.metin||'').split('\n')[0].slice(0,120)}</p>)}</div>}
+        {paylas && <button onClick={()=>{ window.open('https://wa.me/?text='+encodeURIComponent(paylasMetni()),'_blank'); }} className="mt-3 w-full bg-white/20 hover:bg-white/30 text-white font-black py-2 rounded-lg text-sm"><i className="fa-brands fa-whatsapp mr-1"></i>{donem==='gun'?'Bugünün':'Haftanın'} özetini WhatsApp ile paylaş</button>}
       </div>
     </>
   );
@@ -5830,7 +6212,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 14;
+const LOCAL_SURUM = 16;
 const SurumBanner = ({ db }) => {
   const [yeni,setYeni]=useState(false);
   useEffect(()=>{ if(!db) return; const kontrol=async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn&&sn.exists()){ const sv=Number((sn.data()||{}).surum||0); if(sv>LOCAL_SURUM) setYeni(true); } }catch(e){} }; kontrol(); const iv=setInterval(kontrol,120000); const vis=()=>{ if(document.visibilityState==='visible') kontrol(); }; document.addEventListener('visibilitychange',vis); return ()=>{ clearInterval(iv); document.removeEventListener('visibilitychange',vis); }; },[db]);
@@ -5965,6 +6347,141 @@ const OgrenciSecici = ({ liste, value, onChange, className, bosEtiket, telGoster
         {secili && bulunan.indexOf(secili)<0 && <option value={secili.id}>{etiket(secili)}</option>}
         {bulunan.map(o=><option key={o.id} value={o.id}>{etiket(o)}</option>)}
       </select>
+    </div>
+  );
+};
+
+
+/* ============================================================================
+   HATIRLATMALAR — ödev DEĞİL: "tablet getir", "satranç takımı getir"
+   k12_tekrar {liste:[{id,siniflar:[],gun,metin,ogretmen,aktif,ts}]}  → her hafta kendiliğinden
+   (tek kayıt, hiç birikmez)
+   ============================================================================ */
+const JS_GUN = {'Pazartesi':1,'Salı':2,'Çarşamba':3,'Perşembe':4,'Cuma':5};
+function zTekrarDurum(r){ // ders gününe kaç gün var → gösterilecek mi?
+  const bugun=new Date().getDay(); const hedef=JS_GUN[r.gun]; if(!hedef) return null;
+  const kalan=(hedef-bugun+7)%7;
+  if(kalan===0) return {etiket:'BUGÜN', kalan:0};
+  if(kalan===1) return {etiket:'YARIN', kalan:1};
+  if(hedef===1 && (bugun===5||bugun===6||bugun===0)) return {etiket:'PAZARTESİ', kalan:kalan};
+  return null;
+}
+function zTekrarAktif(liste, sinif){ return (liste||[]).filter(r=>r && r.aktif!==false && (r.siniflar||[]).some(s=>s===sinif||s==='TÜM OKUL')).map(r=>{ const d=zTekrarDurum(r); return d?{...r,...d}:null; }).filter(Boolean).sort((a,b)=>a.kalan-b.kalan); }
+function zHatirlatmaGibi(t){ return /getir|tablet|şarj|sarj|malzeme|unutmay|yanın|yanin|takım|takim|forma|eşofman|esofman|kıyafet|kiyafet/i.test(String(t||'')); }
+
+const HatirlatmaKarti = ({ db, sinif, bilgiler, yapilanIds, onOkudum, veli }) => {
+  const tDoc=useOkulDoc(db,"k12_tekrar"); const tekrar=zTekrarAktif((tDoc&&tDoc.liste)||[], sinif);
+  const liste=(bilgiler||[]);
+  if(!tekrar.length && !liste.length) return null;
+  return (
+    <div className="bg-gradient-to-br from-sky-50 to-cyan-50 border-4 border-sky-200 rounded-[2rem] p-5 shadow-lg mt-6">
+      <h3 className="text-lg font-black text-sky-800 mb-1 flex items-center"><span className="mr-2">📢</span>Hatırlatmalar & Getirilecekler</h3>
+      <p className="text-[11px] text-sky-700 mb-3 font-bold">Bunlar ödev değil — sadece unutulmasın diye 🙂</p>
+      <div className="space-y-2">
+        {tekrar.map(r=>(
+          <div key={'t'+r.id} className={`rounded-2xl p-3 flex items-start gap-3 ${r.kalan===0?'bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow':'bg-white border-2 border-amber-200'}`}>
+            <span className="text-2xl leading-none">🎒</span>
+            <div className="flex-1 min-w-0">
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${r.kalan===0?'bg-white text-orange-600':'bg-amber-400 text-white'}`}>{r.etiket} · {r.gun}</span>
+              <p className={`text-sm font-bold mt-1 leading-snug ${r.kalan===0?'text-white':'text-slate-700'}`}>{r.metin}</p>
+              <p className={`text-[10px] mt-0.5 ${r.kalan===0?'text-white/80':'text-slate-400'}`}>🔁 Her hafta · {r.ogretmen}</p>
+            </div>
+          </div>
+        ))}
+        {liste.map(o=>{ const ok=yapilanIds && yapilanIds.has(o.id); return (
+          <div key={o.id} className={`rounded-2xl p-3 border-2 ${ok?'bg-emerald-50 border-emerald-200':'bg-white border-sky-200'}`}>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="text-[10px] bg-sky-500 text-white font-black px-2 py-0.5 rounded-full">📢 BİLGİ</span>
+              {o.ders && <span className="text-[11px] font-black text-slate-500">{o.ders}</span>}
+              {o.ekleyen && <span className="text-[10px] text-slate-400 font-bold">· {o.ekleyen}</span>}
+              <span className="text-[10px] text-slate-400 ml-auto">{new Date(o.tarih||Date.now()).toLocaleDateString('tr-TR')}</span>
+            </div>
+            <p className="text-sm text-slate-700 font-medium whitespace-pre-wrap leading-snug">{o.detay}</p>
+            {o.link && <a href={o.link} target="_blank" rel="noopener noreferrer" className="inline-block mt-1 text-[12px] text-sky-600 font-bold"><i className="fa-solid fa-paperclip mr-1"></i>Ek</a>}
+            {veli
+              ? <p className={`mt-1.5 text-[11px] font-black ${ok?'text-emerald-600':'text-sky-600'}`}>{ok?'👍 Çocuğunuz okudu':'ℹ️ Bilgilendirme'}</p>
+              : (ok ? <p className="mt-1.5 text-[12px] font-black text-emerald-600">👍 Okundu</p>
+                    : (onOkudum && <button onClick={()=>onOkudum(o)} className="mt-2 w-full bg-sky-500 hover:bg-sky-600 text-white font-black py-2 rounded-xl text-sm">👍 Okudum</button>))}
+          </div>
+        );})}
+      </div>
+    </div>
+  );
+};
+
+const TekrarHatirlatma = ({ db, user }) => {
+  const doc=useOkulDoc(db,"k12_tekrar"); const liste=(doc&&doc.liste)||[];
+  const oD=useOkulDoc(db,"k12_ogrenciler"); const siniflar=zSiniflar((oD&&oD.liste)||[]);
+  const yonetici=(window.ZIRVE_admin===true);
+  const benim=liste.filter(r=> yonetici || zAyniKisi(r.ogretmen, user&&user.name));
+  const [secili,setSecili]=useState({}); const [gun,setGun]=useState('Çarşamba'); const [metin,setMetin]=useState('');
+  const SABLON=[['♟️ Satranç','Yarınki satranç dersimiz için satranç takımınızı getirmeyi unutmayın ♟️'],['🧠 Akıl-Zekâ','Yarınki akıl-zekâ oyunları dersimiz için malzemelerinizi getirmeyi unutmayın 🧠'],['📱 Tablet','Yarınki dersimiz için tabletinizi şarjlı olarak getirmeyi unutmayın 📱'],['🤖 Robotik','Yarınki robotik-kodlama dersimiz için setinizi/tabletinizi getirmeyi unutmayın 🤖'],['🎨 Resim','Yarınki resim dersimiz için resim malzemelerinizi getirmeyi unutmayın 🎨'],['⚽ Beden','Yarınki beden eğitimi dersimiz için eşofmanınızı giymeyi unutmayın ⚽']];
+  const ekle=async()=>{
+    const s=Object.keys(secili).filter(k=>secili[k]); if(!s.length) return alert('En az bir sınıf seçin.'); if(!metin.trim()) return alert('Hatırlatma metnini yazın.');
+    const ok=await okulYaz(db,"k12_tekrar",{liste:[{id:yeniId(),siniflar:s,gun,metin:metin.trim(),ogretmen:(user&&user.name)||'Öğretmen',aktif:true,ts:Date.now()}].concat(liste)});
+    if(ok){ setMetin(''); setSecili({}); toast('🔁 Kuruldu! Her hafta '+gun+' dersinden bir gün önce kendiliğinden görünecek.','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
+  };
+  const guncelle=async(id,degis)=>{ await okulYaz(db,"k12_tekrar",{liste:liste.map(r=>r.id===id?{...r,...degis}:r)}); };
+  const sil=async(id)=>{ if(!window.confirm('Bu haftalık hatırlatma silinsin mi?')) return; await okulYaz(db,"k12_tekrar",{liste:liste.filter(r=>r.id!==id)}); };
+  return (
+    <div>
+      <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-3 mb-3">
+        <p className="font-black text-amber-800 text-sm mb-1">🔁 Her Hafta Tekrarlayan Hatırlatma</p>
+        <p className="text-[12px] text-slate-600 mb-2">Bir kez kurun, <b>her hafta ders gününden bir gün önce</b> öğrenci ve velinin ekranında "🎒 YARIN" olarak, ders günü de "BUGÜN" olarak kendiliğinden çıksın. Her hafta yeniden yazmanıza gerek yok, liste de hiç birikmez.</p>
+        <p className="text-[11px] font-black text-amber-700 mb-1">1) Hangi sınıflar?</p>
+        <div className="flex flex-wrap gap-1.5 mb-2">{['TÜM OKUL'].concat(siniflar).map(s=>(<button key={s} onClick={()=>setSecili(p=>({...p,[s]:!p[s]}))} className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${secili[s]?'bg-amber-500 text-white border-amber-500':'bg-white text-slate-600 border-slate-200'}`}>{secili[s]?'✓ ':''}{s==='TÜM OKUL'?'📢 Tüm Okul':s}</button>))}</div>
+        <p className="text-[11px] font-black text-amber-700 mb-1">2) Ders hangi gün?</p>
+        <div className="flex flex-wrap gap-1.5 mb-2">{HAFTA_GUN.map(g=>(<button key={g} onClick={()=>setGun(g)} className={`px-3 py-1.5 rounded-lg text-[12px] font-black ${gun===g?'bg-orange-500 text-white':'bg-white border border-slate-200 text-slate-600'}`}>{g}</button>))}</div>
+        <p className="text-[11px] font-black text-amber-700 mb-1">3) Ne getirsinler?</p>
+        <div className="flex flex-wrap gap-1.5 mb-2">{SABLON.map(x=>(<button key={x[0]} onClick={()=>setMetin(x[1])} className="px-2.5 py-1 rounded-full bg-white border border-amber-300 text-[11px] font-bold text-amber-800">{x[0]}</button>))}</div>
+        <textarea value={metin} onChange={e=>setMetin(e.target.value)} rows="2" placeholder="Örn: Yarınki satranç dersimiz için satranç takımınızı getirin ♟️" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none resize-y mb-2"></textarea>
+        <button onClick={ekle} className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black py-2.5 rounded-xl text-sm">🔁 Haftalık Hatırlatmayı Kur</button>
+      </div>
+      <p className="text-[12px] font-black text-slate-700 mb-2">{yonetici?'Tüm haftalık hatırlatmalar':'Kurduğum haftalık hatırlatmalar'} ({benim.length})</p>
+      {benim.length===0 ? <p className="text-slate-400 text-sm text-center py-3">Henüz yok.</p> : <div className="space-y-2">
+        {benim.map(r=>{ const d=zTekrarDurum(r); return (
+          <div key={r.id} className={`rounded-xl p-3 border ${r.aktif===false?'bg-slate-50 border-slate-200 opacity-60':'bg-white border-amber-200'}`}>
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="text-[10px] font-black bg-orange-500 text-white px-2 py-0.5 rounded-full">{r.gun}</span>
+              <span className="text-[11px] font-bold text-slate-500">{(r.siniflar||[]).join(', ')}</span>
+              {d && r.aktif!==false && <span className="text-[10px] font-black bg-yellow-300 text-slate-800 px-2 py-0.5 rounded-full">şu an görünüyor: {d.etiket}</span>}
+              {yonetici && <span className="text-[10px] text-slate-400">· {r.ogretmen}</span>}
+            </div>
+            <p className="text-sm text-slate-700">{r.metin}</p>
+            <div className="flex gap-3 mt-1.5 text-[11px] font-black">
+              <button onClick={()=>guncelle(r.id,{aktif:r.aktif===false})} className={r.aktif===false?'text-emerald-600':'text-amber-600'}>{r.aktif===false?'▶️ Yeniden başlat':'⏸️ Durdur (tatil vb.)'}</button>
+              <button onClick={()=>sil(r.id)} className="text-rose-500">🗑️ Sil</button>
+            </div>
+          </div>
+        );})}
+      </div>}
+    </div>
+  );
+};
+
+/* Veli/öğrenci için sade "Sistem Durumu" — her şey yolunda mı? */
+const SistemDurumu = ({ db }) => {
+  const g=useOkulDoc(db,"k12_global");
+  const [net,setNet]=useState(typeof navigator==='undefined'?true:navigator.onLine!==false);
+  const [ai,setAi]=useState('kontrol');
+  const [saat,setSaat]=useState(new Date());
+  useEffect(()=>{ const on=()=>setNet(true), off=()=>setNet(false); window.addEventListener('online',on); window.addEventListener('offline',off); const t=setInterval(()=>setSaat(new Date()),30000); return ()=>{ window.removeEventListener('online',on); window.removeEventListener('offline',off); clearInterval(t); }; },[]);
+  useEffect(()=>{ const t=setTimeout(()=>{ try{ const k=(typeof cozKey==='function'?cozKey():''); setAi(k&&k.length>10?'hazir':'yogun'); }catch(e){ setAi('yogun'); } },1600); return ()=>clearTimeout(t); },[g]);
+  const bulut=!!db && g!==null && g!==undefined;
+  const hepsi=net && bulut && ai==='hazir';
+  const Isik=({ok,bekle,ad,alt})=>(<div className={`rounded-xl p-2 text-center ${ok?'bg-white/20':'bg-white/10'}`}><div className="text-lg leading-none">{bekle?'⏳':ok?'🟢':'🟡'}</div><div className="text-[11px] font-black mt-1">{ad}</div><div className="text-[9px] text-white/85 leading-tight">{alt}</div></div>);
+  return (
+    <div className={`rounded-2xl p-3 text-white shadow-lg mt-4 ${hepsi?'bg-gradient-to-r from-emerald-500 to-teal-600':'bg-gradient-to-r from-sky-500 to-indigo-600'}`}>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <p className="font-black text-sm">{hepsi?'✅ Sistem kusursuz çalışıyor':'🔄 Sistem çalışıyor'}</p>
+        <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">Son kontrol {saat.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</span>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <Isik ok={net} ad="İnternet" alt={net?'Bağlı':'Bağlantı yok'} />
+        <Isik ok={bulut} bekle={!bulut&&net} ad="Okul Sistemi" alt={bulut?'Canlı · güncel':'Bağlanıyor…'} />
+        <Isik ok={ai==='hazir'} bekle={ai==='kontrol'} ad="Yapay Zekâ" alt={ai==='hazir'?'Hazır':ai==='kontrol'?'Kontrol…':'Şu an yoğun'} />
+      </div>
+      <p className="text-[11px] text-white/90 mt-2">{hepsi?'Ödevler, duyurular ve mesajlar anında size ulaşıyor. Sizin bir şey yapmanıza gerek yok 🌸':(!net?'Telefonunuzun internetini (Wi-Fi / mobil veri) açın; sistem kendiliğinden bağlanır.':'Okul sistemi çalışıyor. Yapay zekâ yoğunsa biraz sonra kendiliğinden düzelir — ödev, mesaj ve duyurular etkilenmez.')}</p>
     </div>
   );
 };
@@ -6168,11 +6685,11 @@ const OzetAktar = ({ db, user }) => {
 
 const VeliHizliMenu = () => {
   const git=(id)=>{ try{ const el=document.getElementById(id); if(!el) return; const y=el.getBoundingClientRect().top+window.scrollY-90; window.scrollTo({top:y,behavior:'smooth'}); }catch(e){} };
-  const ogeler=[['vb-ozet','🗓️','Bugün'],['vb-pano','📢','Duyurular'],['vb-odev','📝','Ödevler'],['vb-mesaj','💬','Mesaj'],['vb-yoklama','✅','Yoklama'],['vb-program','📚','Program'],['vb-gelisim','📈','Gelişim']];
+  const ogeler=[['vb-hatirlat','🎒','Getir'],['vb-ozet','🗓️','Bugün'],['vb-pano','📢','Duyurular'],['vb-odev','📝','Ödevler'],['vb-mesaj','💬','Mesaj'],['vb-yoklama','✅','Yoklama'],['vb-program','📚','Program'],['vb-gelisim','📈','Gelişim']];
   return (
     <div className="bg-white border-2 border-emerald-100 rounded-2xl p-2 shadow-sm">
       <p className="text-[11px] font-black text-emerald-700 px-1 mb-1.5">📌 Hızlı Menü — dokunun, ilgili bölüme gidin</p>
-      <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+      <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
         {ogeler.map(o=>(<button key={o[0]} onClick={()=>git(o[0])} className="bg-emerald-50 hover:bg-emerald-100 rounded-xl py-2 text-center transition"><div className="text-lg leading-none">{o[1]}</div><div className="text-[10px] font-black text-emerald-800 mt-1">{o[2]}</div></button>))}
       </div>
     </div>
