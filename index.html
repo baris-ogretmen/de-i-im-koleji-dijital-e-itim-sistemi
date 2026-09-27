@@ -399,6 +399,7 @@ function toast(html, renk){
   else { t.style.background='#fffbeb'; t.style.borderColor='#fcd34d'; t.style.color='#92400e'; }
   clearTimeout(toast._t); toast._t=setTimeout(()=>{ t.style.display='none'; }, renk==='red'?14000:9000);
 }
+try{ window.toast = toast; }catch(e){} /* v32: React kodu da aynı bildirimi kullansın */
 
 // ---------- Anahtar doğrulama + otomatik model bulma ----------
 async function listModels(key){
@@ -1174,6 +1175,9 @@ try{
 
 <script type="text/babel">
 const { useState, useEffect, useRef, useMemo } = React;
+/* v32 · GÜVENLİK: bildirim fonksiyonu her cihazda tanımlı olsun (eskiden bazı cihazlarda "Can't find variable: toast" hatası veriyordu) */
+var toast = (typeof window!=='undefined' && typeof window.toast==='function') ? window.toast : function(html, renk){ try{ var el=document.getElementById('zirve-toast'); if(!el){ el=document.createElement('div'); el.id='zirve-toast'; el.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:86px;z-index:2147483000;max-width:92vw;padding:12px 16px;border-radius:14px;font:600 13px/1.45 system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.2);border:1px solid #fcd34d;background:#fffbeb;color:#92400e'; document.body.appendChild(el); } el.innerHTML=html; el.style.display='block'; if(renk==='green'){ el.style.background='#dcfce7'; el.style.color='#166534'; el.style.borderColor='#86efac'; } else if(renk==='red'){ el.style.background='#fee2e2'; el.style.color='#991b1b'; el.style.borderColor='#fca5a5'; } clearTimeout(el._t); el._t=setTimeout(function(){ el.style.display='none'; }, 8000); }catch(e){} };
+try{ if(typeof window.toast!=='function') window.toast=toast; }catch(e){}
 
 const CATEGORIES = [
 { id: 'anaokulu_kucuk', name: 'Anaokulu (3-4 Yaş)', icon: 'fa-shapes', color: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100', activeColor: 'bg-blue-600 text-white border-blue-600', reportTitle: 'Değişim Anaokulu Gelişim Raporu' },
@@ -6628,7 +6632,9 @@ const AiDurum = ({ db, user, rol }) => {
       await setDoc(ref,{liste},{merge:true});
     }catch(e){}
   };
-  useEffect(()=>{ const t=setTimeout(()=>{ try{ const k=(typeof cozKey==='function'?cozKey():''); const havuz=((typeof window!=='undefined'&&window.ZIRVE_PAYLASILAN_KEYS)||[]).length; let d; if(k&&k.length>10){ d='hazir'; setMesaj(havuz>0?('Ortak havuzdan '+havuz+' anahtar ulaştı — yapay zeka üretime hazır ✨'):'Anahtar hazır; dilediğin özeti, etkinliği üretebilirsin.'); } else { d='yok'; setMesaj('Yapay zeka anahtarı bu cihaza henüz ulaşmadı. Yöneticiden ortak anahtar eklenmesini isteyin.'); } setDurum(d); heartbeatYaz(d); try{ katilimYaz(db, user, rol); window.__zAcilisTekrar=function(){ try{ katilimYaz(db, user, rol); }catch(e){} }; }catch(e){} if(d==='hazir' && (rol==='student'||rol==='parent')){ try{ if(!sessionStorage.getItem('_zhosgeldin')){ sessionStorage.setItem('_zhosgeldin','1'); if(typeof toast==='function') toast('✅ Tüm sistemler sizde hazır — hoş geldiniz! 🎉','green'); } }catch(e){} } }catch(e){} }, 1500); return ()=>clearTimeout(t); },[]);
+  useEffect(()=>{ let ilk=true, bitti=false; const zam=[]; const kontrol=()=>{ if(bitti) return; try{ const k=(typeof cozKey==='function'?cozKey():''); const havuz=((typeof window!=='undefined'&&window.ZIRVE_PAYLASILAN_KEYS)||[]).length; let d; if(k&&k.length>10){ d='hazir'; setMesaj(havuz>0?('Ortak havuzdan '+havuz+' anahtar ulaştı — yapay zeka üretime hazır ✨'):'Anahtar hazır; dilediğin özeti, etkinliği üretebilirsin.'); } else { d='yok'; setMesaj('Yapay zeka anahtarı bu cihaza henüz ulaşmadı — birkaç saniye içinde tekrar denenecek. Sürerse sayfayı yenileyin.'); } setDurum(d); heartbeatYaz(d); if(ilk){ ilk=false; try{ katilimYaz(db, user, rol); window.__zAcilisTekrar=function(){ try{ katilimYaz(db, user, rol); }catch(e){} }; }catch(e){} } if(d==='hazir'){ bitti=true; zam.forEach(clearTimeout); if(rol==='student'||rol==='parent'){ try{ if(!sessionStorage.getItem('_zhosgeldin')){ sessionStorage.setItem('_zhosgeldin','1'); if(typeof toast==='function') toast('✅ Tüm sistemler sizde hazır — hoş geldiniz! 🎉','green'); } }catch(e){} } } }catch(e){} };
+    /* v32: ortak anahtar havuzu geç yüklenirse "anahtar yok" takılı kalmasın — 1.5 sn, 5 sn, 12 sn, 30 sn, 60 sn'de yeniden dener */
+    [1500,5000,12000,30000,60000].forEach(ms=>zam.push(setTimeout(kontrol,ms))); return ()=>{ bitti=true; zam.forEach(clearTimeout); }; },[]);
   const test = async () => { setDurum('test'); setMesaj('Yapay zeka deneniyor, bir nefeslik sabır… ⏳'); try{ const k=(typeof cozKey==='function'?cozKey():''); if(!k||k.length<10){ setDurum('yok'); setMesaj('Anahtar yok — yöneticiden ortak anahtar isteyin.'); heartbeatYaz('yok'); return; } const c=await geminiMetin(k,(typeof cozModel==='function'?cozModel():''),'Sadece şu kelimeyi yaz: TAMAM'); if(c&&String(c).trim()){ setDurum('ok'); setMesaj('Yapay zeka çalışıyor, her şey yolunda! 🎉'); heartbeatYaz('ok'); } else { setDurum('kota'); setMesaj('Anahtarlar şu an cevap vermiyor (kota dolmuş olabilir). Yöneticiden taze anahtar isteyin.'); heartbeatYaz('kota'); } }catch(e){ setDurum('hata'); setMesaj('Bağlantı sorunu: '+(e.message||e)); heartbeatYaz('kota'); } };
   const taniYap = async () => {
     setTaniAcik(true); const r=[]; const ekle=(ad,ok,m)=>{ r.push({ad,ok,mesaj:m}); setTani(r.slice()); };
@@ -6693,7 +6699,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 31;
+const LOCAL_SURUM = 32;
 const SurumBanner = ({ db }) => {
   const [yeni,setYeni]=useState(false); const [yeniNo,setYeniNo]=useState(0);
   useEffect(()=>{ if(!db) return; const kontrol=async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn&&sn.exists()){ const sv=Number((sn.data()||{}).surum||0); if(sv>LOCAL_SURUM){ setYeni(true); setYeniNo(sv); } } }catch(e){}
@@ -10814,7 +10820,7 @@ title="Veli ödevi yaptıysa buraya tıklayın."
 <div className="bg-pink-600 p-4 text-white flex items-center"><i className="fa-solid fa-book-magic text-3xl mr-3"></i><div><h3 className="font-bold text-lg">Terapötik Hikaye Üretici</h3><p className="text-pink-100 text-xs">Korku ve davranışlar için pedagojik masallar.</p></div></div>
 <div className="p-5 flex-1 flex flex-col gap-4 no-print">
 <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded border border-gray-200">💡 <i>Matbaa ayarlarında öğrenci adı girerseniz hikayenin başrolü o olur.</i></div>
-<div><textarea value={storyTheme} onChange={(e) => setStoryTheme(e.target.value)} rows="3" placeholder="Hangi konu/korku işlenecek? Örn: Dişçiye gitme korkusu, karanlık korkusu..." className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea></div>
+<div><textarea value={storyTheme} onChange={(e) => setTheme(e.target.value)} rows="3" placeholder="Hangi konu/korku işlenecek? Örn: Dişçiye gitme korkusu, karanlık korkusu..." className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm resize-y"></textarea></div>
 <button onClick={generateStory} disabled={isGeneratingStory || !storyTheme.trim()} className="w-full bg-pink-100 text-pink-700 hover:bg-pink-200 py-2.5 rounded-lg font-bold text-sm transition disabled:opacity-50 flex justify-center items-center">
 {isGeneratingStory ? <i className="fa-solid fa-spinner fa-spin mr-2"></i> : <i className="fa-solid fa-wand-magic-sparkles mr-2"></i>} Masal Üret ✨
 </button>
