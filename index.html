@@ -2566,7 +2566,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
       <div className="p-4 md:p-5">
         <CanliSaat />
         <ProfilKarti db={db} user={user} rol="teacher" />
-        {!yukleniyor && <HizliOgrenciBul db={db} ogrenciler={ogrenciler} teslimler={teslimler} />}
+        {!yukleniyor && <HizliOgrenciBul db={db} ogrenciler={ogrenciler} teslimler={teslimler} user={user} />}
         <BugunDerslerim db={db} user={user} />
         <AiDurum db={db} user={user} rol="teacher" />
         {yukleniyor && <div className="text-center text-slate-400 py-8"><i className="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p className="text-sm font-bold">Veritabanı yükleniyor…</p></div>}
@@ -3265,7 +3265,7 @@ const OgrenciMerkezi = ({ db, user }) => {
     const okT = await okulYaz(db, "k12_teslim", { liste:[kayit, ...teslimler] });
     if(okT && foto){ try{ await okulYaz(db, "k12_tres_"+kayit.id, { data: foto }); }catch(e){} setTeslimResim(p=>{ const y={...p}; delete y[odev.id]; return y; }); }
     if(okT){
-      const liste = ogrenciler.map(o=> o.id===ben.id ? { ...o, puan:(o.puan||0)+10 } : o);
+      const liste = ogrenciler.map(o=> o.id===ben.id ? zYildizEkle(o,10,'📝 Ödev tamamlandı'+(odev.ders?(': '+odev.ders):''),'','odev') : o);
       await okulYaz(db, "k12_ogrenciler", { liste });
       toast('🎉 Görev tamamlandı! +10 Yıldız kazandın.','green');
       try{ window.ZKUTLA && window.ZKUTLA(); }catch(e){}
@@ -3341,6 +3341,7 @@ const OgrenciMerkezi = ({ db, user }) => {
       <KonuCalisma grade={sinifim} />
 
       <HatirlatmaKarti db={db} sinif={sinifim} bilgiler={benimBilgiler} yapilanIds={yapilanIds} onOkudum={ben?okudum:null} />
+      {ben && <YildizNedenleri ogrenci={ben} />}
       <DersOzetleri db={db} sinif={sinifim} />
       <KaynakKarti db={db} sinif={sinifim} />
       <MebKitaplar db={db} user={user} sinif={sinifim} />
@@ -3476,6 +3477,7 @@ const VeliMerkezi = ({ db, user }) => {
           <SistemDurumu db={db} />
           <div id="vb-hatirlat"><HatirlatmaKarti db={db} sinif={cocuk.sinif} bilgiler={cocukBilgiler} yapilanIds={cocukYapilanIds} veli={true} /></div>
           <div id="vb-dersozet"><DersOzetleri db={db} sinif={cocuk.sinif} /></div>
+          <YildizNedenleri ogrenci={cocuk} veli={true} />
           <KaynakKarti db={db} sinif={cocuk.sinif} />
           <div id="vb-kitap"><MebKitaplar db={db} user={user} sinif={cocuk.sinif} /></div>
           <div id="vb-pano"><SinifPanosu db={db} duzenlenebilir={false} sinif={cocuk.sinif} /></div>
@@ -4102,7 +4104,7 @@ const KitapTakip = ({ db, ogrenciler, ben }) => {
   const ekle = async () => {
     if(!ad.trim()) return alert('Kitap adını yaz.');
     const yeni = { ad:ad.trim(), sayfa:Number(sayfa)||0, tarih:Date.now() };
-    const liste = ogrenciler.map(o=> o.id===ben.id ? { ...o, kitaplar:[...(o.kitaplar||[]), yeni], puan:(o.puan||0)+5 } : o);
+    const liste = ogrenciler.map(o=> o.id===ben.id ? zYildizEkle({ ...o, kitaplar:[...(o.kitaplar||[]), yeni] },5,'📚 Kitap okudu: '+yeni.ad,'','kitap') : o);
     const ok = await okulYaz(db, "k12_ogrenciler", { liste });
     if(ok){ setAd(''); setSayfa(''); toast('📚 Kitap eklendi! +5 Yıldız','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
   };
@@ -4312,7 +4314,11 @@ const RandevuVeli = ({ db, user }) => {
   useEffect(()=>{ if(!cocukId && kendiCocuklari.length) setCocukId(kendiCocuklari[0].id); }, [kendiCocuklari.length]);
   const cocuk = kendiCocuklari.find(o=>o.id===cocukId) || kendiCocuklari[0];
   const bugun = new Date().toISOString().slice(0,10);
-  const bos = liste.filter(r=>r.durum==='bos' && r.tarih>=bugun).sort((a,b)=>(a.tarih+a.saat).localeCompare(b.tarih+b.saat));
+  const tumBos = liste.filter(r=>r.durum==='bos' && r.tarih>=bugun).sort((a,b)=>(a.tarih+a.saat).localeCompare(b.tarih+b.saat));
+  const [rOgrt, setROgrt] = useState('');
+  const rOgretmenler = []; tumBos.forEach(r=>{ const a=r.ogretmenAd||'Öğretmen'; if(rOgretmenler.indexOf(a)<0) rOgretmenler.push(a); });
+  const seciliOgrt = rOgrt || (rOgretmenler.length===1 ? rOgretmenler[0] : '');
+  const bos = seciliOgrt ? tumBos.filter(r=>(r.ogretmenAd||'Öğretmen')===seciliOgrt) : [];
   const benim = liste.filter(r=> r.durum!=='bos' && ((cocuk && r.ogrenciId===cocuk.id) || okulNorm(r.veliAd)===okulNorm(user && user.name)));
 
   const al = async (r) => {
@@ -4349,9 +4355,14 @@ const RandevuVeli = ({ db, user }) => {
         </div>
       )}
 
-      <h4 className="font-black text-slate-700 text-sm mb-2">Uygun Saatler ({bos.length})</h4>
+      {rOgretmenler.length>0 && <div className="mb-3">
+        <p className="text-[12px] font-black text-slate-600 mb-1.5">1️⃣ Görüşmek istediğiniz öğretmen</p>
+        <div className="flex flex-wrap gap-1.5">{rOgretmenler.map(a=>{ const n=tumBos.filter(r=>(r.ogretmenAd||'Öğretmen')===a).length; return (<button key={a} onClick={()=>setROgrt(a)} className={`px-3 py-1.5 rounded-full text-[12px] font-black border ${seciliOgrt===a?'bg-purple-600 text-white border-purple-600':'bg-white text-slate-600 border-slate-200'}`}>👩‍🏫 {a} <span className="opacity-75">({n})</span></button>); })}</div>
+      </div>}
+      <h4 className="font-black text-slate-700 text-sm mb-2">{rOgretmenler.length>0?'2️⃣ ':''}Uygun Saatler {seciliOgrt?('· '+seciliOgrt+' ('+bos.length+')'):('('+tumBos.length+')')}</h4>
+      {rOgretmenler.length>0 && !seciliOgrt && <p className="text-center text-slate-400 py-3 text-sm">Önce yukarıdan öğretmeni seçin.</p>}
       {!cocuk ? <p className="text-center text-slate-400 py-4 text-sm">Randevu almak için önce çocuğunuzu seçin.</p> :
-        bos.length===0 ? <p className="text-center text-slate-400 py-4 text-sm">Şu an açık randevu saati yok.</p> : (
+        tumBos.length===0 ? <p className="text-center text-slate-400 py-4 text-sm">Şu an açık randevu saati yok.</p> : bos.length===0 ? null : (
         <div>
           <input value={not} onChange={e=>setNot(e.target.value)} placeholder="Görüşmek istediğiniz konu (opsiyonel)" className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none mb-2" />
           <div className="space-y-2 max-h-72 overflow-auto">
@@ -4677,11 +4688,11 @@ const MesajVeli = ({ db, cocuk, user }) => {
             {secili && secili!=='__genel__' ? <Avatar db={db} p={sp} ad={secili} boyut={34} /> : <span className="text-2xl">👩‍🏫</span>}
             <span className="flex-1 min-w-0"><span className="block text-[11px] font-bold text-sky-700">Yazıştığınız öğretmen</span><span className="block text-[14px] font-black text-slate-800 truncate">{secili==='__genel__'?'Önceki mesajlar':(secili||'Öğretmen seçin')}{sp&&sp.ek?<span className="font-bold text-slate-400"> · {sp.ek}</span>:null}</span></span>
             {toplamYeni>0 && <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">{toplamYeni} yeni</span>}
-            <span className="text-sky-600 font-black text-[12px] whitespace-nowrap">{listeAcik?'Kapat ▲':'Değiştir ▼'}</span>
+            <span className="text-sky-600 font-black text-[12px] whitespace-nowrap">{listeAcik?'Kapat ▲':(secili?'Değiştir ▼':'Seç ▼')}</span>
           </button>
           {sp && sp.bio && !listeAcik && <button onClick={()=>setBioAcik(!bioAcik)} className="text-[11px] font-black text-sky-700 mt-1 ml-1">{bioAcik?'▲ Tanıtımı gizle':'ℹ️ Öğretmeni tanıyın'}</button>}
           {sp && sp.bio && bioAcik && !listeAcik && <p className="text-[12px] text-slate-600 bg-slate-50 rounded-xl px-3 py-2 mt-1 whitespace-pre-wrap">{sp.bio}</p>}
-          {(listeAcik || !secili) && <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-64 overflow-auto p-1">
+          {listeAcik && <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-64 overflow-auto p-1">
             {liste.map(a=>{ const n=okunmayan(a); const pp=zProfilBul(kisiler,'teacher',a); return (<button key={a} onClick={()=>{ setOgrt(a); setListeAcik(false); setBioAcik(false); }} className={`flex items-center gap-2 rounded-xl px-2 py-1.5 border text-left ${zAyniKisi(secili,a)?'bg-sky-600 text-white border-sky-600':'bg-white text-slate-700 border-slate-200'}`}><Avatar db={db} p={pp} ad={a} boyut={28} /><span className="flex-1 min-w-0"><span className="block text-[12px] font-black truncate">{a}</span>{pp&&pp.ek && <span className="block text-[10px] opacity-75 truncate">{pp.ek}</span>}</span>{n>0 && <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{n}</span>}</button>); })}
             {sahipsizVar && <button onClick={()=>{ setOgrt('__genel__'); setListeAcik(false); }} className="flex items-center gap-2 rounded-xl px-2 py-1.5 border bg-white text-slate-500 border-slate-200 text-[12px] font-black">📁 Önceki mesajlar</button>}
             {liste.length===0 && <span className="text-[12px] text-slate-400 p-2">Öğretmen listesi yükleniyor…</span>}
@@ -4689,7 +4700,7 @@ const MesajVeli = ({ db, cocuk, user }) => {
         </div>); })()}
       {secili && <div className="flex items-center justify-between mb-2"><p className="text-sm text-slate-500">{secili==='__genel__'?'Öğretmen seçilmeden yazılmış önceki mesajlar':(<>{cocuk.ad} hakkında <b>{secili}</b> ile yazışma</>)}</p>{thread.length>0 && <button onClick={sohbetTemizle} className="text-[11px] text-rose-500 font-bold whitespace-nowrap ml-2"><i className="fa-solid fa-trash mr-1"></i>Geçmişi Sil</button>}</div>}
       <div className="bg-slate-50 rounded-xl p-3 mb-2 max-h-64 overflow-auto">
-        {!secili ? <p className="text-center text-slate-400 text-sm py-3">Yukarıdan bir öğretmen seçin.</p> : thread.length===0 ? <p className="text-center text-slate-400 text-sm py-3">Henüz mesaj yok. İlk mesajı siz yazın.</p> : thread.map(m=>(
+        {!secili ? <p className="text-center text-slate-400 text-sm py-3">Yukarıdaki <b>"Seç ▼"</b> düğmesine dokunup öğretmeni seçin.</p> : thread.length===0 ? <p className="text-center text-slate-400 text-sm py-3">Henüz mesaj yok. İlk mesajı siz yazın.</p> : thread.map(m=>(
           <div key={m.id} className={`mb-2 flex items-center gap-1 ${m.gonderen==='veli'?'justify-end':'justify-start'}`}>
             {m.gonderen==='veli' && duzenleId!==m.id && <button onClick={()=>{setDuzenleId(m.id);setDuzenleMetin(m.metin);}} className="text-slate-300 hover:text-amber-500 text-[11px]" title="Düzenle"><i className="fa-solid fa-pen"></i></button>}
             {m.gonderen==='veli' && <button onClick={()=>mesajSil(m.id)} title="Geri al / sil" className="text-slate-400 hover:text-rose-500 text-[10px] font-black whitespace-nowrap">↩️ Geri al</button>}
@@ -5593,8 +5604,9 @@ const HaftaninOgrencisi = ({ db, duzenlenebilir, ogrenciler, sinif }) => {
   const sec = async () => {
     const o = (ogrenciler||[]).find(x=>x.id===ogrId); if(!o) return alert('Öğrenci seçin.');
     const yeni = liste.filter(r=>r.sinif!==snf).concat([{sinif:snf, ogrenciId:o.id, ogrenciAd:o.ad, not:not.trim(), ts:Date.now()}]);
-    const ok = await okulYaz(db,"k12_haftanin",{liste:yeni}); if(ok){ setNot(''); toast('⭐ Haftanın öğrencisi seçildi!','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
+    const ok = await okulYaz(db,"k12_haftanin",{liste:yeni}); if(ok){ if(!zHaftaninVerildi(o)){ await okulYaz(db,"k12_ogrenciler",{liste:(ogrenciler||[]).map(x=>x.id===o.id?zYildizEkle(x,50,'⭐ Haftanın Öğrencisi'+(not.trim()?(' — '+not.trim()):''),'','haftanin'):x)}); } setNot(''); toast('⭐ Haftanın öğrencisi seçildi! +50 yıldız','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
   };
+  const yildizVer50 = async (r) => { const o=(ogrenciler||[]).find(x=>x.id===r.ogrenciId); if(!o) return; await okulYaz(db,"k12_ogrenciler",{liste:(ogrenciler||[]).map(x=>x.id===o.id?zYildizEkle(x,50,'⭐ Haftanın Öğrencisi'+(r.not?(' — '+r.not):''),'','haftanin'):x)}); toast('⭐ +50 yıldız verildi','green'); };
   if(duzenlenebilir){
     return (
       <div>
@@ -5604,7 +5616,7 @@ const HaftaninOgrencisi = ({ db, duzenlenebilir, ogrenciler, sinif }) => {
           <input value={not} onChange={e=>setNot(e.target.value)} placeholder="Neden? (ör. Örnek davranış, çalışkanlık)" className="w-full mb-2 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none" />
           <button onClick={sec} className="w-full bg-amber-500 text-white font-black py-2.5 rounded-lg text-sm">⭐ Haftanın Öğrencisi Yap ({snf})</button>
         </div>
-        {liste.length>0 && <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl p-3 mb-2 text-white"><p className="font-black text-sm mb-2">⭐ Okulun Bu Haftaki Yıldızları (öğrenci ve veliler de görüyor)</p><div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{liste.map(r=>(<div key={'y'+r.sinif} className="bg-white/20 rounded-xl p-2 text-center"><div className="text-[10px] font-bold text-white/90">{r.sinif}</div><div className="font-black text-[13px] leading-tight break-words">{r.ogrenciAd}</div>{r.not && <div className="text-[10px] text-white/90 italic mt-0.5 break-words">“{r.not}”</div>}<div className="flex justify-center gap-2 mt-1 text-[10px] font-black"><a href={'https://wa.me/?text='+encodeURIComponent('⭐ Tebrikler! '+r.ogrenciAd+' bu hafta '+r.sinif+' sınıfımızın HAFTANIN ÖĞRENCİSİ seçildi'+(r.not?(' — '+r.not):'')+' 🎉\n\nDeğişim Koleji')} target="_blank" rel="noopener noreferrer" className="bg-white/25 px-2 py-0.5 rounded-full">🎉 Tebrik</a><button onClick={()=>kaldir(r.sinif)} className="bg-white/25 px-2 py-0.5 rounded-full">✕</button></div></div>))}</div></div>}
+        {liste.length>0 && <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl p-3 mb-2 text-white"><p className="font-black text-sm mb-2">⭐ Okulun Bu Haftaki Yıldızları (öğrenci ve veliler de görüyor)</p><div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{liste.map(r=>(<div key={'y'+r.sinif} className="bg-white/20 rounded-xl p-2 text-center"><div className="text-[10px] font-bold text-white/90">{r.sinif}</div><div className="font-black text-[13px] leading-tight break-words">{r.ogrenciAd}</div>{r.not && <div className="text-[10px] text-white/90 italic mt-0.5 break-words">“{r.not}”</div>}<div className="flex justify-center gap-2 mt-1 text-[10px] font-black"><a href={'https://wa.me/?text='+encodeURIComponent('⭐ Tebrikler! '+r.ogrenciAd+' bu hafta '+r.sinif+' sınıfımızın HAFTANIN ÖĞRENCİSİ seçildi'+(r.not?(' — '+r.not):'')+' 🎉\n\nDeğişim Koleji')} target="_blank" rel="noopener noreferrer" className="bg-white/25 px-2 py-0.5 rounded-full">🎉 Tebrik</a><button onClick={()=>kaldir(r.sinif)} className="bg-white/25 px-2 py-0.5 rounded-full">✕</button></div>{(()=>{ const o=(ogrenciler||[]).find(x=>x.id===r.ogrenciId); return o && !zHaftaninVerildi(o) ? <button onClick={()=>yildizVer50(r)} className="mt-1 bg-white text-orange-600 text-[10px] font-black px-2 py-0.5 rounded-full">⭐ +50 yıldızı ver</button> : (o?<div className="text-[9px] mt-1 text-white/90">⭐ {o.puan||0} yıldız</div>:null); })()}</div>))}</div></div>}
 
       </div>
     );
@@ -5814,7 +5826,7 @@ const BugununOzeti = ({ db, ogrenci, paylas }) => {
         {donem==='gun' && bugunDers.length>0 && <div className="mt-3 bg-white/10 rounded-xl p-2"><p className="text-[11px] font-black text-white/90 mb-1">🗓️ Bugünkü dersler</p><div className="flex flex-wrap gap-1">{bugunDers.map(r=><span key={r.id} className="bg-white/20 rounded-lg px-2 py-0.5 text-[11px] font-bold">{r.saat?(r.saat+' '):''}{r.ders}</span>)}</div></div>}
         {hatirlat.length>0 && <div className="mt-2 bg-yellow-300 text-slate-900 rounded-xl p-2"><p className="text-[11px] font-black mb-0.5">📢 Unutma!</p>{hatirlat.slice(0,3).map(o=><p key={o.id} className="text-[12px] font-bold leading-snug">• {o.detay}</p>)}</div>}
         {duyurular.length>0 && <div className="mt-2 bg-white/10 rounded-xl p-2"><p className="text-[11px] font-black text-white/90 mb-0.5">📌 {donem==='gun'?'Bugünkü':'Bu haftaki'} duyurular</p>{duyurular.slice(0,3).map(p=><p key={p.id} className="text-[12px] leading-snug">• {String(p.metin||'').split('\n')[0].slice(0,120)}</p>)}</div>}
-        {paylas && <button onClick={()=>{ window.open('https://wa.me/?text='+encodeURIComponent(paylasMetni()),'_blank'); }} className="mt-3 w-full bg-white/20 hover:bg-white/30 text-white font-black py-2 rounded-lg text-sm"><i className="fa-brands fa-whatsapp mr-1"></i>{donem==='gun'?'Bugünün':'Haftanın'} özetini WhatsApp ile paylaş</button>}
+        {paylas && <button onClick={()=>{ try{ const el=document.getElementById('vb-mesaj'); if(el){ window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-90,behavior:'smooth'}); } }catch(e){} }} className="mt-3 w-full bg-white/20 hover:bg-white/30 text-white font-black py-2 rounded-lg text-sm">💬 Sorunuz mu var? Öğretmene yazın</button>}
       </div>
     </>
   );
@@ -6359,7 +6371,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 26;
+const LOCAL_SURUM = 27;
 const SurumBanner = ({ db }) => {
   const [yeni,setYeni]=useState(false); const [yeniNo,setYeniNo]=useState(0);
   useEffect(()=>{ if(!db) return; const kontrol=async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn&&sn.exists()){ const sv=Number((sn.data()||{}).surum||0); if(sv>LOCAL_SURUM){ setYeni(true); setYeniNo(sv); } } }catch(e){}
@@ -6750,7 +6762,7 @@ const TopluKitap = ({ db, ogrenciler }) => {
   const satirKitap=(t)=>String(t||'').split(/\n|;/).map(x=>x.trim()).filter(Boolean);
   const kaydetListe=async(ekle)=>{ // ekle: {ogrId:[kitapAd...]}
     const ts=Date.now(); let adet=0;
-    const liste=(ogrenciler||[]).map(o=>{ const yeni=ekle[o.id]; if(!yeni||!yeni.length) return o; adet+=yeni.length; return {...o, kitaplar:[...(o.kitaplar||[]), ...yeni.map((ad,i)=>({ad, sayfa:0, tarih:ts+i, ogretmenEkledi:true}))], puan:(o.puan||0)+yeni.length*5}; });
+    const liste=(ogrenciler||[]).map(o=>{ const yeni=ekle[o.id]; if(!yeni||!yeni.length) return o; adet+=yeni.length; return {...o, kitaplar:[...(o.kitaplar||[]), ...yeni.map((ad,i)=>({ad, sayfa:0, tarih:ts+i, ogretmenEkledi:true}))], puan:(o.puan||0)+yeni.length*5, yildizGecmis:(o.yildizGecmis||[]).slice(-49).concat([{ts:ts, puan:yeni.length*5, neden:'📚 '+yeni.length+' kitap okudu', veren:'', tur:'kitap'}])}; });
     if(!adet) return alert('Eklenecek kitap bulunamadı.');
     if(!window.confirm(adet+' kitap kaydı eklenecek (her kitap +5 yıldız). Onaylıyor musunuz?')) return;
     const ok=await okulYaz(db,"k12_ogrenciler",{liste});
@@ -6787,7 +6799,7 @@ const TopluKitap = ({ db, ogrenciler }) => {
 };
 
 /* Öğretmen: hızlı öğrenci bul (telefonda kolay) */
-const HizliOgrenciBul = ({ db, ogrenciler, teslimler }) => {
+const HizliOgrenciBul = ({ db, ogrenciler, teslimler, user }) => {
   const [ara,setAra]=useState(''); const [sec,setSec]=useState(null);
   const _hp=useOkulDoc(db,"k12_profil"); const _hk=(_hp&&_hp.kisiler)||{};
   const q=zNorm(ara); const bul=q?(ogrenciler||[]).filter(o=>zNorm(o.ad+' '+o.sinif+' '+(o.veliAdi||'')).indexOf(q)>=0).slice(0,8):[];
@@ -6806,6 +6818,8 @@ const HizliOgrenciBul = ({ db, ogrenciler, teslimler }) => {
           <div className="bg-sky-50 rounded-lg p-1.5"><div className="font-black text-sky-600">{(o.kitaplar||[]).length}</div><div className="text-[9px] font-bold">📚 Kitap</div></div>
         </div>
         {o.veliAdi && <p className="text-[12px]">👪 Veli: <b>{o.veliAdi}</b>{o.veliTel?(' · '+o.veliTel):''}</p>}
+        <YildizVer db={db} ogrenci={o} ogrenciler={ogrenciler} user={user} />
+        {(o.yildizGecmis||[]).length>0 && <p className="text-[10px] text-slate-500 mt-1">Son: {(o.yildizGecmis||[]).slice(-1)[0].neden} (+{(o.yildizGecmis||[]).slice(-1)[0].puan})</p>}
         {zTel(o.veliTel) && <div className="grid grid-cols-2 gap-2 mt-2"><a href={'https://wa.me/'+zTel(o.veliTel)} target="_blank" rel="noopener noreferrer" className="text-center bg-green-600 text-white font-black py-2 rounded-lg text-[12px]"><i className="fa-brands fa-whatsapp mr-1"></i>Veliye yaz</a><a href={'tel:+'+zTel(o.veliTel)} className="text-center bg-slate-700 text-white font-black py-2 rounded-lg text-[12px]">📞 Ara</a></div>}
       </div>}
     </div>
@@ -6895,7 +6909,7 @@ const DersOzetleri = ({ db, sinif }) => {
   return (
     <div className="bg-gradient-to-br from-indigo-50 to-fuchsia-50 border-4 border-indigo-200 rounded-[2rem] p-4 shadow-lg mt-6">
       <h3 className="text-lg font-black text-indigo-800 mb-3 flex items-center"><span className="mr-2">📰</span>Günün & Haftanın Özeti</h3>
-      <div className="space-y-3">{gor.map(p=>(<div key={p.id}><OzetKart p={p} db={db} /><div className="flex gap-3 mt-1 px-1"><AIBtn metin={p.metin} /><a href={'https://wa.me/?text='+encodeURIComponent(p.metin||'')} target="_blank" rel="noopener noreferrer" className="text-[11px] font-black text-green-700"><i className="fa-brands fa-whatsapp mr-1"></i>Paylaş</a></div></div>))}</div>
+      <div className="space-y-3">{gor.map(p=>(<div key={p.id}><OzetKart p={p} db={db} /><div className="flex gap-3 mt-1 px-1"><AIBtn metin={p.metin} /></div></div>))}</div>
       {liste.length>2 && <button onClick={()=>setHepsi(!hepsi)} className="mt-3 w-full bg-white border border-indigo-200 text-indigo-700 font-black py-2 rounded-xl text-[12px]">{hepsi?'▲ Daha az göster':('▼ Önceki özetler ('+(liste.length-2)+')')}</button>}
     </div>
   );
@@ -7116,12 +7130,12 @@ const ProfilKarti = ({ db, user, rol }) => {
             <Avatar db={db} p={p} ad={ad} boyut={68} />
             <button onClick={ac} className="bg-indigo-600 text-white font-black text-[12px] px-4 py-2 rounded-xl shadow whitespace-nowrap">✏️ Profili düzenle</button>
           </div>
-          <p className="mt-2 text-[16px] font-black text-slate-800 leading-tight">{ad}</p>
+          <p className="mt-2 text-[18px] font-black leading-tight bg-gradient-to-r from-indigo-600 via-fuchsia-600 to-orange-500 bg-clip-text text-transparent">{ad}</p>
           <div className="flex flex-wrap gap-1.5 mt-1">
             <span className="text-[10px] font-black bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">{ROL_AD[rol]}{sinif&&rol!=='teacher'?(' · '+sinif):''}</span>
-            {p&&p.ek && String(p.ek).split(/[•·,]/).map(x=>x.trim()).filter(Boolean).slice(0,6).map(x=><span key={x} className="text-[10px] font-bold bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">{x}</span>)}
+            {p&&p.ek && String(p.ek).split(/[•·,]/).map(x=>x.trim()).filter(Boolean).slice(0,6).map((x,xi)=><span key={x} className={`text-[10px] font-black px-2 py-0.5 rounded-full ${['bg-rose-100 text-rose-700','bg-sky-100 text-sky-700','bg-emerald-100 text-emerald-700','bg-violet-100 text-violet-700','bg-amber-100 text-amber-700','bg-teal-100 text-teal-700'][xi%6]}`}>{x}</span>)}
           </div>
-          {p&&p.bio ? <p className={`mt-2 text-[13px] text-slate-600 leading-relaxed whitespace-pre-wrap ${devam?'':'line-clamp-2'}`}>{p.bio}</p> : <p className="mt-2 text-[12px] text-slate-400">Profil fotoğrafı ve kısa bir tanıtım ekleyin — {rol==='teacher'?'veliler sizi tanısın.':rol==='parent'?'öğretmen sizi tanısın.':'öğretmenin seni tanısın.'}</p>}
+          {p&&p.bio ? <p className={`mt-2 text-[13px] text-indigo-900 font-medium leading-relaxed whitespace-pre-wrap bg-gradient-to-br from-indigo-50 via-fuchsia-50 to-amber-50 border border-indigo-100 rounded-2xl px-3 py-2 ${devam?'':'line-clamp-3'}`}>{p.bio}</p> : <p className="mt-2 text-[12px] text-slate-400">Profil fotoğrafı ve kısa bir tanıtım ekleyin — {rol==='teacher'?'veliler sizi tanısın.':rol==='parent'?'öğretmen sizi tanısın.':'öğretmenin seni tanısın.'}</p>}
           {p&&p.bio && String(p.bio).length>90 && <button onClick={()=>setDevam(!devam)} className="text-[11px] font-black text-indigo-600 mt-0.5">{devam?'▲ Daha az':'▼ Devamını oku'}</button>}
         </div>
       </div>
@@ -7148,6 +7162,60 @@ const ProfilKarti = ({ db, user, rol }) => {
         </div>
       </div>}
     </>
+  );
+};
+
+
+/* ============================================================================
+   YILDIZ SİSTEMİ — her yıldızın NEDENİ kayıtlı (öğrenci & veli görür)
+   ============================================================================ */
+const YILDIZ_KURAL = [
+  {tur:'haftanin', puan:50, ad:'⭐ Haftanın Öğrencisi'},
+  {tur:'deneme1', puan:30, ad:'🥇 Denemede 1.'},
+  {tur:'deneme2', puan:20, ad:'🥈 Denemede 2.'},
+  {tur:'deneme3', puan:15, ad:'🥉 Denemede 3.'},
+  {tur:'proje', puan:20, ad:'🚀 Proje / Yarışma'},
+  {tur:'davranis', puan:10, ad:'🌟 Örnek Davranış'},
+  {tur:'yardim', puan:10, ad:'🤝 Yardımseverlik'},
+  {tur:'katilim', puan:5, ad:'🙋 Derse Katılım'}
+];
+function zYildizEkle(o, puan, neden, veren, tur){ const g=(o.yildizGecmis||[]).slice(-49); g.push({ts:Date.now(), puan:puan, neden:neden, veren:veren||'', tur:tur||''}); return {...o, puan:(o.puan||0)+puan, yildizGecmis:g}; }
+function zHaftaninVerildi(o){ return (o.yildizGecmis||[]).some(y=>y.tur==='haftanin' && (Date.now()-(y.ts||0)) < 6*86400000); }
+const YildizVer = ({ db, ogrenci, ogrenciler, user }) => {
+  const [acik,setAcik]=useState(false); const [ozel,setOzel]=useState(''); const [ozelPuan,setOzelPuan]=useState('10');
+  if(!ogrenci) return null;
+  const ver=async(puan,neden,tur)=>{ const liste=(ogrenciler||[]).map(o=>o.id===ogrenci.id?zYildizEkle(o,puan,neden,(user&&user.name)||'Öğretmen',tur):o); const ok=await okulYaz(db,"k12_ogrenciler",{liste}); if(ok){ toast('⭐ +'+puan+' yıldız — '+ogrenci.ad,'green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} setOzel(''); } };
+  return (
+    <div className="mt-2">
+      <button onClick={()=>setAcik(!acik)} className="w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white font-black py-2 rounded-lg text-[12px]">{acik?'Kapat ▲':'⭐ Yıldız ver (nedeniyle)'}</button>
+      {acik && <div className="mt-2 grid grid-cols-2 gap-1.5">
+        {YILDIZ_KURAL.filter(k=>k.tur!=='haftanin').map(k=>(<button key={k.tur} onClick={()=>ver(k.puan,k.ad,k.tur)} className="bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 text-[11px] font-black text-amber-800 text-left">{k.ad} <span className="text-amber-500">+{k.puan}</span></button>))}
+        <div className="col-span-2 flex gap-1.5"><input value={ozel} onChange={e=>setOzel(e.target.value)} placeholder="Başka bir neden…" className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-slate-200 text-[12px]" /><select value={ozelPuan} onChange={e=>setOzelPuan(e.target.value)} className="px-1 rounded-lg border border-slate-200 text-[12px] font-bold">{['5','10','15','20','30'].map(x=><option key={x}>{x}</option>)}</select><button onClick={()=>{ if(!ozel.trim()) return alert('Nedeni yazın.'); ver(Number(ozelPuan),'✨ '+ozel.trim(),'ozel'); }} className="bg-amber-500 text-white font-black px-3 rounded-lg text-[12px]">Ver</button></div>
+      </div>}
+    </div>
+  );
+};
+const YildizNedenleri = ({ ogrenci, veli }) => {
+  const [acik,setAcik]=useState(false);
+  if(!ogrenci) return null;
+  const g=(ogrenci.yildizGecmis||[]).slice().sort((a,b)=>(b.ts||0)-(a.ts||0));
+  return (
+    <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-4 border-amber-200 rounded-[2rem] p-5 shadow-lg mt-6">
+      <div className="flex items-center justify-between gap-2">
+        <div><p className="text-[12px] font-black text-amber-700">{veli?'Çocuğunuzun yıldızları':'Yıldızların'}</p><p className="text-3xl font-black text-amber-600 leading-none">⭐ {ogrenci.puan||0}</p></div>
+        <button onClick={()=>setAcik(!acik)} className="bg-amber-500 text-white font-black text-[12px] px-3 py-2 rounded-xl">{acik?'Kapat ▲':'Nasıl kazanılır? ▼'}</button>
+      </div>
+      {g.length>0 && <div className="mt-3 space-y-1.5">{g.slice(0,5).map((y,i)=>(<div key={i} className="flex items-center gap-2 bg-white rounded-xl px-3 py-1.5"><span className="text-[12px] font-black text-amber-600 w-10">+{y.puan}</span><span className="flex-1 text-[12px] font-bold text-slate-700">{y.neden}</span><span className="text-[10px] text-slate-400">{new Date(y.ts).toLocaleDateString('tr-TR')}</span></div>))}</div>}
+      {g.length===0 && <p className="text-[12px] text-slate-500 mt-2">{veli?'Yıldız kazandıkça nedeni burada görünecek.':'Yıldız kazandıkça nedeni burada görünecek. Hadi başla! 🚀'}</p>}
+      {acik && <div className="mt-3 bg-white rounded-2xl p-3">
+        <p className="text-[12px] font-black text-slate-700 mb-1.5">⭐ Yıldız nasıl kazanılır?</p>
+        <div className="grid grid-cols-2 gap-1 text-[11px]">
+          <span className="font-bold text-slate-600">📝 Ödevi teslim et</span><span className="font-black text-amber-600">+10</span>
+          <span className="font-bold text-slate-600">📚 Kitap oku</span><span className="font-black text-amber-600">+5</span>
+          {YILDIZ_KURAL.map(k=>[<span key={k.tur+'a'} className="font-bold text-slate-600">{k.ad}</span>,<span key={k.tur+'b'} className="font-black text-amber-600">+{k.puan}</span>])}
+        </div>
+      </div>}
+    </div>
   );
 };
 
