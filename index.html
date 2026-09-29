@@ -1386,6 +1386,90 @@ const DraggableRobot = ({ apiKey, modelName }) => {
 };
 
 
+/* ============================================================================
+   QR İLE PAYLAŞ (v35) — sağ üstte modern "QR Paylaş" düğmesi, ortasında Değişim amblemi
+   · Bağlantı: sitenin temiz adresi (şifre/kod içermez)  · Kopyala · Paylaş · QR'ı indir (PNG)
+   TANITIM VİDEOSU — giriş ekranında amblemin altında; sunucuda "tanitim.mp4" varsa görünür, yoksa hiç görünmez
+   ============================================================================ */
+const ZQR_POSTER = "data:image/jpeg;base64,/9j//gAQTGF2YzYwLjMxLjEwMgD/2wBDAAgMDA4MDhAQEBAQEBMSExQUFBMTExMUFBQVFRUZGRkVFRUUFBUVGBgZGRscGxoaGRocHB4eHiQkIiIqKiszMz7/xAChAAADAQADAQAAAAAAAAAAAAAAAQIDBAYHBQEBAQEBAQEBAAAAAAAAAAAAAAECBQYEAxAAAgAEBAQCBwYGAQQDAQEAAAFREaECBANhIdGREgUxsYFyQUIGMhMzInFSI7IV8GIUQ5KiwTQWY4JEwiVzEQEAAQMDAQQGCwEAAAAAAAAAAUFxAhEEAyETMVHBgRSxEiJhcqGCM1IFI2IyQsLh/8AAEQgBZADIAwEiAAIRAAMRAP/aAAwDAQACEQMRAD8A9R6VBD6VBch7w8it4eRgLpUFyMpL6j2XyLzZvvB0M19o9vcUIsNRWzTpUEPpUFyHvDyHvB04lZKSguQdKgit4OnEfodOIE9Kgh9KguQ94OnEe8HTiFT0qCDpUEV6HTiP0OnECZKCCSgVvB04h6HTiBElBBJQRXodOIeh04gTJQQpKBW8HTiG8HTiBElAJIreDpxFvB04kEyJkX6HTiL0OnECJEyNPQ6cSfQ6cQIkEip6OnEPQ6cQNChScfIqTj5ABmvtH6i82aycfIzk/qPf3FCLCxWzYYScfIcnHyCAYScaIcnGiKFIcgk4+Q5OPkApAOTj5Dk4+RBIFScaIUnGiAUgHJx8gk4+QEiKk40QScfICRSKk4+QpOPkUSIqTjQUnEggkuTjQUnGiAkQ5ONBScaAa7D2HJQKkoFC2Mv8j9RebN5KCM0l9R+ovNkWK2aFbRHJQRUlBBE7RHsVJQQ5KCAjaI9ipKA5KCAjYexUlBDkoICNoh6UXJQCSgBntFBtE0koCkoAZ7aByNJKApKAGe0ULaKNJCktAM9idjSWgpAZ7RRO0TWSgTJFGewprQ0kKQFbwdOI94OnEsogjeDpxM19o9n8ih+ZnJMl9q/UXmwsVsveDoVvB04ljCI3g6cR7wdOJZUgMvQ6cR7wdDSQ5BGW8HTiPeDpxNZAFZeh04hvB04moAZbwdOIt4OnE2kIDL0OnEW8HTibCAx3g6cSZ6OnE2EBjvB04i3g6cTYkDHeDpxJ9DobkgY7wdOIt4OnE1EA5ONEcZ33T2dEcqy+2+1XWtNPwB5dr3JE6xrHWJqdxqbSc/IlJ/Ue/uL2L8zOQpGa+1fqL9zKsVsuTjRFScaIsYZRJxoipONEWMoiTjRBJxojQZBnJxogk40RpsMoyk40QScXQ12ADKTi6Ck4+RqBBjJx8gk4uhqIoyk4uhMnF0NiSDKTj5EycXQ2JAxk4unAmTj5GxIVjJxdBScXTga7CA6fh8+7CX9Ny6rH4r/9I7lb0XpXWyaa2Z1TMyurZ7CwuJuwl/RfvY6f1L/qeP2W8nbz2XJP6cz0n8E+FvY63Nw9pHvY/wAqx4/9dw6VBcjNJfUey+RfuZrbd1JNKafg1LiQp/Ve3uKH5nqewcqK2bdKgiulQXIN4OnEreDpxDI6VBch9KguQT0dOIT0dOIDkoLkElBchTcHTiE3B04gOSguQSUFyFPR04jm4OnEAkoLkElBCm4OnEJuDpxAclBcgkoLkKbg6cQm4OnEByUELpUFyCejpxHNwdOIVPSoInpUFyLno6cRbwdOIGfSoLkLpUFyNN4OnEiejpxCM+lQXIUlBF7wdOJO8HTiBnJQQpKCLc4OnEXodOIHyMzK9j8fY46HzMzL69ns1Q7Vfl9ak3Q+VmZT8H8y8HE83vtlrE8mEfSjzdHh5tPhn0S+dg8W8Nd9PM+T9uq0idrW+ZNbzsXmzqWZldal4NGuCxTyL+jMbVvyp/l38j5NhvexmOHln4O7DKf6/tn5ex+/Nw+/E549+nWPH5u4FEbxogk40PXuQoCZONBycaAMZEnGgScaAUApONA3jQBgTJxohycaIBgKTjRBJxoghgKTjRCk40QFgRJxogk/zUQFEDk40QScaIKgkuTjREScaICSSpONEKTjRAaEX5avRp0qC5F9KguQHwMzL/28z5ebldag1/MmdtzMq29eCT9jPi5lk217yU2oqJ5bf7HTXkwjpWPB0uDmpPolxsDjXlP6Oa9vC1v3dHodrmdJzcrrU14+eh9Ht+Jb/RzFOXhdLw0f/Qfl28mJjg5NZ1+7y/zPlLW44YmJzx+1HnDsoCkoIJKC5HqXLMBSUFyCSguQDAUlBcgkoLkEMBSUFyCSguQUwFJQXIJKC5BDAXSoLkElBcgGAulQXIJKC5BTAUlBcg6VBcgGQV0qC5E9KguQEEldKguRPTbBcii5uDpxLm4OnEYyCZuDpxODmWdeY9mn0KEXqfQMf8r9RfuZJWK2fBzbZbtSftUdTiLZzWx2m7Ktv8UcHNwae9mzg/A5vqmHHlllhHWfqs+vHm1jTJzcrN+pYrpPXw8eZrNwdOJ1DJ7lZhu4WYDMtvtuzU3bc1Kzqltam/mdyhtOSO5HRxmZiNYfLlERM6SiejpxCejpxKA0yU3B04hNwdOJ1DvHxBk9susyMvLuxeLzGlZh8t/e38HfJNqfsUpv8DrlnY+6d7f1u74nMw1j+TB4e6StX9b+9bP8eq7VFR6Dm9wweRd0ZuIyMu78t+blWvk7pjsx+EzH02YjIvcLc7Kb5K86nlfBvZcu1q7Ivzm/fzM2/q/4OxUDM+DeyX2yWHvy3+azOzOpf7O5UHQd7m4OnEJuDpxPLn2zv/ZU327F247ItU1h8RvekvZZvy6brfwOz9l7/hu729H2OJsX6uHv2uta8XbOXVbVe1Adrm4OnEU9HTiWBFRNwdOI56OnEoQCno6cRT0dOJYARPR04hPR04liAzno6cRTf5XTiaMkIcnGiCTjRFAUTvGiMZP6r39xfuZyDH/K/UX7mRqK2aScaIcnGiGBWXQvi7Ef23ar7lJ5l2Zl2ZLkuqy9ufVY/G25JOTW523BZWbk4XD5eZmXX32ZVlt912911ytU237dzoPxAv7vvXZMHfvlO+/Outi7N1P/AFl6WenTAmTjRHV+/wDdX2jBPNt+/nZlyy8iyS+9mXe2XtVq3cdl7TtR5di7bcf8WYbJzP1MvCYb63T7tuY907vS7H6EB9nsPY3gLbsVin9XHYj7+bmXSbs6vctf7mvHwWyO7ScfIoCKmTjRBJxojqXcfibtfbM15OdnXXZi+a3Ksd/Tpc1snpOZye2/EHbe6vow+f8AqeP0sxdF/oT2u16W5FR2STjRHR++dg/vpYvCNZGPyWr8vNtlb9Rr3b2vbC5/g9jvQAdQ7B3h92yL7c1fSxWHu+niMqUpXLbqSfgm09vY00duk40R5Z3pfwXvGE7tl7ZWIu/t8Wl4b+F71kp/jZqeqekBScaIJOPkMCKmTjRBJxoig2AmTjRBJxoitgKJk40QpONEXsLaIB0qC5BJQXIU9HTiZvMScpOnEiNelQXIxkvqvZfIv3M1no6cTGf6r2fyKH5nqGorZv0qC5BJQXIU9HTiE9HTiVl5r3NL/wAp7OvZ9HN8sw9LkoLkeY/El39p3TsuPalZZnXZN7gr5b8ndyPTp6OnEAkoLkeZ9uS/8r7tsv8At8rZ+PhlfLoelz0dOJ5f3x/wrvXb+6S6crNnhsQ/x8Hd+Frn/wDAsD1CSguRxsSr/oZ30Uvq/Tv+n4fP0vprI5Cumk1unumpNNRW456OnEyPKvgrDYO/BZma8pXYtZ19uIuzLJ32vxtSd05bPeW85zPud+7BlY3KeIwttuHxuT+plZuWlY7nbv03S8Z+x+Keh3dJWzlZKbm5JKbi5eL1JzMxZdl99ylbba7rm5SklN+2BR134f7l/Fu3ZWIvtSzN8vN22+pZ4tets9JyOzyUFyPNfghNdszb+l9OZis2638JWrw9m6kekz0dOIHSfi7D/W7JipWqeX0Zi06b1N/6tnYu15tuJwGEzvHryMpv8ehTqfK+JH//ABsfs/sX+5anI7Dt2jt+z/7bLh+X8QrsUlBBJQXIU9HTiE9HTiQOSggkoLkKejpxCejpxCHJQXIJKC5Cno6cQno6cShyUFyCSguQp6OnEc9HTiBRwbsu6b2mcyTjRCk40RFO1SSRl/lfqL9zNJOPkYyf1Xv7i9i/MwsVs5AEycaIJONEEdS+J8E8d2jFWW2u6+y1Z1iXj1Zbntq7Zo5nYsfb3HtuGzlcrrll22ZsVmWJK5P8fH8Gdhk40R5Rlv8A8a73mZd/3MD3Jq7Lu26MrOg/YlNy9Vp+wqPWT5nccBldywmbhc1fdzLZTlN2Xe7fbP22vc+lJx8g3jREHlGA7vn/AA9fb23u+2VbbLDYy1XOy6xeFt0k3sto2+Dieo5OdlYiy3MysyzNsuU1dZcrk0/wMsRhcnF2PLz8uzOsfu32W3L0TWz1W50HM+CsArurDZ+Mwjc5/TzJqUN1OrL0Ho+ZfZlWu7MutstW7uuatSWrex5T3bu1/f7n2rtP6tt8v7nFbrLsy57pOEX73hbM51vwXhcx9WLxmNxjX58zpUl7Peu/5I75hcFh8DlrKw2XZk2L2WWpT1ufjc9W2wHg8JlYHDZOGylKzKsVq1l43PW5zb1ZzyJOPkHhu7pS/AivP/jPEfT7U8i1/qYrNy8qy1eNy6upyXoS9J3bCZCwuGyMheGVlWWf62pHmeCn8R97uxrm8H299GHhmZv5+f3vwVh6tJxoiooCZONEOTjREUwJk40QScaICgJk40QScfIChkScaIcnF0AcwFJQXIJKC5AOZj/lfqL9zNZKC5GMl9V7L5F+5hYrZvMBSUFyCSguQQz43dO25HdsJfhs7wu3tvUurLvXhfb+HtXtWx9iSguQSUFyKjyzA93xXYs2zt/eE3lz6cPjlvZdb7Fe9Iv71vt23PU000mmmnun7Gj5+MwOG7hkX4fEZavy7vZ4NP2XWtbq5exo86/hfeuwPq7bmfxDC+3C58uu1f0Pb/jL1WXoPVgPO8L8Xdvvu+ljMvN7fnL5rM6x9PouVs/9rUdqyu69sz/s8ZhL9Fm5c+TZB9oD4mb3bteQp5mMwlsv/blt8k2zq+J+Me05f3cP9XGZj+WzJyrt361yVEwPQzyzu/ds3vGZd2ntL+o7/u4nEr7LKy/eSuXjPwbXj4WzbM/7DvfxDvjb/wCGYR//AF8r7a9f1+3/AH/0PQsB23CdsyVk4bKtst9r8br3+a+7xb/lDuD7dgcntuFysLk/LlqU/bdc/mvetz3PqC6VBchdKguRFUBPSoLkHSoLkBQE9KguQdKguQFAT0qC5B0qC5AUIXSoLkKSguQBPR04lTcHTiIoCZuDpxMZ/qvZ/IofmepyDH/K/UX7mFitmk9HTiObg6cSgCIno6cQno6cSgAU9HTiE9HTiMAOBicJhsYunEYfLz1/7LLLpfg3uvQdZzfhTsmb44FW+pffb5XyO6gXVHTMr4V7JleGBtu9e+++l18qHZcjC4bCqWRh8rJ//wA8uy2q3OcMCZ6OnEU9HTiWBFRPR04jno6cShAKejpxFPR04lDAmejpxFPR04lgBE9HTiE9HTiUAEN6OnEU9HTiUICVONC5ONCJlphBJxoYyf1Xv7i9n9TORMx/yv1F+5hqK2aycaCk40KAImTjQJONCgKiZONAk40KCZFTJxoEnGhWwFEycaDk40GBBMnGgScaFAETJxoOTjQYFUpONBScaFBNATvGgScaFAREycaBvGhRLYEbxoLeNBzF6QJkoLkXJQRlPRlT0dOIGslBcjNJfVey+RfuZSejpxM0/wBR7P5F+56hqK2ciSguQSUEKejpxCejpxCHJQQSUEE9HTiE9HTiUElBBJQQp6OnEJ6OnEiHJQXIJKCFPR04hPR04gOSggkoLkKejpxCejpxAclBcgkoIJ6OnEU9HTiFOSggkoIU9HTiE9HTiEOSguQSUEKejpxCej/n0hTkoIJKCFPR/wA+kTejpxAGlBEtKCDq0f8APpIno6cQgkoLkElBciZ6MU9GAyjHeNCt40CtpkL7R+ov3MW8aGan9V7+4vZ/UwsVs5ozHeNCt40DLQCd40DeNCqsQpONA3jQiGAt40FJxoVVAKTjQW8aEFATJxoOTjQIoCZONBScaBVATvGhO8aBFCJ3jQjeNAqyCd40J3jQChEbxoG8aAEyjGSguRxHduwPpGc/1X6i/cxWyaTkuRCS+q9l8i82FitnMKMZKC5DkoLkEbTKmYyUFyHJQQG0xzMZKC5DkoLkEagZyUFyCSguQVoBnJQXIJKC5AaBMzkoIUlBcgNJimZyUFyFJQXIC5imRJQXIUlBcgKmKZElBciZKCAqYpkyUFyJkoLkA5hMiSguQpKC5AT1aMUk/G1/z6RlAV1aMzT/AFHs/kXmyzP/ACv1F+5hYrZyOrR/z6R9WjJKCK6tGPq0dOJIwK6tHTiPq0dOJIwH1aOnEOrR04iGA+rR04ino6cQmIB9WjpxDq0dOIgmAdWjpxF1aOnEJiAOrR04i6tHTiAgFPR04ino6cQEAurR04k9WjpxGICZuDpxFPR04jADLeNCt40JGUXvGhmp/Ue/uL2asszX2j9RebIsVs33jQreNCRhFbxoPeNCRhFbxoG8aCHMKe8aBvGggAreNA3jQkJgPeNA3jQUxAPeNBbxoApgG8aC3jQBAG8aC3jQCQDeNCd40GIoneNA3jQAmBlJQRUlBGc9HTiOejpxA0koIhJfUey+RebH1aOnEzT/AFHs/kXmwsVs5MlBDkoIz6tH/PpH1aMI0koIclBGfVox9WjA0koIclBGfVox9WjAuSggkoIjq0f8+kOrRgXJQQSUER1aMOrRhFyUEKSguRPVow6tGFVJQQpKCJ6tGLq0YFyUEKSgierRi6tGA5KCFJQQp6Mnq0YDkoIUlBCnoxT0YBJQQpKCFPRinowAczLeNB7xoQbGa+0fqLzYt40M1P6j391ezVhYrZzAMt40HvGgRqOZlvGgbxoBsMx3jQe8aFGswMt40DeNANQMt40DeNCDUDLeNA3jQo0EZ7xoG8aEGgjPeNBbxoBoSRvGgt40AsRG8aE7xoBYGe8aBvGgCGIaAozX2j9RebNDNfaP1F5sL4thiGEMYhgAxDAYhiAYCAAAAAQAACEMQCABAIQxASIYgP/Z";
+function zQrAdres(){ try{ return location.origin+location.pathname; }catch(e){ return 'https://baris-ogretmen.github.io/de-i-im-koleji-dijital-e-itim-sistemi/'; } }
+function zQrResim(u, boyut){ return 'https://api.qrserver.com/v1/create-qr-code/?size='+(boyut||600)+'x'+(boyut||600)+'&ecc=H&margin=12&color=1e1b4b&bgcolor=ffffff&data='+encodeURIComponent(u); }
+const ZQrPaylas = ({ kucuk, acikTema }) => {
+  const [acik,setAcik]=useState(false); const [kop,setKop]=useState(false);
+  const url=zQrAdres();
+  const kopyala=async()=>{ try{ await navigator.clipboard.writeText(url); setKop(true); setTimeout(()=>setKop(false),1800); }catch(e){ window.prompt('Bağlantıyı kopyalayın:',url); } };
+  const paylas=async()=>{ const t='🎓 Değişim Koleji Eğitim Ekosistemi\n'+url; try{ if(navigator.share){ await navigator.share({title:'Değişim Koleji', text:'🎓 Değişim Koleji Eğitim Ekosistemi', url}); return; } }catch(e){ return; } window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank'); };
+  const indir=()=>{ try{ const c=document.createElement('canvas'); const W=900,H=1080; c.width=W; c.height=H; const x=c.getContext('2d');
+      const g=x.createLinearGradient(0,0,W,H); g.addColorStop(0,'#4f46e5'); g.addColorStop(.55,'#7c3aed'); g.addColorStop(1,'#db2777'); x.fillStyle=g; x.fillRect(0,0,W,H);
+      x.fillStyle='#fff'; x.font='900 54px system-ui,-apple-system,Segoe UI,sans-serif'; x.textAlign='center'; x.fillText('DEĞİŞİM KOLEJİ',W/2,95); x.font='700 28px system-ui,sans-serif'; x.fillStyle='rgba(255,255,255,.9)'; x.fillText('Eğitim Ekosistemi · Okut ve bağlan',W/2,140);
+      const kutu=(rx,ry,rw,rh,r)=>{ x.beginPath(); x.moveTo(rx+r,ry); x.arcTo(rx+rw,ry,rx+rw,ry+rh,r); x.arcTo(rx+rw,ry+rh,rx,ry+rh,r); x.arcTo(rx,ry+rh,rx,ry,r); x.arcTo(rx,ry,rx+rw,ry,r); x.closePath(); };
+      x.fillStyle='#fff'; kutu(130,180,640,640,48); x.fill();
+      const q=new Image(); q.crossOrigin='anonymous';
+      q.onload=()=>{ x.drawImage(q,160,210,580,580); const L=new Image(); L.onload=()=>{ x.fillStyle='#fff'; kutu(W/2-70,500-70,140,140,28); x.fill(); x.save(); kutu(W/2-58,500-58,116,116,22); x.clip(); x.drawImage(L,W/2-58,500-58,116,116); x.restore(); bitir(); }; L.onerror=bitir; L.src='image_5.png'; };
+      q.onerror=()=>{ window.open(zQrResim(url,900),'_blank'); };
+      const bitir=()=>{ x.fillStyle='#fff'; x.font='800 26px system-ui,sans-serif'; x.fillText(url.replace(/^https?:\/\//,'').slice(0,60),W/2,885); x.font='700 24px system-ui,sans-serif'; x.fillStyle='rgba(255,255,255,.85)'; x.fillText('📱 Telefon kamerasıyla okutun',W/2,940);
+        try{ const a=document.createElement('a'); a.href=c.toDataURL('image/png'); a.download='Degisim_Koleji_QR.png'; a.click(); }catch(e){ window.open(zQrResim(url,900),'_blank'); } };
+      q.src=zQrResim(url,580);
+    }catch(e){ window.open(zQrResim(url,900),'_blank'); } };
+  return (
+    <>
+      <button onClick={()=>setAcik(true)} title="QR ile paylaş" className={kucuk
+          ? 'inline-flex items-center gap-1 text-[11px] font-black px-2.5 py-1 rounded-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 text-white shadow'
+          : 'inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-white font-black text-[13px] backdrop-blur-md border border-white/30 bg-white/15 hover:bg-white/25 shadow-lg transition'}>
+        <span className={kucuk?'':'w-6 h-6 rounded-full bg-white overflow-hidden flex items-center justify-center'}>{kucuk ? <i className="fa-solid fa-qrcode"></i> : <img src="image_5.png" alt="" className="w-full h-full object-cover" onError={(e)=>{ e.target.style.display='none'; }} />}</span>
+        {kucuk ? 'QR' : <><i className="fa-solid fa-qrcode"></i> Paylaş</>}
+      </button>
+      {acik && <div className="fixed inset-0 z-[99996] bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={()=>setAcik(false)}>
+        <div className="w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl bg-white" onClick={e=>e.stopPropagation()}>
+          <div className="relative bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 px-5 pt-5 pb-14 text-white text-center">
+            <button onClick={()=>setAcik(false)} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/20 font-black">✕</button>
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-white overflow-hidden shadow-lg border-4 border-white/60"><img src="image_5.png" alt="Değişim Koleji" className="w-full h-full object-cover" onError={(e)=>{e.target.style.display='none';}} /></div>
+            <p className="font-black text-[18px] tracking-widest mt-2">DEĞİŞİM KOLEJİ</p>
+            <p className="text-[12px] opacity-90">Okut, anında bağlan 📱</p>
+          </div>
+          <div className="-mt-10 px-5 pb-5">
+            <div className="relative bg-white rounded-3xl shadow-xl border border-slate-100 p-3 mx-auto" style={{width:'min(78vw,270px)'}}>
+              <img src={zQrResim(url,600)} alt="QR kod" className="w-full h-auto block rounded-xl" />
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 rounded-2xl bg-white p-1 shadow"><img src="image_5.png" alt="" className="w-full h-full object-cover rounded-xl" onError={(e)=>{ e.target.parentNode.style.display='none'; }} /></div>
+            </div>
+            <p className="text-center text-[11px] text-slate-500 mt-3 break-all px-2">{url.replace(/^https?:\/\//,'')}</p>
+            <div className="grid grid-cols-3 gap-2 mt-3">
+              <button onClick={kopyala} className="py-2.5 rounded-xl bg-slate-100 text-slate-700 font-black text-[12px]">{kop?'✅ Kopyalandı':'📋 Kopyala'}</button>
+              <button onClick={paylas} className="py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black text-[12px]">📤 Paylaş</button>
+              <button onClick={indir} className="py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white font-black text-[12px]">⬇️ QR İndir</button>
+            </div>
+            <p className="text-center text-[10.5px] text-slate-400 mt-3">🔒 Bu bağlantı yalnızca giriş sayfasını açar; şifre ya da kurum kodu içermez.</p>
+          </div>
+        </div>
+      </div>}
+    </>
+  );
+};
+
+/* Tanıtım videosu: sunucuda tanitim.mp4 yoksa hiç görünmez (sistem bozulmaz) */
+const TanitimVideo = () => {
+  const [var_,setVar]=useState(false); const [acik,setAcik]=useState(false);
+  useEffect(()=>{ let iptal=false; try{ if(location.protocol.indexOf('http')!==0) return; fetch('tanitim.mp4',{method:'HEAD',cache:'no-store'}).then(r=>{ if(!iptal && r.ok) setVar(true); }).catch(()=>{}); }catch(e){} return ()=>{ iptal=true; }; },[]);
+  if(!var_) return null;
+  return (
+    <>
+      <button onClick={()=>setAcik(true)} className="group mx-auto -mt-4 mb-6 flex items-center gap-3 bg-white/10 hover:bg-white/15 border border-white/20 rounded-2xl p-2 pr-4 backdrop-blur-md shadow-lg transition">
+        <span className="relative w-14 h-20 rounded-xl overflow-hidden shrink-0 bg-slate-800">
+          <img src={ZQR_POSTER} alt="" className="w-full h-full object-cover" />
+          <span className="absolute inset-0 flex items-center justify-center bg-black/25"><span className="w-8 h-8 rounded-full bg-white/90 text-indigo-700 flex items-center justify-center shadow group-hover:scale-110 transition"><i className="fa-solid fa-play text-[12px] ml-0.5"></i></span></span>
+        </span>
+        <span className="text-left"><span className="block text-white font-black text-[14px]">🎬 Okulumuzu tanıyın</span><span className="block text-indigo-200 text-[11px] font-bold">30 sn · sesli tanıtım videosu</span></span>
+      </button>
+      {acik && <div className="fixed inset-0 z-[99996] bg-black/85 flex items-center justify-center p-3" onClick={()=>setAcik(false)}>
+        <div className="relative w-full max-w-sm" onClick={e=>e.stopPropagation()}>
+          <button onClick={()=>setAcik(false)} className="absolute -top-11 right-0 w-9 h-9 rounded-full bg-white/20 text-white font-black">✕</button>
+          <video src="tanitim.mp4" poster={ZQR_POSTER} controls autoPlay playsInline className="w-full max-h-[80vh] rounded-2xl shadow-2xl bg-black"></video>
+        </div>
+      </div>}
+    </>
+  );
+};
+
 /* Giriş ekranı: Haftanın Öğrencileri (ad + soyadın baş harfi) ve sürüm rozeti */
 const GirisYildizlari = ({ db }) => {
   const d=useOkulDoc(db,"k12_haftanin"); const liste=((d&&d.liste)||[]).filter(r=>r&&r.ogrenciAd).sort((a,b)=>String(a.sinif).localeCompare(String(b.sinif),'tr'));
@@ -1414,6 +1498,7 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig, db, kayitliOgrencile
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col items-center justify-center p-4 relative overflow-hidden">
             <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+                <ZQrPaylas />
                 <button onClick={()=>setKvkkAcik(true)} title="KVKK Bilgilendirmesi" className="bg-white/10 hover:bg-white/20 text-white w-11 h-11 rounded-full backdrop-blur-md border border-white/20 flex items-center justify-center transition"><i className="fa-solid fa-shield-halved"></i></button><button onClick={openSettings} className="bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-full backdrop-blur-md transition shadow-lg border border-white/20 font-bold flex items-center gap-2 text-sm"><i className="fa-solid fa-user-shield"></i> Yönetici</button>
                 {kvkkAcik && (<div onClick={()=>setKvkkAcik(false)} className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in"><div onClick={e=>e.stopPropagation()} className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl"><h3 className="font-black text-slate-800 text-lg mb-3 flex items-center"><i className="fa-solid fa-shield-halved text-indigo-500 mr-2"></i>KVKK Bilgilendirmesi</h3><p className="text-slate-600 text-sm leading-relaxed">Bu uygulamadaki öğrenci, veli ve öğretmen verileri yalnızca eğitim ve gelişim amacıyla, ilgili kurum tarafından işlenir; üçüncü kişilerle paylaşılmaz. Yapay zeka çıktıları bilgilendirme amaçlıdır, önemli kararlarda uzman görüşü alınmalıdır. Giriş yaparak bu koşulları kabul etmiş olursunuz.</p><button onClick={()=>setKvkkAcik(false)} className="mt-4 w-full bg-indigo-600 text-white font-black py-2.5 rounded-xl hover:bg-indigo-700">Anladım</button></div></div>)}
             </div>
@@ -1430,6 +1515,7 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig, db, kayitliOgrencile
                         <img src="image_5.png" alt="Değişim Koleji" className="w-full h-full object-cover" onError={(e)=>{e.target.style.display='none';}} />
                     </div>
                 </div>
+                <TanitimVideo />
                 <h1 className="text-3xl md:text-5xl font-black text-center mb-2 tracking-widest uppercase zshine-txt">Değişim Koleji</h1>
                 <p className="text-indigo-300 text-center font-bold text-sm mb-10 uppercase tracking-[0.3em]">Değişim Koleji Eğitim Ekosistemi</p>
                 <GirisYildizlari db={db} />
@@ -1511,7 +1597,7 @@ const LoginScreen = ({ onLogin, openSettings, globalConfig, db, kayitliOgrencile
                     </button>
                 </div>
             </div>
-            <p className="absolute bottom-6 text-slate-500 text-xs font-bold tracking-widest uppercase">Değişim Koleji Eğitim Ekosistemi V16</p>
+            <p className="absolute bottom-6 text-slate-500 text-xs font-bold tracking-widest uppercase">Değişim Koleji Eğitim Ekosistemi · Sürüm {LOCAL_SURUM}</p>
         </div>
     );
 };
@@ -7051,7 +7137,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 34;
+const LOCAL_SURUM = 35;
 const SurumBanner = ({ db }) => {
   const [yeni,setYeni]=useState(false); const [yeniNo,setYeniNo]=useState(0);
   useEffect(()=>{ if(!db) return; const kontrol=async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn&&sn.exists()){ const sv=Number((sn.data()||{}).surum||0); if(sv>LOCAL_SURUM){ setYeni(true); setYeniNo(sv); } } }catch(e){}
@@ -7947,7 +8033,7 @@ const GunlukKarsilama = ({ db, user, rol, profil, onCikis }) => {
       <div className="rounded-3xl overflow-hidden shadow-lg">
         <div className="bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900 text-white px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div><p className="text-[11px] font-black text-amber-300">{selam}{user&&user.name?(rol==='parent'?(', '+String(user.name).split(' ')[0]+' velisi'):(', '+String(user.name).split(' ')[0])):''} 👋</p><p className="text-[15px] font-black">📅 {t.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric',weekday:'long'})}</p></div>
-          <div className="flex items-center gap-2"><p className="text-2xl font-black tabular-nums text-emerald-300">🕒 {t.toLocaleTimeString('tr-TR')}</p>{onCikis && <button onClick={onCikis} className="bg-rose-500 hover:bg-rose-600 text-white font-black text-[12px] px-3 py-1.5 rounded-xl whitespace-nowrap"><i className="fa-solid fa-right-from-bracket mr-1"></i>Çıkış</button>}</div>
+          <div className="flex items-center gap-2"><p className="text-2xl font-black tabular-nums text-emerald-300">🕒 {t.toLocaleTimeString('tr-TR')}</p><ZQrPaylas kucuk={true} />{onCikis && <button onClick={onCikis} className="bg-rose-500 hover:bg-rose-600 text-white font-black text-[12px] px-3 py-1.5 rounded-xl whitespace-nowrap"><i className="fa-solid fa-right-from-bracket mr-1"></i>Çıkış</button>}</div>
         </div>
         <div className="bg-gradient-to-br from-fuchsia-500 via-violet-500 to-sky-500 text-white px-4 py-3">
           <p className="text-[10px] font-black tracking-[0.2em] text-white/80">✨ GÜNÜN EĞİTİM SÖZÜ</p>
