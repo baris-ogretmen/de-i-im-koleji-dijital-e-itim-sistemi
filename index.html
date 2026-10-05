@@ -2879,6 +2879,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
   const [duzenle, setDuzenle] = useState(null);
   const [resim, setResim] = useState('');
   const [resimTur, setResimTur] = useState('');
+  const [video, setVideo] = useState(null); const [vidDosya, setVidDosya] = useState(null);
   useEffect(()=>{ if(!bilgi||sureElle) return; const tah=zSureTahmin(konu+' '+detay); if(tah) setSure(tah); },[konu,detay,bilgi]);
   const dosyaSec = (e) => {
     const f = e.target.files && e.target.files[0]; if(!f) return;
@@ -2892,7 +2893,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
       r.readAsDataURL(f);
     } else if(f.type.indexOf('video/')===0){
       const r=new FileReader();
-      r.onload=ev=>{ const b=ev.target.result; if(String(b).length>950000){ alert('Video çok büyük. Kısa bir video (birkaç saniye) doğrudan yükleyebilir; uzun videolar için YouTube/Drive linkini kullanabilirsiniz.'); return; } setResim(b); setResimTur('video'); toast('🎬 Video hazır — göreve eklenecek.','green'); };
+      r.onload=ev=>{ const b=ev.target.result; if(String(b).length>950000){ /* v42: uzun video → küçült + parçala (en fazla 3 dk) */ setVidDosya(f); toast('🎬 Uzun video — aşağıdan “Videoyu hazırla”ya basın.','green'); return; } setResim(b); setResimTur('video'); toast('🎬 Video hazır — göreve eklenecek.','green'); };
       r.readAsDataURL(f);
     } else { alert('Fotoğraf, video veya PDF eklenebilir.'); }
     e.target.value='';
@@ -2952,15 +2953,16 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
       ekleyen: (user && user.name) || 'Öğretmen',
       sonTeslim: bilgi ? '' : (sonTeslim || ''), link: link.trim(), resimVar: !!resim, resimTur: resim?resimTur:'', tarih: Date.now(), bilgi: !!bilgi, bitis: bilgi ? zBitis(sure) : 0
     };
+    if(video){ try{ toast('🎬 Video yükleniyor…','green'); const _vid=await zVideoYaz(video, zVidYaz(db)); kayitlar.forEach(k=>{ k.videoId=_vid; k.videoSure=Math.round(video.sure||0); }); }catch(ve){ alert('Video yüklenemedi ('+((ve&&ve.message)||ve)+'). Yazı yine gönderilecek.'); } }
     const ok = await okulYaz(db, "k12_odevler", { liste: [...kayitlar, ...odevler] });
     if(ok && resim){ for(const k of kayitlar){ try{ await okulYaz(db, "k12_res_"+k.id, { data: resim, tur: resimTur }); }catch(e){} } }
     setKaydediliyor(false);
-    if(ok){ setKonu(''); setDetay(''); setSonTeslim(''); setLink(''); setResim(''); setResimTur(''); setCoklu({}); toast((bilgi?'📢 Bilgilendirme':'🚀 Ödev')+(tur==='birey'?(kayitlar.length>1?` ${kayitlar.length} öğrenciye gönderildi.`:` ${hedef?hedef.ad:''} adlı öğrenciye gönderildi.`):` ${sinif} sınıfına gönderildi.`),'green'); }
+    if(ok){ setKonu(''); setDetay(''); setSonTeslim(''); setLink(''); setResim(''); setResimTur(''); setCoklu({}); setVideo(null); setVidDosya(null); toast((bilgi?'📢 Bilgilendirme':'🚀 Ödev')+(tur==='birey'?(kayitlar.length>1?` ${kayitlar.length} öğrenciye gönderildi.`:` ${hedef?hedef.ad:''} adlı öğrenciye gönderildi.`):` ${sinif} sınıfına gönderildi.`),'green'); }
   };
 
   const sil = async (id) => {
     if(!window.confirm("Bu ödev kaldırılsın mı?")) return;
-    await okulYaz(db, "k12_odevler", { liste: odevler.filter(o=>o.id!==id) });
+    const _kalan=odevler.filter(o=>o.id!==id); const _ok=await okulYaz(db, "k12_odevler", { liste: _kalan }); if(_ok) zVideoTemizle(db, odevler.filter(o=>o.id===id), _kalan);
   };
 
   const guncelle = async () => {
@@ -3032,11 +3034,12 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
         </div>}
         <input value={link} onChange={e=>setLink(e.target.value)} placeholder="🔗 Video / görsel / dosya linki (opsiyonel — YouTube, Drive, resim linki)" className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none mb-2" />
         <label className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-lg border-2 border-dashed border-sky-300 bg-sky-50 text-sky-700 text-sm font-bold cursor-pointer mb-2">
-          <i className="fa-solid fa-camera"></i>{resim ? (resimTur==='pdf'?'📄 PDF seçildi — değiştir': resimTur==='video'?'🎬 Video seçildi — değiştir':'📷 Fotoğraf seçildi — değiştir') : 'Fotoğraf / Video / PDF Yükle (telefon ya da bilgisayardan)'}
+          <i className="fa-solid fa-camera"></i>{resim ? (resimTur==='pdf'?'📄 PDF seçildi — değiştir': resimTur==='video'?'🎬 Video seçildi — değiştir':'📷 Fotoğraf seçildi — değiştir') : 'Fotoğraf / Video (3 dk’ya kadar) / PDF Yükle'}
           <input type="file" accept="image/*,application/pdf,video/*" onChange={dosyaSec} className="hidden" />
         </label>
         {resim && <div className="flex items-center gap-3 mb-3">{resimTur==='image' && <img src={resim} className="h-16 rounded-lg border border-slate-200" />}{resimTur==='pdf' && <span className="text-sm text-slate-500"><i className="fa-solid fa-file-pdf text-rose-500 mr-1"></i>PDF eklendi</span>}{resimTur==='video' && <span className="text-sm text-slate-500"><i className="fa-solid fa-film text-indigo-500 mr-1"></i>Video eklendi</span>}<button onClick={()=>{setResim('');setResimTur('');}} className="text-[12px] text-rose-500 font-black">Kaldır</button></div>}
         {!resim && <div className="mb-1"></div>}
+        {(vidDosya || video) ? <ZVideoSec ilkDosya={vidDosya} deger={video} setDeger={setVideo} /> : null}
         <button onClick={ata} disabled={kaydediliyor} className="w-full bg-rose-600 text-white font-black py-3 rounded-xl hover:bg-rose-700 transition flex items-center justify-center gap-2">
           {kaydediliyor ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-rocket"></i>}{bilgi?'BİLGİLENDİRMEYİ GÖNDER':'GÖREVİ GÖNDER'}
         </button>
@@ -3075,7 +3078,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
                   {o.bilgi && <span className="ml-1 text-[9px] bg-sky-500 text-white font-black px-1.5 py-0.5 rounded-full">📢 BİLGİ</span>}
                   {o.bitis>0 && <span className={`ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${zAktifMi(o)?'bg-amber-100 text-amber-700':'bg-slate-200 text-slate-500'}`}>⏳ {zKalan(o.bitis)}</span>}
                   {o.bilgi && !o.bitis && <span className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">📌 kalıcı</span>}
-                  {o.bilgi && <span className="ml-1 inline-block"><SureDegistir onSec={async(v)=>{ if(v==='__sil__'){ if(!window.confirm('Bu hatırlatma şimdi kaldırılsın mı?')) return; const ok=await okulYaz(db,"k12_odevler",{liste:odevler.filter(x=>x.id!==o.id)}); if(ok) toast('🗑️ Kaldırıldı.','green'); return; } const ok=await okulYaz(db,"k12_odevler",{liste:odevler.map(x=>x.id===o.id?{...x,bitis:zBitis(v)}:x)}); if(ok) toast('⏳ Süre güncellendi: '+(SURE_ETIKET[v]||v),'green'); }} /></span>}
+                  {o.bilgi && <span className="ml-1 inline-block"><SureDegistir onSec={async(v)=>{ if(v==='__sil__'){ if(!window.confirm('Bu hatırlatma şimdi kaldırılsın mı?')) return; const _k=odevler.filter(x=>x.id!==o.id); const ok=await okulYaz(db,"k12_odevler",{liste:_k}); if(ok){ toast('🗑️ Kaldırıldı.','green'); zVideoTemizle(db,[o],_k); } return; } const ok=await okulYaz(db,"k12_odevler",{liste:odevler.map(x=>x.id===o.id?{...x,bitis:zBitis(v)}:x)}); if(ok) toast('⏳ Süre güncellendi: '+(SURE_ETIKET[v]||v),'green'); }} /></span>}
                   {(yonetici&&hepsiniGor&&o.ekleyen) && <span className="ml-1 text-[9px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded-full">{o.ekleyen}</span>}
                 </p>
                 <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{o.detay}</p>
@@ -3506,6 +3509,7 @@ const OgrenciMerkezi = ({ db, user }) => {
                   <div className="mt-1"><AIBtn metin={o.detay} kucuk={true} /></div>
                   {o.link && <a href={o.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-2 bg-sky-50 border border-sky-200 text-sky-700 font-bold px-3 py-1.5 rounded-lg text-[13px]"><i className="fa-solid fa-paperclip"></i> Öğretmenin eklediği video/dosya</a>}
                   {o.resimVar && <OdevResim db={db} odevId={o.id} tur={o.resimTur} />}
+                  {o.videoId && <ZVideo db={db} vid={o.videoId} />}
                   {ben && !yapildi && o.bilgi && <button onClick={()=>okudum(o)} className="mt-3 w-full bg-sky-500 hover:bg-sky-600 text-white font-black py-2.5 rounded-xl text-sm">👍 Okudum</button>}
                   {ben && !yapildi && !o.bilgi && (() => {
                     const cevap = (mesajTaslak[o.id]||'');
@@ -4692,19 +4696,24 @@ function zKeySahip(glob, k){ const m=(glob&&glob.anahtarSahipleri)||{}; return m
 function zAnahtarMesaji(ad, maske){ return 'Merhaba'+(ad?(' '+ad):'')+' 🌸\n\nDeğişim Koleji sistemimiz için bize verdiğiniz yapay zekâ anahtarı'+(maske?(' ('+maske+')'):'')+' artık çalışmıyor (Google tarafından kapatılmış ya da süresi dolmuş).\n\nMüsait olduğunuzda 1 dakikada yeni bir anahtar alıp bana gönderebilir misiniz?\n1) aistudio.google.com/apikey adresine Google hesabınızla girin\n2) "Create API key" (API anahtarı oluştur) düğmesine basın\n3) Çıkan anahtarı kopyalayıp bana WhatsApp\'tan gönderin\n\nÇok teşekkür ederim, katkınız öğrencilerimize değiyor 🙏\nBarış Öğretmen · Değişim Koleji'; }
 const AnahtarSahipleri = ({ db, globalConfig, setGlobalConfig }) => {
   const [acik,setAcik]=useState(false); const [arsivAcik,setArsivAcik]=useState(false); const [ara,setAra]=useState('');
-  const [taslak,setTaslak]=useState({});
+  const [taslak,setTaslak]=useState({}); const [duz,setDuz]=useState({}); const [filtre,setFiltre]=useState('hepsi');
   const sahipler=(globalConfig&&globalConfig.anahtarSahipleri)||{};
   const arsiv=((globalConfig&&globalConfig.silinenAnahtarlar)||[]).slice().sort((a,b)=>(b.ts||0)-(a.ts||0));
   const keys=[]; String((globalConfig&&globalConfig.paylasilanKey)||'').split(/[\s,;]+/).map(x=>x.trim()).filter(x=>x.length>10).forEach(x=>{ if(keys.indexOf(x)<0) keys.push(x); });
   const isimsiz=keys.filter(k=>!(sahipler[zKeyMaske(k)]&&sahipler[zKeyMaske(k)].ad)).length;
   const kaydet=async(k)=>{ const m=zKeyMaske(k); const t=taslak[m]||{}; const eski=sahipler[m]||{}; const yeni={ad:String(t.ad!==undefined?t.ad:(eski.ad||'')).trim().slice(0,60), tel:String(t.tel!==undefined?t.tel:(eski.tel||'')).trim().slice(0,20)};
-    try{ const {doc,setDoc}=window.FirebaseSDK; const w={}; w[m]=yeni; await setDoc(doc(db,"maas_config","k12_global"),{anahtarSahipleri:w},{merge:true}); try{ setGlobalConfig({...globalConfig, anahtarSahipleri:{...sahipler, [m]:yeni}}); }catch(e){} try{ toast('🏷️ '+(yeni.ad||'İsim')+' kaydedildi.','green'); }catch(e){} }catch(e){ alert('Kaydedilemedi: '+(e.message||e)); } };
+    if(!yeni.ad && !yeni.tel){ try{ toast('✏️ Önce bir isim yazın.','red'); }catch(e){} return; }
+    try{ const {doc,setDoc}=window.FirebaseSDK; const w={}; w[m]=yeni; await setDoc(doc(db,"maas_config","k12_global"),{anahtarSahipleri:w},{merge:true}); try{ setGlobalConfig({...globalConfig, anahtarSahipleri:{...sahipler, [m]:yeni}}); }catch(e){} setDuz(p=>({...p,[m]:false})); setTaslak(p=>{ const n={...p}; delete n[m]; return n; }); try{ toast('🏷️ '+(yeni.ad||'İsim')+' kaydedildi.','green'); }catch(e){} }catch(e){ alert('Kaydedilemedi: '+(e.message||e)); } };
+  /* v41: yazılmış ismi sil (anahtarın kendisine DOKUNMAZ — yalnızca sahip bilgisini kaldırır) */
+  const isimSil=async(k)=>{ const m=zKeyMaske(k); const s=sahipler[m]||{}; if(!window.confirm('"'+(s.ad||m)+'" ismi bu anahtardan kaldırılsın mı?\n(Anahtarın kendisi silinmez, çalışmaya devam eder.)')) return;
+    try{ const {doc,setDoc,deleteField}=window.FirebaseSDK; const w={}; w[m]=deleteField?deleteField():{ad:'',tel:''}; await setDoc(doc(db,"maas_config","k12_global"),{anahtarSahipleri:w},{merge:true}); const yeniS={...sahipler}; delete yeniS[m]; try{ setGlobalConfig({...globalConfig, anahtarSahipleri:yeniS}); }catch(e){} setDuz(p=>({...p,[m]:false})); setTaslak(p=>{ const n={...p}; delete n[m]; return n; }); try{ toast('🗑️ İsim kaldırıldı.','green'); }catch(e){} }catch(e){ alert('Kaldırılamadı: '+(e.message||e)); } };
+  const vazgec=(m)=>{ setDuz(p=>({...p,[m]:false})); setTaslak(p=>{ const n={...p}; delete n[m]; return n; }); };
   const geriAl=async(r)=>{ if(!window.confirm(r.maske+' anahtarı havuza geri eklensin mi?')) return; try{ const {doc,setDoc}=window.FirebaseSDK; const yeniKeys=keys.indexOf(r.key)<0?keys.concat([r.key]):keys; const kalanArsiv=(globalConfig.silinenAnahtarlar||[]).filter(x=>x.key!==r.key); const metin=yeniKeys.join('\n'); await setDoc(doc(db,"maas_config","k12_global"),{paylasilanKey:metin, silinenAnahtarlar:kalanArsiv},{merge:true}); try{ setGlobalConfig({...globalConfig, paylasilanKey:metin, silinenAnahtarlar:kalanArsiv}); window.ZIRVE_PAYLASILAN_KEYS=yeniKeys; }catch(e){} try{ toast('↩️ Anahtar havuza geri eklendi.','green'); }catch(e){} }catch(e){ alert('Hata: '+(e.message||e)); } };
   const arsivdenSil=async(r)=>{ if(!window.confirm('Arşivden tamamen silinsin mi? (Geri alınamaz)')) return; try{ const {doc,setDoc}=window.FirebaseSDK; const kalan=(globalConfig.silinenAnahtarlar||[]).filter(x=>x.key!==r.key); await setDoc(doc(db,"maas_config","k12_global"),{silinenAnahtarlar:kalan},{merge:true}); try{ setGlobalConfig({...globalConfig, silinenAnahtarlar:kalan}); }catch(e){} }catch(e){ alert('Hata: '+(e.message||e)); } };
   const bildir=(ad,tel,maske)=>{ const t=zAnahtarMesaji(ad,maske); const n=(typeof zTel==='function')?zTel(tel):''; window.open('https://wa.me/'+(n||'')+'?text='+encodeURIComponent(t),'_blank'); };
   const kopyala=async(k)=>{ try{ await navigator.clipboard.writeText(k); toast('📋 Anahtar kopyalandı.','green'); }catch(e){ window.prompt('Kopyalayın:',k); } };
   const q=zNorm(ara);
-  const gorunen=keys.filter(k=>{ if(!q) return true; const s=sahipler[zKeyMaske(k)]||{}; return zNorm(zKeyMaske(k)+' '+(s.ad||'')).indexOf(q)>=0; });
+  const gorunen=keys.filter(k=>{ if(!q) return true; const s=sahipler[zKeyMaske(k)]||{}; return zNorm(zKeyMaske(k)+' '+(s.ad||'')+' '+(s.tel||'')).indexOf(q)>=0; });
   const DRENK={ok:'bg-emerald-100 text-emerald-700',kota:'bg-amber-100 text-amber-700',gecersiz:'bg-rose-100 text-rose-700',bilinmiyor:'bg-slate-100 text-slate-500'};
   const DAD={ok:'✅ çalışıyor',kota:'⏳ kota dolu',gecersiz:'⛔ geçersiz',bilinmiyor:'❔ denenmedi'};
   return (
@@ -4712,18 +4721,38 @@ const AnahtarSahipleri = ({ db, globalConfig, setGlobalConfig }) => {
       <button onClick={()=>setAcik(!acik)} className="w-full flex items-center justify-between bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-black text-[12px] px-3 py-2.5 rounded-lg shadow">
         <span>🏷️ Anahtar Sahipleri — kimin anahtarı? ({keys.length}{isimsiz?(' · '+isimsiz+' isimsiz'):''})</span><span>{acik?'▲':'▼'}</span>
       </button>
-      {acik && <div className="bg-white border-2 border-violet-200 rounded-xl p-2">
-        <p className="text-[10.5px] text-slate-500 mb-2">Her anahtara vereni yazın; bir anahtar bozulunca kime haber vereceğinizi bilirsiniz. Anahtarın başı ve sonu (ör. <b>AIzaSyAb…x9Qk</b>) WhatsApp'ta aramak için yeter.</p>
-        <input value={ara} onChange={e=>setAra(e.target.value)} placeholder="🔍 İsim ya da anahtar ucu ara (ör. dJIA)" className="w-full mb-2 px-2 py-1.5 rounded-lg border border-slate-200 text-[12px] outline-none" />
-        <div className="space-y-1.5 max-h-96 overflow-auto">{gorunen.map((k,i)=>{ const m=zKeyMaske(k); const s=sahipler[m]||{}; const t=taslak[m]||{}; const d=zKeyDurum(k); return (
-          <div key={m} className={`rounded-lg border px-2 py-1.5 ${d==='gecersiz'?'border-rose-400 bg-rose-50':'border-slate-200 bg-slate-50'}`}>
-            <div className="flex items-center justify-between gap-2"><span className="font-mono text-[11px] font-bold text-slate-700">{keys.indexOf(k)+1}. {m}</span><span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${DRENK[d]||DRENK.bilinmiyor}`}>{DAD[d]||DAD.bilinmiyor}</span></div>
-            <div className="flex gap-1 mt-1">
-              <input value={t.ad!==undefined?t.ad:(s.ad||'')} onChange={e=>setTaslak(p=>({...p,[m]:{...(p[m]||{}),ad:e.target.value}}))} placeholder="👤 Kim verdi? (ör. Ayşe Hanım – 3. sınıf veli)" className="flex-1 min-w-0 px-2 py-1 rounded border border-slate-200 text-[11.5px] outline-none" />
-              <input value={t.tel!==undefined?t.tel:(s.tel||'')} onChange={e=>setTaslak(p=>({...p,[m]:{...(p[m]||{}),tel:e.target.value}}))} placeholder="📱 Tel" inputMode="tel" className="w-24 px-2 py-1 rounded border border-slate-200 text-[11.5px] outline-none" />
-              <button onClick={()=>kaydet(k)} className="bg-violet-600 text-white font-black text-[11px] px-2 rounded">💾</button>
-              {d==='gecersiz' && <button onClick={()=>bildir(s.ad,s.tel,m)} title="Sahibine yeni anahtar iste" className="bg-emerald-600 text-white font-black text-[11px] px-2 rounded">📱</button>}
+      {acik && <div className="bg-white border-2 border-violet-200 rounded-2xl p-2.5">
+        <p className="text-[11.5px] text-slate-500 mb-2 leading-snug">Her anahtara vereni yazın; bir anahtar bozulunca kime haber vereceğinizi bilirsiniz. Yazılmış ismi <b>✏️ Düzenle</b> ile değiştirebilir, <b>🗑️ İsmi sil</b> ile kaldırabilirsiniz (anahtar silinmez).</p>
+        <div className="flex items-center gap-2 mb-2"><div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-violet-500 to-emerald-500" style={{width:(keys.length?Math.round((keys.length-isimsiz)/keys.length*100):0)+'%'}}></div></div><span className="text-[11px] font-black text-violet-700 whitespace-nowrap">🏷️ {keys.length-isimsiz}/{keys.length} isimli</span></div>
+        <input value={ara} onChange={e=>setAra(e.target.value)} placeholder="🔍 İsim, telefon ya da anahtar ucu ara (ör. dJIA)" className="w-full mb-2 px-3 py-2 rounded-xl border border-slate-200 text-[16px] outline-none focus:border-violet-400" />
+        <div className="flex flex-wrap gap-1.5 mb-2">{[['hepsi','Tümü ('+keys.length+')'],['isimsiz','✏️ İsimsiz ('+isimsiz+')'],['isimli','👤 İsimli ('+(keys.length-isimsiz)+')'],['sorunlu','⛔ Çalışmayan']].map(f=>(<button key={f[0]} onClick={()=>setFiltre(f[0])} className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${filtre===f[0]?'bg-violet-600 text-white border-violet-600':'bg-white text-slate-600 border-slate-200'}`}>{f[1]}</button>))}</div>
+        <div className="space-y-2 max-h-[32rem] overflow-auto pr-0.5">{gorunen.filter(k=>{ const s=sahipler[zKeyMaske(k)]||{}; if(filtre==='isimsiz') return !s.ad; if(filtre==='isimli') return !!s.ad; if(filtre==='sorunlu'){ const d0=zKeyDurum(k); return d0==='gecersiz'||d0==='kota'; } return true; }).map((k)=>{ const m=zKeyMaske(k); const s=sahipler[m]||{}; const t=taslak[m]||{}; const d=zKeyDurum(k); const duzenMod=!s.ad || !!duz[m]; return (
+          <div key={m} className={`rounded-2xl border-2 p-3 shadow-sm ${d==='gecersiz'?'border-rose-300 bg-rose-50':(s.ad?'border-violet-200 bg-white':'border-amber-200 bg-amber-50/60')}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex items-start gap-2"><span className="shrink-0 w-7 h-7 rounded-full bg-violet-600 text-white text-[12px] font-black flex items-center justify-center">{keys.indexOf(k)+1}</span><span className="font-mono text-[12px] font-bold text-slate-600 break-all leading-7">{m}</span></div>
+              <span className={`shrink-0 text-[10.5px] font-black px-2 py-1 rounded-full whitespace-nowrap ${DRENK[d]||DRENK.bilinmiyor}`}>{DAD[d]||DAD.bilinmiyor}</span>
             </div>
+            {!duzenMod ? (<div className="mt-2">
+              <div className="bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-100 rounded-xl px-3 py-2">
+                <p className="text-[15px] font-black text-violet-900 break-words leading-snug">👤 {s.ad}</p>
+                {s.tel ? <p className="text-[13px] font-bold text-slate-600 mt-0.5">📱 {s.tel}</p> : <p className="text-[11.5px] text-slate-400 mt-0.5">Telefon yazılmamış</p>}
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 mt-2">
+                <button onClick={()=>{ setTaslak(p=>({...p,[m]:{ad:s.ad||'',tel:s.tel||''}})); setDuz(p=>({...p,[m]:true})); }} className="bg-violet-600 text-white font-black text-[12.5px] py-2 rounded-xl">✏️ Düzenle</button>
+                <button onClick={()=>isimSil(k)} className="bg-white border-2 border-rose-200 text-rose-600 font-black text-[12.5px] py-2 rounded-xl">🗑️ İsmi sil</button>
+                {d==='gecersiz' && <button onClick={()=>bildir(s.ad,s.tel,m)} className="col-span-2 bg-emerald-600 text-white font-black text-[12.5px] py-2 rounded-xl">📱 Sahibine "yeni anahtar" mesajı at</button>}
+              </div>
+            </div>) : (<div className="mt-2 space-y-1.5">
+              <label className="block text-[11.5px] font-black text-slate-600">👤 Kim verdi?</label>
+              <input value={t.ad!==undefined?t.ad:(s.ad||'')} onChange={e=>setTaslak(p=>({...p,[m]:{...(p[m]||{}),ad:e.target.value}}))} placeholder="ör. Ayşe Hanım – 3. sınıf veli" className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 bg-white text-[16px] font-bold text-slate-800 outline-none focus:border-violet-500" />
+              <label className="block text-[11.5px] font-black text-slate-600">📱 Telefonu (isteğe bağlı)</label>
+              <input value={t.tel!==undefined?t.tel:(s.tel||'')} onChange={e=>setTaslak(p=>({...p,[m]:{...(p[m]||{}),tel:e.target.value}}))} placeholder="05xx xxx xx xx" inputMode="tel" className="w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 bg-white text-[16px] font-bold text-slate-800 outline-none focus:border-violet-500" />
+              <div className="flex gap-1.5 pt-0.5">
+                <button onClick={()=>kaydet(k)} className="flex-1 bg-violet-600 text-white font-black text-[13px] py-2.5 rounded-xl shadow">💾 Kaydet</button>
+                {s.ad && <button onClick={()=>vazgec(m)} className="px-4 bg-slate-100 text-slate-600 font-black text-[13px] py-2.5 rounded-xl">Vazgeç</button>}
+              </div>
+              {d==='gecersiz' && <button onClick={()=>bildir(s.ad,s.tel,m)} className="w-full bg-emerald-600 text-white font-black text-[12.5px] py-2 rounded-xl">📱 Sahibine "yeni anahtar" mesajı at</button>}
+            </div>)}
           </div>);})}</div>
       </div>}
       <button onClick={()=>setArsivAcik(!arsivAcik)} className="w-full flex items-center justify-between bg-gradient-to-r from-slate-600 to-slate-800 text-white font-black text-[12px] px-3 py-2.5 rounded-lg shadow">
@@ -7254,7 +7283,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 40;
+const LOCAL_SURUM = 42;
 const SurumBanner = ({ db }) => {
   const [yeni,setYeni]=useState(false); const [yeniNo,setYeniNo]=useState(0);
   useEffect(()=>{ if(!db) return; const kontrol=async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn&&sn.exists()){ const sv=Number((sn.data()||{}).surum||0); if(sv>LOCAL_SURUM){ setYeni(true); setYeniNo(sv); } } }catch(e){}
@@ -7448,6 +7477,8 @@ const HatirlatmaKarti = ({ db, sinif, bilgiler, yapilanIds, onOkudum, veli }) =>
             <p className="text-sm text-slate-700 font-medium whitespace-pre-wrap leading-snug">{o.detay}</p>
             <div className="mt-1"><AIBtn metin={o.detay} kucuk={true} /></div>
             {o.link && <a href={o.link} target="_blank" rel="noopener noreferrer" className="inline-block mt-1 text-[12px] text-sky-600 font-bold"><i className="fa-solid fa-paperclip mr-1"></i>Ek</a>}
+            {o.resimVar && <OdevResim db={db} odevId={o.id} tur={o.resimTur} />}
+            {o.videoId && <ZVideo db={db} vid={o.videoId} />}
             {veli
               ? <p className={`mt-1.5 text-[11px] font-black ${ok?'text-emerald-600':'text-sky-600'}`}>{ok?'👍 Çocuğunuz okudu':'ℹ️ Bilgilendirme'}</p>
               : (ok ? <p className="mt-1.5 text-[12px] font-black text-emerald-600">👍 Okundu</p>
@@ -7759,6 +7790,100 @@ function zLinkBilgi(url, ad){ let u=String(url||'').trim(); let h=''; try{ h=new
   return {...t, url:u, host:h, ad:String(ad||'').trim()}; }
 /* *kalın* → kalın */
 function zYildizKalin(s){ const out=[]; String(s||'').split(/(\*[^*\n]{1,120}\*)/g).forEach((p,i)=>{ if(/^\*[^*]+\*$/.test(p)) out.push(<b key={i}>{p.slice(1,-1)}</b>); else if(p) out.push(p); }); return out; }
+/* ============================================================
+   🎬 UZUN VİDEO (en fazla 3 dk) — telefonda küçültülür, parçalara bölünüp okul sistemine yazılır
+   maas_config/k12_pvideo_{id} {parca,mime,sure,boyut}  ·  k12_pvideo_{id}_{n} {data: base64 parça}
+   İzleyen kişi videoyu ancak “İzle”ye basınca indirir (kota ve internet korunur).
+   ============================================================ */
+var ZVID_MAX_SN=180, ZVID_PARCA=900000, ZVID_DOGRUDAN=2500000;
+function zSureYaz(sn){ sn=Math.round(+sn||0); return Math.floor(sn/60)+':'+String(sn%60).padStart(2,'0'); }
+function zMbYaz(b){ return (Math.round((+b||0)/104857.6)/10).toLocaleString('tr-TR')+' MB'; }
+/* 1) Dosyayı aç, süresini öğren (seçer seçmez) */
+function zVideoAc(file){ return new Promise(function(coz,red){ try{ var url=URL.createObjectURL(file); var v=document.createElement('video'); v.playsInline=true; v.setAttribute('playsinline',''); v.setAttribute('webkit-playsinline',''); v.preload='auto'; var bitti=false;
+  v.onloadedmetadata=function(){ if(bitti) return; bitti=true; var s=v.duration; if(!isFinite(s)) s=0; coz({v:v,url:url,sure:s,file:file,W:v.videoWidth||640,H:v.videoHeight||360}); };
+  v.onerror=function(){ if(bitti) return; bitti=true; red(new Error('Video açılamadı (bu biçim desteklenmiyor olabilir).')); };
+  v.src=url; try{ v.load(); }catch(e){} setTimeout(function(){ if(!bitti){ bitti=true; red(new Error('Video okunamadı, tekrar seçin.')); } },20000); }catch(e){ red(e); } }); }
+/* Küçültmeye gerek var mı? (küçük mp4/webm doğrudan gider; iPhone .mov her zaman dönüştürülür — Android'de de oynasın diye) */
+function zVideoDogrudanMi(h){ return h && h.file && h.file.size<=ZVID_DOGRUDAN && /mp4|webm/i.test(h.file.type||'') && h.sure<=ZVID_MAX_SN+2; }
+/* 2) Küçült — MUTLAKA dokunma (tıklama) anında çağrılmalı (iPhone ses kuralı). Video süresi kadar sürer. */
+function zVideoKucult(h, onIlerleme){ return new Promise(function(coz,red){ var v=h.v, bitti=false, ac=null, rec=null;
+  var son=function(hata,sonuc){ if(bitti) return; bitti=true; try{ v.pause(); }catch(e){} try{ ac&&ac.close(); }catch(e){} try{ URL.revokeObjectURL(h.url); }catch(e){} if(hata) red(new Error(hata)); else coz(sonuc); };
+  try{
+    if(typeof MediaRecorder==='undefined') return son('Bu tarayıcı videoyu küçültemiyor. Safari ya da Chrome\'u güncelleyin veya YouTube linki ekleyin.');
+    var sure=h.sure||0, sc=Math.min(1,480/Math.max(h.W,h.H)), w=Math.max(2,Math.round(h.W*sc/2)*2), hh=Math.max(2,Math.round(h.H*sc/2)*2);
+    var c=document.createElement('canvas'); c.width=w; c.height=hh; var cx=c.getContext('2d'); if(!c.captureStream) return son('Bu tarayıcı videoyu küçültemiyor.');
+    var st=c.captureStream(24);
+    try{ var AC=window.AudioContext||window.webkitAudioContext; if(AC){ ac=new AC(); try{ ac.resume(); }catch(e){} var src=ac.createMediaElementSource(v), dst=ac.createMediaStreamDestination(); src.connect(dst); dst.stream.getAudioTracks().forEach(function(t){ st.addTrack(t); }); } else v.muted=true; }catch(e){ v.muted=true; }
+    var mime=''; ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp8,opus','video/webm'].some(function(t){ try{ if(MediaRecorder.isTypeSupported(t)){ mime=t; return true; } }catch(e){} return false; });
+    var opt={videoBitsPerSecond:380000, audioBitsPerSecond:48000}; if(mime) opt.mimeType=mime;
+    try{ rec=new MediaRecorder(st,opt); }catch(e){ try{ rec=new MediaRecorder(st); }catch(e2){ return son('Video kaydedici başlatılamadı.'); } }
+    var parca=[]; rec.ondataavailable=function(e){ if(e.data&&e.data.size) parca.push(e.data); };
+    rec.onstop=function(){ var tip=String(rec.mimeType||mime||'video/mp4').split(';')[0]||'video/mp4'; var b=new Blob(parca,{type:tip}); if(!b.size) return son('Video küçültülemedi.'); son(null,{blob:b,mime:tip,sure:sure}); };
+    var ciz=function(){ if(bitti) return; try{ cx.drawImage(v,0,0,w,hh); }catch(e){} if(sure&&onIlerleme) onIlerleme(Math.min(99,Math.round(v.currentTime/sure*100))); if(!v.ended){ if(v.requestVideoFrameCallback) v.requestVideoFrameCallback(ciz); else requestAnimationFrame(ciz); } };
+    var durdur=function(){ try{ if(rec.state!=='inactive') rec.stop(); }catch(e){} };
+    v.onended=function(){ try{ cx.drawImage(v,0,0,w,hh); }catch(e){} setTimeout(durdur,300); };
+    v.onpause=function(){ if(!v.ended && !bitti){ try{ rec.ondataavailable=null; rec.onstop=null; durdur(); }catch(e){} son('Hazırlama yarıda kaldı (ekran kapandı ya da başka uygulamaya geçildi). Ekran açık kalacak şekilde tekrar deneyin.'); } };
+    setTimeout(function(){ if(!bitti && v.currentTime<0.05 && v.paused){ son('Video başlatılamadı — tekrar “Hazırla”ya dokunun.'); } },8000);
+    try{ v.currentTime=0; }catch(e){}
+    rec.start(1000);
+    var p=v.play(); if(p&&p.then) p.then(ciz).catch(function(){ son('Video oynatılamadı — tekrar “Hazırla”ya dokunun.'); }); else ciz();
+  }catch(e){ son('Video hazırlanamadı: '+((e&&e.message)||e)); } }); }
+function zBlobB64(b){ return new Promise(function(ok,no){ var r=new FileReader(); r.onload=function(){ var s=String(r.result||''); ok(s.slice(s.indexOf(',')+1)); }; r.onerror=no; r.readAsDataURL(b); }); }
+/* 3) Parçalayıp yaz — yaz(docAdi, veri) dışarıdan verilir (okul sistemi / ders planı) */
+async function zVideoYaz(vid, yaz, onIlerleme){ var b64=await zBlobB64(vid.blob); var n=Math.ceil(b64.length/ZVID_PARCA); if(!n) throw new Error('Video boş'); if(n>40) throw new Error('Video çok büyük');
+  var id='v'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  for(var i=0;i<n;i++){ await yaz('k12_pvideo_'+id+'_'+i,{data:b64.slice(i*ZVID_PARCA,(i+1)*ZVID_PARCA), ts:Date.now()}); if(onIlerleme) onIlerleme(Math.round((i+1)/n*100)); }
+  await yaz('k12_pvideo_'+id,{parca:n, mime:vid.mime||'video/mp4', sure:Math.round(vid.sure||0), boyut:vid.blob.size||0, ts:Date.now()});
+  return id; }
+/* 4) İzlerken parçaları birleştir */
+async function zVideoBirlestir(oku, id, onIlerleme){ var m=await oku('k12_pvideo_'+id); if(!m||!m.parca) throw new Error('Video bulunamadı ya da süresi dolmuş'); var ps=[];
+  for(var i=0;i<m.parca;i++){ var d=await oku('k12_pvideo_'+id+'_'+i); if(!d||!d.data) throw new Error('Video parçası eksik'); ps.push(d.data); if(onIlerleme) onIlerleme(Math.round((i+1)/m.parca*100)); }
+  var b64=ps.join(''); var tip=m.mime||'video/mp4'; var bin=atob(b64), u=new Uint8Array(bin.length); for(var j=0;j<bin.length;j++) u[j]=bin.charCodeAt(j);
+  return URL.createObjectURL(new Blob([u],{type:tip})); }
+/* 5) Silerken parçaları boşalt (belge sınırı ve kota korunur) */
+async function zVideoBosalt(oku, yaz, id){ try{ var m=await oku('k12_pvideo_'+id); var n=(m&&m.parca)||0; for(var i=0;i<n;i++) await yaz('k12_pvideo_'+id+'_'+i,{data:''}); await yaz('k12_pvideo_'+id,{parca:0, silindi:true}); }catch(e){} }
+function zVidYaz(db){ return function(ad,veri){ const {doc,setDoc}=window.FirebaseSDK; return setDoc(doc(db,'maas_config',ad),veri); }; }
+function zVidOku(db){ return async function(ad){ const {doc,getDoc}=window.FirebaseSDK; const s=await getDoc(doc(db,'maas_config',ad)); return s.exists()?s.data():null; }; }
+/* Bir videoyu artık hiçbir kayıt kullanmıyorsa parçalarını boşalt */
+function zVideoTemizle(db, giden, kalan){ try{ const ids=[]; (giden||[]).forEach(x=>{ if(x&&x.videoId&&ids.indexOf(x.videoId)<0&&!(kalan||[]).some(y=>y&&y.videoId===x.videoId)) ids.push(x.videoId); }); ids.forEach(id=>{ zVideoBosalt(zVidOku(db),zVidYaz(db),id); }); }catch(e){} }
+/* İzleme kartı — video ancak dokununca iner */
+const ZVideo = ({ db, vid }) => {
+  const meta=useOkulDoc(db, vid?('k12_pvideo_'+vid):'k12_pvideo__yok');
+  const [src,setSrc]=useState(''); const [yuk,setYuk]=useState(-1); const [hata,setHata]=useState('');
+  useEffect(()=>()=>{ try{ if(src) URL.revokeObjectURL(src); }catch(e){} },[src]);
+  if(!vid) return null;
+  if(meta && (meta.silindi || meta.parca===0)) return <p className="text-[11px] text-slate-400 mt-2">🎬 Bu videonun süresi doldu.</p>;
+  if(src) return <video src={src} controls autoPlay playsInline className="w-full max-h-[70vh] rounded-xl bg-black mt-2 border border-slate-200"></video>;
+  const ac=async()=>{ setHata(''); setYuk(0); try{ const u=await zVideoBirlestir(zVidOku(db), vid, setYuk); setSrc(u); }catch(e){ setHata((e&&e.message)||'Video açılamadı'); } setYuk(-1); };
+  return (<div className="mt-2">
+    <button onClick={ac} disabled={yuk>=0} className="w-full flex items-center gap-3 bg-gradient-to-r from-slate-900 to-indigo-900 text-white rounded-xl px-3 py-3 shadow">
+      <span className="w-11 h-11 rounded-full bg-white/15 flex items-center justify-center text-xl shrink-0">{yuk>=0?'⏳':'▶️'}</span>
+      <span className="flex-1 text-left min-w-0"><span className="block font-black text-[14px]">{yuk>=0?('Video yükleniyor… %'+yuk):'🎬 Videoyu izle'}</span><span className="block text-[11px] text-white/70">{meta&&meta.sure?('Süre '+zSureYaz(meta.sure)):''}{meta&&meta.boyut?(' · '+zMbYaz(meta.boyut)):''}{yuk<0?' · dokununca açılır':''}</span></span>
+    </button>
+    {yuk>=0 && <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden mt-1"><div className="h-full bg-gradient-to-r from-emerald-400 to-cyan-500" style={{width:yuk+'%'}}></div></div>}
+    {hata && <p className="text-[11px] text-rose-600 font-bold mt-1">⚠️ {hata}</p>}
+  </div>);
+};
+/* Video seçme + küçültme (öğretmen) — en fazla 3 dk */
+const ZVideoSec = ({ deger, setDeger, ilkDosya }) => {
+  const [hz,setHz]=useState(null); const [il,setIl]=useState(-1); const [hata,setHata]=useState('');
+  const onizle=useMemo(()=>{ try{ return deger&&deger.blob?URL.createObjectURL(deger.blob):''; }catch(e){ return ''; } },[deger]);
+  const dosya=(f)=>{ if(!f) return; setHata(''); setDeger(null); setHz(null); zVideoAc(f).then(h=>{ if(h.sure>ZVID_MAX_SN+2){ setHata('Video '+zSureYaz(h.sure)+' — en fazla 3 dakika olabilir. Telefonda kırpıp tekrar seçin ya da YouTube linki ekleyin.'); return; } if(zVideoDogrudanMi(h)){ try{ URL.revokeObjectURL(h.url); }catch(e){} setDeger({blob:f, mime:f.type||'video/mp4', sure:h.sure}); return; } setHz(h); }).catch(e=>setHata((e&&e.message)||'Video açılamadı')); };
+  useEffect(()=>{ if(ilkDosya) dosya(ilkDosya); },[ilkDosya]);
+  const hazirla=()=>{ if(!hz) return; setHata(''); setIl(0); zVideoKucult(hz, setIl).then(r=>{ setIl(-1); setHz(null); setDeger(r); try{ toast('🎬 Video hazır ('+zMbYaz(r.blob.size)+').','green'); }catch(e){} }).catch(e=>{ setIl(-1); setHz(null); setHata((e&&e.message)||'Hazırlanamadı'); }); };
+  return (<div className="bg-gradient-to-br from-slate-50 to-indigo-50 border-2 border-indigo-200 rounded-xl p-2.5 mb-2">
+    <p className="text-[12px] font-black text-indigo-800">🎬 Video ekle <span className="font-bold text-slate-500">(en fazla 3 dakika)</span></p>
+    {deger ? (<div className="mt-1.5">
+        {onizle && <video src={onizle} controls playsInline className="w-full max-h-56 rounded-lg bg-black"></video>}
+        <div className="flex items-center gap-2 mt-1.5"><span className="flex-1 text-[12px] font-black text-emerald-700">✅ Video hazır · {zSureYaz(deger.sure)} · {zMbYaz(deger.blob&&deger.blob.size)}</span><button onClick={()=>setDeger(null)} className="bg-rose-500 text-white font-black text-[11px] px-3 py-1.5 rounded-lg">✕ Kaldır</button></div>
+      </div>)
+    : il>=0 ? (<div className="mt-1.5"><p className="text-[12.5px] font-black text-slate-700">⏳ Video küçültülüyor… %{il}</p><div className="h-2 bg-slate-200 rounded-full overflow-hidden mt-1"><div className="h-full bg-gradient-to-r from-emerald-400 to-cyan-500 transition-all" style={{width:il+'%'}}></div></div><p className="text-[11px] text-slate-500 mt-1">Video süresi kadar sürer. Ekranı kapatmayın, başka uygulamaya geçmeyin.</p></div>)
+    : hz ? (<div className="mt-1.5"><p className="text-[12.5px] font-bold text-slate-700 break-all">🎬 {hz.file.name||'Video'} · {zSureYaz(hz.sure)} · {zMbYaz(hz.file.size)}</p><p className="text-[11px] text-slate-500">Göndermek için küçültülmesi gerekiyor (yaklaşık {zSureYaz(hz.sure)} sürer). Hem iPhone'da hem Android'de oynar.</p><div className="flex gap-1.5 mt-1.5"><button onClick={hazirla} className="flex-1 bg-indigo-600 text-white font-black text-[13px] py-2.5 rounded-xl">🎬 Videoyu hazırla</button><button onClick={()=>setHz(null)} className="px-3 bg-white border border-slate-200 text-slate-600 font-black text-[12px] rounded-xl">✕</button></div></div>)
+    : (<label className="mt-1.5 flex items-center justify-center gap-2 w-full bg-white border-2 border-dashed border-indigo-300 text-indigo-700 font-black text-[13px] py-2.5 rounded-xl cursor-pointer">🎬 Video seç<input type="file" accept="video/*" className="hidden" onChange={e=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; dosya(f); }} /></label>)}
+    {hata && <p className="text-[11.5px] text-rose-600 font-bold mt-1">⚠️ {hata}</p>}
+    <p className="text-[10.5px] text-slate-400 mt-1">Veli ve öğrenci “▶️ Videoyu izle”ye basınca açılır. 3 dakikadan uzun videolar için YouTube “liste dışı” linki ekleyebilirsiniz.</p>
+  </div>);
+};
 const OzetGorsel = ({ db, id }) => {
   const g=useOkulDoc(db, id?("k12_pgorsel_"+id):"k12_pgorsel__yok");
   const [buyuk,setBuyuk]=useState(false);
@@ -7807,6 +7932,7 @@ const OzetKart = ({ p, db }) => {
           ))}
           {k.not && <div className="bg-fuchsia-50 rounded-lg px-3 py-2 text-[13px] text-slate-700"><b>✨ Öğretmen notu:</b> {k.not}</div>}
           {p.gorselId ? <OzetGorsel db={db} id={p.gorselId} /> : null}
+          {p.videoId && db ? <ZVideo db={db} vid={p.videoId} /> : null}
           <OzetLinkler linkler={zOzetLinkleri(p)} />
           {db ? <OgretmenImza db={db} ad={p.ogretmen} /> : null}
           <p className="text-[10px] text-slate-400 text-right px-1">{db?'':(p.ogretmen+' · ')}{new Date(p.ts||Date.now()).toLocaleDateString('tr-TR')}</p>
@@ -7822,6 +7948,7 @@ const OzetKart = ({ p, db }) => {
       <div className="px-3 py-2 bg-gradient-to-r from-indigo-600 to-fuchsia-600 text-white font-black text-[13px]">{zYildizKalin(zLinksizSatir(satirlar[0])||'Özet')}</div>
       <div className="p-2 space-y-1">
         {p.gorselId ? <div className="pb-1"><OzetGorsel db={db} id={p.gorselId} /></div> : null}
+        {p.videoId && db ? <div className="pb-1"><ZVideo db={db} vid={p.videoId} /></div> : null}
         {satirlar.slice(1).map(l=>zLinksizSatir(l)===''&&/https?:\/\//.test(l)?'':(/https?:\/\//.test(l)?zLinksizSatir(l):l)).filter(l=>l.trim() && !/^[👇👉🔗\s]+$/.test(l.trim()) && !(db && /^—\s*/.test(l.trim()) && zAyniKisi(l.trim().replace(/^—\s*/,''),p.ogretmen))).map((l,i)=>(<div key={i} className={`text-[13px] text-slate-700 rounded-lg px-2 py-1 whitespace-pre-wrap ${renk(l.trim())}`}>{zYildizKalin(l)}</div>))}
         {zOzetLinkleri(p).length>0 && <div className="pt-1"><OzetLinkler linkler={zOzetLinkleri(p)} /></div>}
         {db && p.ogretmen ? <div className="pt-1"><OgretmenImza db={db} ad={p.ogretmen} /></div> : null}</div>
@@ -7850,7 +7977,7 @@ const OzetYonet = ({ db, user, kaynak }) => {
   const yon=(window.ZIRVE_admin===true)||zBarisMi(user);
   const benim=tum.filter(p=>p && (kaynak?p.kaynak===kaynak:zOzetMi(p)) && (yon || zAyniKisi(p.ogretmen,user&&user.name))).sort((a,b)=>(b.ts||0)-(a.ts||0));
   const [acik,setAcik]=useState(false);
-  const sil=async(ids)=>{ const giden=tum.filter(p=>ids.indexOf(p.id)>=0); const kalan=tum.filter(p=>ids.indexOf(p.id)<0); const ok=await okulYaz(db,"k12_pano",{liste:kalan}); if(ok){ toast('🗑️ Silindi.','green'); try{ const {doc,setDoc}=window.FirebaseSDK; const gid=[]; giden.forEach(p=>{ if(p.gorselId && gid.indexOf(p.gorselId)<0 && !kalan.some(x=>x.gorselId===p.gorselId)) gid.push(p.gorselId); }); for(const g of gid){ await setDoc(doc(db,"maas_config","k12_pgorsel_"+g),{data:''},{merge:true}); } }catch(e){} } };
+  const sil=async(ids)=>{ const giden=tum.filter(p=>ids.indexOf(p.id)>=0); const kalan=tum.filter(p=>ids.indexOf(p.id)<0); const ok=await okulYaz(db,"k12_pano",{liste:kalan}); if(ok){ toast('🗑️ Silindi.','green'); zVideoTemizle(db,giden,kalan); try{ const {doc,setDoc}=window.FirebaseSDK; const gid=[]; giden.forEach(p=>{ if(p.gorselId && gid.indexOf(p.gorselId)<0 && !kalan.some(x=>x.gorselId===p.gorselId)) gid.push(p.gorselId); }); for(const g of gid){ await setDoc(doc(db,"maas_config","k12_pgorsel_"+g),{data:''},{merge:true}); } }catch(e){} } };
   return (
     <div className="mt-3 bg-white border border-slate-200 rounded-2xl p-3">
       <button onClick={()=>setAcik(!acik)} className="w-full flex items-center justify-between text-left"><span className="text-[13px] font-black text-slate-700">📋 Panodaki özetlerim ({benim.length})</span><span className="text-slate-400 text-xs">{acik?'▲':'▼'}</span></button>
@@ -8353,7 +8480,7 @@ const OzetAktar = ({ db, user }) => {
   const [secili,setSecili]=useState({});
   const [sure,setSure]=useState(()=>{ try{ return localStorage.getItem('zozet_sure')||'7'; }catch(e){ return '7'; } });
   const sureSec=(v)=>{ setSure(v); try{ localStorage.setItem('zozet_sure',v); }catch(e){} };
-  const [gorsel,setGorsel]=useState(''); const [linkler,setLinkler]=useState([{url:'',ad:''}]);
+  const [gorsel,setGorsel]=useState(''); const [linkler,setLinkler]=useState([{url:'',ad:''}]); const [video,setVideo]=useState(null);
   const gorselSec=(e)=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return; zKartGorselHazirla(f).then(setGorsel).catch(()=>alert('Görsel okunamadı.')); };
   /* Robotik planından gelen "⏳ Ekosistem süresi: 1 hafta" satırını oku ve metinden temizle */
   useEffect(()=>{ const m=String(ham||'').match(/⏳\s*Ekosistem süresi:\s*([^\n]+)/i); if(!m) return; const e=zNorm(m[1]); const v= /bugun/.test(e)?'bugun' : /yarin/.test(e)?'yarin' : /kalici/.test(e)?'0' : /2 hafta/.test(e)?'14' : /hafta sonu/.test(e)?'hafta' : /1 ay|ay/.test(e)?'30' : /3 gun/.test(e)?'3' : '7'; setSure(v); setHam(String(ham).replace(/\n*⏳\s*Ekosistem süresi:[^\n]*\n?/i,'\n').trim()); setBilgi('⏳ Robotik planından gelen süre uygulandı: '+(SURE_ETIKET[v]||v)); },[ham]);
@@ -8408,9 +8535,10 @@ const OzetAktar = ({ db, user }) => {
     const _lk=linkler.map(l=>({url:String(l.url||'').trim(),ad:String(l.ad||'').trim().slice(0,60)})).filter(l=>/^https?:\/\//.test(l.url)).slice(0,10);
     if(_lk.length) yeni.forEach(y=>{ y.linkler=_lk; });
     if(gorsel){ const gid='g'+ts.toString(36); const gok=await okulYaz(db,"k12_pgorsel_"+gid,{data:gorsel, ts}); if(gok) yeni.forEach(y=>{ y.gorselId=gid; }); }
-    if(!window.confirm(yeni.length+' sınıf panosuna gönderilecek.\n⏳ Kalma süresi: '+(SURE_ETIKET[sure]||sure)+'\n\nOnaylıyor musunuz?')) return;
+    if(!window.confirm(yeni.length+' sınıf panosuna gönderilecek.\n⏳ Kalma süresi: '+(SURE_ETIKET[sure]||sure)+(video?'\n🎬 Video: '+zSureYaz(video.sure):'')+'\n\nOnaylıyor musunuz?')) return;
+    if(video){ try{ toast('🎬 Video yükleniyor…','green'); const _vid=await zVideoYaz(video, zVidYaz(db)); yeni.forEach(y=>{ y.videoId=_vid; }); }catch(ve){ alert('Video yüklenemedi ('+((ve&&ve.message)||ve)+'). Özet yine gönderilecek.'); } }
     const ok=await okulYaz(db,"k12_pano",{liste:yeni.concat(pano)});
-    if(ok){ toast('🚀 '+yeni.length+' sınıfa gönderildi — veliler ve öğrenciler Sınıf Panosu\'nda görüyor.','green'); setParcalar([]); setHam(''); setSecili({}); setBilgi(''); setGorsel(''); setLinkler([{url:'',ad:''}]); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
+    if(ok){ toast('🚀 '+yeni.length+' sınıfa gönderildi — veliler ve öğrenciler Sınıf Panosu\'nda görüyor.','green'); setParcalar([]); setHam(''); setSecili({}); setBilgi(''); setGorsel(''); setLinkler([{url:'',ad:''}]); setVideo(null); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
   };
   const tekParca = parcalar.length===1 && !parcalar[0].sinif;
   return (
@@ -8433,6 +8561,7 @@ const OzetAktar = ({ db, user }) => {
           <div className="flex flex-wrap gap-1.5">{[['bugun','☀️ Bugün'],['yarin','🌙 Yarın akşama'],['7','1 hafta'],['14','2 hafta'],['30','1 ay'],['0','📌 Kalıcı']].map(x=>(<button key={x[0]} onClick={()=>sureSec(x[0])} className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${sure===x[0]?'bg-indigo-600 text-white border-indigo-600':'bg-white text-slate-600 border-slate-200'}`}>{x[1]}</button>))}</div>
         </div>
         <ZEkEditor gorsel={gorsel} setGorsel={setGorsel} gorselSec={gorselSec} linkler={linkler} setLinkler={setLinkler} />
+        <ZVideoSec deger={video} setDeger={setVideo} />
       </div>
       {parcalar.length>0 && <div className="space-y-2">
         {tekParca && <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5">
