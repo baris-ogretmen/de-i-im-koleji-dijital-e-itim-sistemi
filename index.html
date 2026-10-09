@@ -2782,7 +2782,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='duyuru'  && <DuyuruYonetim db={db} user={user} duyurular={duyurular} />}
       </div>
       <ZAltMenu ogeler={ALT_OGE} aktif={ALT_OGE.some(x=>x.k===sekme)?sekme:'__tum'} onSec={altSec} />
-      {tumAcik && <ZTumAraclar sekmeler={sekmeler.filter(x=>x.k!=='ozetaktar'||zBarisMi(user))} gruplar={gruplar} onKapat={()=>setTumAcik(false)} onSec={(k)=>{ setTumAcik(false); setSekme(k); merkezeGit(); }} />}
+      {tumAcik && <ZTumAraclar aktif={sekme} sekmeler={sekmeler.filter(x=>x.k!=='ozetaktar'||zBarisMi(user))} gruplar={gruplar} onKapat={()=>setTumAcik(false)} onSec={(k)=>{ setTumAcik(false); setSekme(k); merkezeGit(); }} />}
     </div>
   );
 };
@@ -3110,7 +3110,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
                   {o.bilgi && <span className="ml-1 text-[9px] bg-sky-500 text-white font-black px-1.5 py-0.5 rounded-full">📢 BİLGİ</span>}
                   {o.bitis>0 && <span className={`ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${zAktifMi(o)?'bg-amber-100 text-amber-700':'bg-slate-200 text-slate-500'}`}>⏳ {zKalan(o.bitis)}</span>}
                   {o.bilgi && !o.bitis && <span className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">📌 kalıcı</span>}
-                  <ZMedyaRozet x={o} onSec={async(v)=>{ const _mb=zBitis(v); const ok=await okulYaz(db,"k12_odevler",{liste:odevler.map(x=>{ if(x.id!==o.id) return x; const y={...x}; if(_mb>0) y.medyaBitis=_mb; else delete y.medyaBitis; return y; })}); if(ok) toast('🗑️ Ek silinme süresi: '+(MEDYA_ETIKET[v]||v),'green'); }} />
+                  <ZMedyaRozet x={o} onSec={(v)=>zMedyaSureUygula(db,"k12_odevler",odevler,o,v)} />
                   {o.bilgi && <span className="ml-1 inline-block"><SureDegistir onSec={async(v)=>{ if(v==='__sil__'){ if(!window.confirm('Bu hatırlatma şimdi kaldırılsın mı?')) return; const _k=odevler.filter(x=>x.id!==o.id); const ok=await okulYaz(db,"k12_odevler",{liste:_k}); if(ok){ toast('🗑️ Kaldırıldı.','green'); zVideoTemizle(db,[o],_k); } return; } const ok=await okulYaz(db,"k12_odevler",{liste:odevler.map(x=>x.id===o.id?{...x,bitis:zBitis(v)}:x)}); if(ok) toast('⏳ Süre güncellendi: '+(SURE_ETIKET[v]||v),'green'); }} /></span>}
                   {(yonetici&&hepsiniGor&&o.ekleyen) && <span className="ml-1 text-[9px] bg-slate-100 text-slate-500 font-bold px-1.5 py-0.5 rounded-full">{o.ekleyen}</span>}
                 </p>
@@ -3673,7 +3673,7 @@ const VeliMerkezi = ({ db, user }) => {
             {ik:'🎒',ad:'Unutma!',sayi:cocukBilgiler.length,durum:cocukBilgiler.length?(cocukBilgiler.length+' hatırlatma'):'Hatırlatma yok ✓',git:()=>zBolumeGit('vb-hatirlat')},
             {ik:'💬',ad:'Mesajlar',sayi:_vOkunmayan,durum:_vOkunmayan?(_vOkunmayan+' yeni mesaj'):'Yeni mesaj yok',git:()=>zBolumeGit('vb-mesaj')},
             {ik:'📰',ad:'Özetler',sayi:_vOzet,durum:_vOzet?(_vOzet+' yeni özet'):'Yeni özet yok',git:()=>zBolumeGit('vb-dersozet')}]} /></ZSekme>
-          <ZSekme ad="bugun">
+          <ZSekme ad="cocuk">
           <SistemDurumu db={db} />
           </ZSekme>
           <ZSekme ad="bugun odev">
@@ -7398,7 +7398,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 44;
+const LOCAL_SURUM = 45;
 const SurumBanner = ({ db }) => {
   const [yeni,setYeni]=useState(false); const [yeniNo,setYeniNo]=useState(0);
   useEffect(()=>{ if(!db) return; const kontrol=async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn&&sn.exists()){ const sv=Number((sn.data()||{}).surum||0); if(sv>LOCAL_SURUM){ setYeni(true); setYeniNo(sv); } } }catch(e){}
@@ -8025,11 +8025,19 @@ const ZMedyaSure = ({ deger, setDeger, ayniVar }) => (
 /* Gönderdiklerim listesinde: ekin süresi + sonradan değiştirme */
 const ZMedyaRozet = ({ x, onSec }) => {
   if(!x || !(x.resimVar || x.videoId || x.gorselId)) return null;
-  const ik=x.videoId?'🎬':(x.resimTur==='pdf'?'📄':'📷');
-  return (<span className="ml-1 inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 align-middle">{ik} ek · {zMedyaKalan(x.medyaBitis)}
-    {onSec && zMedyaAktif(x) && <select value="" onChange={e=>{ const v=e.target.value; e.target.value=''; if(v) onSec(v); }} className="bg-transparent text-amber-800 font-black outline-none w-4" title="Ekin silinme süresini değiştir"><option value="">⏳</option>{MEDYA_SURE.map(s=><option key={s[0]} value={s[0]}>{s[1]}</option>)}</select>}
+  const ik=x.videoId?'🎬':(x.resimTur==='pdf'?'📄':'📷'); const ad=x.videoId?'video':(x.resimTur==='pdf'?'PDF':(x.gorselId&&!x.resimVar?'kart':'fotoğraf'));
+  const aktif=zMedyaAktif(x);
+  return (<span className="ml-1 inline-flex items-center gap-1 text-[9.5px] font-bold pl-1.5 pr-0.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 align-middle">{ik} {ad} · {aktif?zMedyaKalan(x.medyaBitis):'silindi'}
+    {onSec && aktif && <span className="relative inline-flex items-center bg-amber-500 text-white rounded-full px-1.5 py-0.5 font-black">Süre / Sil ▾<select value="" onChange={e=>{ const v=e.target.value; e.target.value=''; if(v) onSec(v); }} className="absolute inset-0 opacity-0 w-full" title="Ekin silinme süresini değiştir ya da hemen sil"><option value="">— seçin —</option>{MEDYA_SURE.map(s=><option key={s[0]} value={s[0]}>⏳ {s[1]}</option>)}<option value="__sil__">🗑️ Eki şimdi sil</option></select></span>}
   </span>);
 };
+/* Ekin süresini değiştir / hemen sil — liste belgesini (k12_odevler ya da k12_pano) günceller */
+async function zMedyaSureUygula(db, belge, liste, kayit, v){
+  if(v==='__sil__'){ if(!window.confirm((kayit.videoId?'Video':'Ek')+' şimdi silinsin mi? (Yazı yerinde kalır, ek veli ve öğrencide görünmez.)')) return false; }
+  const _mb = v==='__sil__' ? (Date.now()-1000) : zBitis(v);
+  const ok=await okulYaz(db,belge,{liste:liste.map(x=>{ if(x.id!==kayit.id) return x; const y={...x}; if(_mb>0) y.medyaBitis=_mb; else delete y.medyaBitis; return y; })});
+  if(ok){ toast(v==='__sil__'?'🗑️ Ek silindi — yazı yerinde duruyor.':('⏳ Ek silinme süresi: '+(MEDYA_ETIKET[v]||v)),'green'); if(v==='__sil__') setTimeout(()=>zMedyaTemizle(db),1500); }
+  return ok; }
 /* Süresi dolan eklerin dosyalarını boşalt (öğretmen cihazında, açılıştan 20 sn sonra, sessiz) */
 async function zMedyaTemizle(db){ try{ if(!db||!window.FirebaseSDK) return; const {doc,setDoc}=window.FirebaseSDK; const simdi=Date.now(), pay=3*86400000; let yap={}; try{ yap=JSON.parse(localStorage.getItem('zmedya_temiz')||'{}')||{}; }catch(e){}
   const oku=zVidOku(db), yaz=zVidYaz(db); const od=await oku('k12_odevler'), pn=await oku('k12_pano'); const ol=((od&&od.liste)||[]).filter(Boolean), pl=((pn&&pn.liste)||[]).filter(Boolean);
@@ -8169,7 +8177,7 @@ const OzetYonet = ({ db, user, kaynak }) => {
       <p className="text-[10px] text-slate-400 mt-0.5">Her özetin yanındaki <b>⏳ Süre…</b> ile ne zaman kalkacağını değiştirebilir ya da hemen kaldırabilirsiniz.</p>
       {acik && <div className="mt-2 space-y-1.5">
         {benim.length>0 && <button onClick={()=>{ if(window.confirm(benim.length+' özetin hepsi panodan silinsin mi?')) sil(benim.map(p=>p.id)); }} className="w-full bg-rose-600 text-white font-black py-2 rounded-lg text-[12px]">🗑️ Hepsini Sil</button>}
-        {benim.map(p=>(<div key={p.id} className="flex items-center gap-2 bg-slate-50 rounded-lg px-2 py-1.5"><div className="flex-1 min-w-0"><p className="text-[12px] font-black text-slate-700 truncate">{p.sinif} · {new Date(p.ts||0).toLocaleDateString('tr-TR')}</p><p className="text-[11px] text-slate-400 truncate">{p.gorselId?'🖼️ ':''}{zOzetLinkleri(p).length?('🔗'+zOzetLinkleri(p).length+' '):''}{zLinksizSatir(String(p.metin||'').split('\n')[0])}</p></div>{p.bitis>0 ? <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">⏳ {zKalan(p.bitis)}</span> : <span className="text-[9px] font-bold bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full">📌 kalıcı</span>}<SureDegistir onSec={async(v)=>{ if(v==='__sil__'){ if(window.confirm('Şimdi kaldırılsın mı?')) sil([p.id]); return; } const ok=await okulYaz(db,"k12_pano",{liste:tum.map(x=>x.id===p.id?{...x,bitis:zBitis(v)}:x)}); if(ok) toast('⏳ Süre: '+(SURE_ETIKET[v]||v),'green'); }} /><button onClick={()=>{ if(window.confirm('Silinsin mi?')) sil([p.id]); }} className="text-rose-500 font-black text-[11px] px-2">Sil</button></div>))}
+        {benim.map(p=>(<div key={p.id} className="flex items-center gap-2 bg-slate-50 rounded-lg px-2 py-1.5"><div className="flex-1 min-w-0"><p className="text-[12px] font-black text-slate-700 truncate">{p.sinif} · {new Date(p.ts||0).toLocaleDateString('tr-TR')}</p><p className="text-[11px] text-slate-400 truncate">{p.gorselId?'🖼️ ':''}{zOzetLinkleri(p).length?('🔗'+zOzetLinkleri(p).length+' '):''}{zLinksizSatir(String(p.metin||'').split('\n')[0])}</p></div>{p.bitis>0 ? <span className="text-[9px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full whitespace-nowrap">⏳ {zKalan(p.bitis)}</span> : <span className="text-[9px] font-bold bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full">📌 kalıcı</span>}<ZMedyaRozet x={p} onSec={(v)=>zMedyaSureUygula(db,"k12_pano",tum,p,v)} /><SureDegistir onSec={async(v)=>{ if(v==='__sil__'){ if(window.confirm('Şimdi kaldırılsın mı?')) sil([p.id]); return; } const ok=await okulYaz(db,"k12_pano",{liste:tum.map(x=>x.id===p.id?{...x,bitis:zBitis(v)}:x)}); if(ok) toast('⏳ Süre: '+(SURE_ETIKET[v]||v),'green'); }} /><button onClick={()=>{ if(window.confirm('Silinsin mi?')) sil([p.id]); }} className="text-rose-500 font-black text-[11px] px-2">Sil</button></div>))}
         {benim.length===0 && <p className="text-slate-400 text-[12px] text-center py-2">Panoda özetiniz yok.</p>}
       </div>}
     </div>
@@ -8546,17 +8554,23 @@ const ZBugunKart = ({ baslik, alt, renk, ogeler }) => (
 /* Öğretmen: alt menü + tüm araçlar (arama) + sık kullanılanlar */
 function zSikGet(){ try{ return JSON.parse(localStorage.getItem('zogr_sik')||'{}')||{}; }catch(e){ return {}; } }
 function zSikEkle(k){ try{ const a=zSikGet(); a[k]=(a[k]||0)+1; localStorage.setItem('zogr_sik',JSON.stringify(a)); }catch(e){} }
-const ZTumAraclar = ({ sekmeler, gruplar, onSec, onKapat }) => {
+const ZTumAraclar = ({ sekmeler, gruplar, onSec, onKapat, aktif }) => {
   const [ara,setAra]=useState(''); const q=zNorm(ara);
-  return (<div className="fixed inset-0 z-[99980] bg-slate-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center no-print" onClick={onKapat}>
-    <div className="bg-white w-full sm:max-w-lg max-h-[88vh] rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl flex flex-col" onClick={e=>e.stopPropagation()}>
-      <div className="p-4 border-b border-slate-100"><div className="flex items-center justify-between"><p className="text-[17px] font-black text-slate-800">☰ Tüm araçlar</p><button onClick={onKapat} className="w-9 h-9 rounded-full bg-slate-100 font-black text-slate-600">✕</button></div>
-        <input autoFocus value={ara} onChange={e=>setAra(e.target.value)} placeholder="🔍 Ara: yoklama, karne, duyuru…" className="w-full mt-3 px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[16px] outline-none focus:border-indigo-400" /></div>
-      <div className="overflow-y-auto p-3 space-y-3">{gruplar.map(g=>{ const l=sekmeler.filter(s=>s.grup===g.g && (!q || zNorm(s.ad+' '+g.ad).indexOf(q)>=0)); if(!l.length) return null; return (
-        <div key={g.g}><p className="text-[11px] font-black uppercase tracking-widest text-slate-400 px-1 mb-1.5"><i className={`fa-solid ${g.ikon} mr-1`}></i>{g.ad}</p>
-          <div className="grid grid-cols-3 gap-1.5">{l.map(s=>(<button key={s.k} onClick={()=>onSec(s.k)} className="bg-slate-50 hover:bg-indigo-50 border border-slate-100 rounded-xl px-1.5 py-2.5 text-center"><i className={`fa-solid ${s.ikon} text-indigo-500 text-[17px]`}></i><span className="block text-[11px] font-black text-slate-700 mt-1 leading-tight">{s.ad}</span></button>))}</div></div>); })}
-        {q && !sekmeler.some(s=>zNorm(s.ad).indexOf(q)>=0) && <p className="text-center text-slate-400 text-sm py-6">“{ara}” bulunamadı</p>}
-      </div></div></div>);
+  useEffect(()=>{ const f=(e)=>{ if(e.key==='Escape') onKapat(); }; window.addEventListener('keydown',f); const o=document.body.style.overflow; document.body.style.overflow='hidden'; return ()=>{ window.removeEventListener('keydown',f); document.body.style.overflow=o; }; },[]);
+  return (<div className="fixed inset-0 z-[99980] bg-white flex flex-col no-print" style={{paddingTop:'env(safe-area-inset-top)',paddingBottom:'env(safe-area-inset-bottom)'}}>
+    <div className="shrink-0 px-4 pt-3 pb-3 border-b border-slate-100 bg-white shadow-sm">
+      <div className="flex items-center justify-between gap-2"><p className="text-[18px] font-black text-slate-800">☰ Tüm araçlar</p>
+        <button onClick={onKapat} aria-label="Kapat" className="shrink-0 whitespace-nowrap flex items-center gap-1.5 bg-slate-800 text-white font-black text-[14px] px-4 py-2 rounded-full shadow active:scale-95"><span className="text-[18px] leading-none">✕</span> Kapat</button></div>
+      <input value={ara} onChange={e=>setAra(e.target.value)} placeholder="🔍 Ara: yoklama, karne, duyuru…" className="w-full mt-3 px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[16px] outline-none focus:border-indigo-400" />
+    </div>
+    <div className="flex-1 overflow-y-auto p-3 space-y-4">{gruplar.map(g=>{ const l=sekmeler.filter(s=>s.grup===g.g && (!q || zNorm(s.ad+' '+g.ad).indexOf(q)>=0)); if(!l.length) return null; return (
+      <div key={g.g}><p className="text-[11.5px] font-black uppercase tracking-widest text-slate-400 px-1 mb-1.5"><i className={`fa-solid ${g.ikon} mr-1`}></i>{g.ad}</p>
+        <div className="grid grid-cols-3 gap-2">{l.map(s=>(<button key={s.k} onClick={()=>onSec(s.k)} className={`rounded-2xl px-1.5 py-3 text-center border active:scale-95 transition ${aktif===s.k?'bg-indigo-600 border-indigo-600 text-white':'bg-slate-50 border-slate-100 text-slate-700'}`}><i className={`fa-solid ${s.ikon} text-[18px] ${aktif===s.k?'text-white':'text-indigo-500'}`}></i><span className="block text-[11.5px] font-black mt-1 leading-tight">{s.ad}</span></button>))}</div></div>); })}
+      {q && !sekmeler.some(s=>zNorm(s.ad).indexOf(q)>=0) && <p className="text-center text-slate-400 text-sm py-6">“{ara}” bulunamadı</p>}
+      <div className="h-20"></div>
+    </div>
+    <button onClick={onKapat} aria-label="Kapat" className="fixed right-4 z-[99981] w-14 h-14 rounded-full bg-slate-800 text-white text-[22px] font-black shadow-2xl active:scale-95" style={{bottom:'calc(16px + env(safe-area-inset-bottom))'}}>✕</button>
+  </div>);
 };
 const Katla = ({ id, baslik, ikon, renk, alt, children, acikBaslangic }) => {
   const k='zkatla_'+(id||baslik);
