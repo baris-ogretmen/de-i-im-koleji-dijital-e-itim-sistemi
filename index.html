@@ -2725,6 +2725,11 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
       </div>
 
       <div className="p-4 md:p-5">
+        {!yukleniyor && sekme==='ogrenci' && <div className="mb-4"><ZBugunKart baslik={'👋 Merhaba '+String((user&&user.name)||'Öğretmenim').split(' ')[0]+' Hocam'} alt="Bugün hızlıca ne yapmak istersin?" renk="from-rose-500 to-orange-500" ogeler={[
+          {ik:'💬',ad:'Mesajlar',sayi:okunmamisMesaj,durum:okunmamisMesaj?(okunmamisMesaj+' okunmamış mesaj'):'Yeni mesaj yok',git:()=>altSec('mesaj')},
+          {ik:'📝',ad:'Ödev / Hatırlatma',sayi:0,durum:'Sınıfa gönder',git:()=>altSec('odev')},
+          {ik:'✅',ad:'Yoklama',sayi:0,durum:'Bugünün yoklaması',git:()=>altSec('yoklama')},
+          {ik:'📰',ad:'Özet gönder',sayi:0,durum:'Günün / haftanın özeti',git:()=>altSec('sinifozet')}]} /></div>}
         {!yukleniyor && <HizliOgrenciBul db={db} ogrenciler={ogrenciler} teslimler={teslimler} user={user} />}
         <BugunDerslerim db={db} user={user} />
         <ZMedyaBekci db={db} />
@@ -7398,7 +7403,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 45;
+const LOCAL_SURUM = 46;
 const SurumBanner = ({ db }) => {
   const [yeni,setYeni]=useState(false); const [yeniNo,setYeniNo]=useState(0);
   useEffect(()=>{ if(!db) return; const kontrol=async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn&&sn.exists()){ const sv=Number((sn.data()||{}).surum||0); if(sv>LOCAL_SURUM){ setYeni(true); setYeniNo(sv); } } }catch(e){}
@@ -8502,8 +8507,8 @@ const ZSekmeCtx = React.createContext(null);
 function zBolumeGit(id){ try{ window.dispatchEvent(new CustomEvent('zkatla-ac',{detail:id})); window.dispatchEvent(new CustomEvent('zsekme-git',{detail:id})); }catch(e){}
   setTimeout(()=>{ try{ const el=document.getElementById(id)||document.querySelector('[data-icerik~="'+id+'"]'); if(!el) return; const y=el.getBoundingClientRect().top+window.scrollY-80; window.scrollTo({top:Math.max(0,y),behavior:'smooth'}); }catch(e){} },180); }
 const ZALT_CSS='.zalt-var #zu-ayar,.zalt-var #zu-anahtar{bottom:96px!important}.zalt-var #zu-yukari{bottom:100px!important}@keyframes zaltGir{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}.zsekme-gir{animation:zaltGir .22s ease-out}';
-const ZAltMenu = ({ ogeler, aktif, onSec }) => (
-  <nav className="fixed bottom-0 left-0 right-0 z-[9000] no-print pointer-events-none" style={{paddingBottom:'env(safe-area-inset-bottom)'}}>
+const ZAltMenu = ({ ogeler, aktif, onSec, z }) => (
+  <nav className={'fixed bottom-0 left-0 right-0 no-print pointer-events-none '+(z||'z-[9000]')} style={{paddingBottom:'env(safe-area-inset-bottom)'}}>
     <style>{ZALT_CSS}</style>
     <div className="pointer-events-auto max-w-xl mx-2 sm:mx-auto mb-2 bg-white/95 backdrop-blur-md border border-slate-200 shadow-[0_8px_30px_rgba(15,23,42,.18)] rounded-[1.4rem] flex p-1 gap-0.5">
       {ogeler.map(s=>{ const a=s.k===aktif; const r=s.rozet||0; return (
@@ -8514,19 +8519,20 @@ const ZAltMenu = ({ ogeler, aktif, onSec }) => (
         </button>); })}
     </div>
   </nav>);
-const ZSekmeli = ({ rol, sekmeler, children }) => {
+const ZSekmeli = ({ rol, sekmeler, children, kapali, z }) => {
   const key='zsekme_'+rol, ilk=sekmeler[0].k;
   const [sekme,setS]=useState(()=>{ try{ const v=sessionStorage.getItem(key); return sekmeler.some(s=>s.k===v)?v:ilk; }catch(e){ return ilk; } });
   const [gorulen,setGorulen]=useState(()=>({[sekme]:1})); const [rozet,setRozetH]=useState({});
   const ref=useRef(sekme); ref.current=sekme;
-  const sec=(k,kaydir)=>{ setS(k); setGorulen(g=>g[k]?g:{...g,[k]:1}); try{ sessionStorage.setItem(key,k); }catch(e){} const d=sekmeler.find(s=>s.k===k); if(d&&d.ac) try{ window.dispatchEvent(new CustomEvent('zkatla-ac',{detail:d.ac})); }catch(e){} if(kaydir!==false) try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){} };
+  const sec=(k,kaydir)=>{ const _d=sekmeler.find(s=>s.k===k); if(_d&&_d.eylem){ _d.eylem(); return; } setS(k); setGorulen(g=>g[k]?g:{...g,[k]:1}); try{ sessionStorage.setItem(key,k); }catch(e){} const d=sekmeler.find(s=>s.k===k); if(d&&d.ac) try{ window.dispatchEvent(new CustomEvent('zkatla-ac',{detail:d.ac})); }catch(e){} if(kaydir!==false) try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){} };
   const setRozet=(k,v)=>setRozetH(r=>r[k]===v?r:{...r,[k]:v});
-  useEffect(()=>{ try{ document.body.classList.add('zalt-var'); }catch(e){} return ()=>{ try{ document.body.classList.remove('zalt-var'); }catch(e){} }; },[]);
+  useEffect(()=>{ if(kapali) return; try{ document.body.classList.add('zalt-var'); }catch(e){} return ()=>{ try{ document.body.classList.remove('zalt-var'); }catch(e){} }; },[kapali]);
   useEffect(()=>{ const f=(e)=>{ try{ const id=e.detail; const el=document.getElementById(id)||document.querySelector('[data-icerik~="'+id+'"]'); const kap=el&&(el.matches('[data-zsekme]')?el:el.closest('[data-zsekme]')); if(kap){ const t=kap.getAttribute('data-zsekme').split(' '); if(t.indexOf(ref.current)<0) sec(t[0],false); } }catch(x){} }; window.addEventListener('zsekme-git',f); return ()=>window.removeEventListener('zsekme-git',f); },[]);
+  if(kapali) return <>{children}</>;
   return (<ZSekmeCtx.Provider value={{sekme,sec,gorulen,setRozet}}>
     {children}
     <div className="h-16"></div>
-    <ZAltMenu ogeler={sekmeler.map(s=>({...s,rozet:rozet[s.k]||0}))} aktif={sekme} onSec={sec} />
+    <ZAltMenu ogeler={sekmeler.map(s=>({...s,rozet:rozet[s.k]||0}))} aktif={sekme} onSec={sec} z={z} />
   </ZSekmeCtx.Provider>);
 };
 const ZSekme = ({ ad, tembel, icerik, children }) => {
@@ -8536,6 +8542,7 @@ const ZSekme = ({ ad, tembel, icerik, children }) => {
 };
 const ZVELI_SEKME=[{k:'bugun',ik:'🏠',ad:'Bugün',renk:'from-emerald-500 to-teal-600'},{k:'odev',ik:'📝',ad:'Ödevler',renk:'from-orange-500 to-amber-500'},{k:'mesaj',ik:'💬',ad:'Mesaj',renk:'from-sky-500 to-indigo-600'},{k:'okul',ik:'🏫',ad:'Okul',renk:'from-violet-500 to-fuchsia-600'},{k:'cocuk',ik:'🧒',ad:'Çocuğum',renk:'from-pink-500 to-rose-500'}];
 const ZOGR_SEKME=[{k:'bugun',ik:'🏠',ad:'Bugün',renk:'from-indigo-500 to-blue-600'},{k:'odev',ik:'📝',ad:'Ödevim',renk:'from-orange-500 to-amber-500'},{k:'ogren',ik:'💡',ad:'Öğren',renk:'from-pink-500 to-fuchsia-600'},{k:'mesaj',ik:'💬',ad:'Mesaj',renk:'from-sky-500 to-indigo-600',ac:'ob-mesaj'},{k:'ben',ik:'⭐',ad:'Ben',renk:'from-amber-500 to-orange-500'}];
+const ZYKart = ({ ad, baslik, alt, children }) => (<ZSekme ad={ad}><div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">{baslik && <p className="text-[15px] font-black text-slate-800">{baslik}</p>}{alt && <p className="text-[11.5px] text-slate-500 mt-0.5">{alt}</p>}{(baslik||alt) && <div className="h-3"></div>}{children}</div></ZSekme>);
 function useZRozet(k,v){ const c=React.useContext(ZSekmeCtx); useEffect(()=>{ if(c&&c.setRozet) c.setRozet(k,v||0); },[k,v,!!c]); }
 /* Bugün kartı — tek bakışta: ödev · unutma · mesaj · özet */
 const ZBugunKart = ({ baslik, alt, renk, ogeler }) => (
@@ -10698,13 +10705,15 @@ const renderSharedUI = () => (
         )}
 
         {showSettings && (
-            <div className="fixed inset-0 z-[99999] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
-                <div className="bg-white rounded-[2.5rem] p-6 md:p-8 w-full max-w-5xl shadow-2xl relative border-4 border-indigo-100 my-auto overflow-hidden mt-10">
-                    <button onClick={()=>setShowSettings(false)} className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition z-50"><i className="fa-solid fa-circle-xmark text-3xl"></i></button>
+            <div className={(user && !user.isAnonymous)?"fixed inset-0 z-[99999] bg-slate-100 overflow-y-auto animate-fade-in":"fixed inset-0 z-[99999] bg-slate-900/95 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in overflow-y-auto"}>
+                <div className={(user && !user.isAnonymous)?"w-full max-w-3xl mx-auto min-h-screen px-3 sm:px-5 pt-3 pb-28 relative":"bg-white rounded-[2.5rem] p-6 md:p-8 w-full max-w-5xl shadow-2xl relative border-4 border-indigo-100 my-auto overflow-hidden mt-10"}>
+                <ZSekmeli rol="yonetim" kapali={!(user && !user.isAnonymous)} z="z-[100001]" sekmeler={[{k:'ozet',ik:'🏠',ad:'Özet',renk:'from-rose-500 to-orange-500'},{k:'duyuru',ik:'📢',ad:'Duyuru',renk:'from-amber-500 to-orange-500'},{k:'kisi',ik:'👩‍🏫',ad:'Kişiler',renk:'from-emerald-500 to-teal-600'},{k:'ai',ik:'🔑',ad:'Yapay Zekâ',renk:'from-fuchsia-500 to-violet-600'},{k:'kapat',ik:'✕',ad:'Kapat',renk:'from-slate-600 to-slate-800',eylem:()=>setShowSettings(false)}]}>
+                    {(user && !user.isAnonymous) ? <div className="sticky top-0 z-30 -mx-3 sm:-mx-5 px-3 sm:px-5 pt-2 pb-3 mb-3 bg-slate-100/95 backdrop-blur flex items-center gap-3"><div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-rose-500 to-orange-500 text-white flex items-center justify-center text-xl shadow">🏛️</div><div className="flex-1 min-w-0"><p className="text-[19px] font-black text-slate-800 leading-tight">Yönetim Merkezi</p><p className="text-[11.5px] text-slate-500 font-bold">Değişim Koleji · kurucu paneli</p></div><button onClick={()=>setShowSettings(false)} className="shrink-0 whitespace-nowrap bg-slate-800 text-white font-black text-[14px] px-4 py-2 rounded-full shadow active:scale-95">✕ Kapat</button></div> : <button onClick={()=>setShowSettings(false)} className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition z-50"><i className="fa-solid fa-circle-xmark text-3xl"></i></button>}
                     
-                    <h2 className="text-3xl font-black text-slate-800 tracking-tight mb-6 border-b pb-4"><i className="fa-solid fa-gear text-indigo-600 mr-3"></i>Sistem Ayarları</h2>
+                    {!(user && !user.isAnonymous) && <h2 className="text-3xl font-black text-slate-800 tracking-tight mb-6 border-b pb-4"><i className="fa-solid fa-gear text-indigo-600 mr-3"></i>Sistem Ayarları</h2>}
 
                     {/* BÖLÜM 1: HERKESE AÇIK AI AYARLARI (ÖĞRENCİ/VELİ KENDİ KEYİNİ GİREBİLİR) */}
+                    <ZSekme ad="ai">
                     <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-3xl border border-indigo-100 mb-8 shadow-sm">
                         <h3 className="font-bold text-indigo-800 mb-4 flex items-center gap-2"><i className="fa-solid fa-wand-magic-sparkles text-yellow-500"></i> Yapay Zeka (AI) Bağlantısı</h3>
                         <p className="text-xs text-indigo-600 mb-4 font-medium">Sistemdeki yapay zeka araçlarını ve asistanı kullanabilmek için kendi API anahtarınızı girebilirsiniz.</p>
@@ -10720,12 +10729,13 @@ const renderSharedUI = () => (
                         </div>
                         <button onClick={verifyAndSaveSettings} className="mt-4 bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold shadow-md hover:bg-indigo-700 transition-all flex items-center gap-2"><i className="fa-solid fa-link"></i> API'yi Bağla ve Kaydet</button>
                     </div>
+                    </ZSekme>
 
                     {/* BÖLÜM 2: YÖNETİCİ PANELİ (SADECE BARIŞ HOCA) */}
-                    <div className="border-t-2 border-dashed border-gray-200 pt-8">
+                    <div className={(user && !user.isAnonymous)?"":"border-t-2 border-dashed border-gray-200 pt-8"}>
                         {user && !user.isAnonymous ? (
                             <div className="h-full flex flex-col">
-                                <div className="flex items-center gap-4 mb-6">
+                                <ZSekme ad="ozet"><div className="flex items-center gap-3 mb-4 bg-white border border-rose-100 rounded-2xl p-3 shadow-sm">
                                     <div className="w-12 h-12 bg-rose-600 text-white rounded-xl flex items-center justify-center text-xl shadow-md"><i className="fa-solid fa-user-shield"></i></div>
                                     <div>
                                         <h3 className="text-xl font-black text-rose-900 tracking-tight">Merkezi Yönetim (Kurucu)</h3>
@@ -10738,12 +10748,13 @@ const renderSharedUI = () => (
                                         await signInAnonymously(auth);
                                         showToast("Yönetici çıkışı yapıldı.");
                                     }} className="ml-auto bg-rose-50 text-rose-600 px-4 py-2 rounded-lg font-bold hover:bg-rose-100 transition text-sm border border-rose-200">Paneli Kapat</button>
-                                </div>
+                                </div></ZSekme>
 
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-y-auto max-h-[40vh] pr-2 custom-scroll">
-                                    <div className="space-y-5 bg-amber-50 p-6 rounded-3xl border border-amber-200">
-                                        <h3 className="font-bold text-amber-700 mb-4 flex items-center gap-2"><i className="fa-solid fa-bullhorn"></i> Duyuru & Haber</h3>
+                                <div className="space-y-4">
+                                    <div className="space-y-4">
+                                        <ZSekme ad="duyuru"><p className="text-[12px] font-black uppercase tracking-widest text-amber-600 px-1">📢 Duyuru & Haber</p></ZSekme>
                                         <div className="space-y-4">
+                                            <ZYKart ad="duyuru" baslik="📢 Kayan haber & acil duyuru" alt="Kayan bant herkesin ekranının üstünde görünür; pop-up açılışta bir kez çıkar.">
                                             <div>
                                                 <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Kayan Haber Bandı</label>
                                                 <input type="text" value={adminInputNews} onChange={(e)=>setAdminInputNews(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 transition-all font-medium" />
@@ -10752,6 +10763,8 @@ const renderSharedUI = () => (
                                                 <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Acil Pop-up Mesajı</label>
                                                 <textarea value={adminInputPopup} onChange={(e)=>setAdminInputPopup(e.target.value)} rows="3" className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 resize-none transition-all text-sm font-medium"></textarea>
                                             </div>
+                                            </ZYKart>
+                                            <ZYKart ad="kisi" baslik="👩‍🏫 Öğretmenler & şifreler" alt="Öğretmen adları, kişisel şifreler ve giriş kayıtları">
                                            <div>
                                                 <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Öğretmen İsimleri (Virgülle Ayırın)</label>
                                                 <input type="text" value={globalConfig?.teachers || "Sınıf Öğretmeni, Branş Öğretmeni"} onChange={(e)=>setGlobalConfig({...globalConfig, teachers: e.target.value})} placeholder="Örn: Ayşe Hoca, Ali Bey..." className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 font-medium transition-all text-sm" />
@@ -10760,14 +10773,21 @@ const renderSharedUI = () => (
                                                 <p className="text-[10px] text-slate-400 mt-1">Boşsa öğretmenler eskisi gibi kurum koduyla girer. Doldurunca o öğretmen SADECE kendi şifresiyle girebilir. (Kaydetmeyi unutma.)</p>
                                                 <button onClick={async()=>{ try{ const {doc,setDoc}=window.FirebaseSDK; await setDoc(doc(db,"maas_config","k12_global"),{ teachers:(globalConfig?.teachers||""), ogretmenSifreleri:(globalConfig?.ogretmenSifreleri||"") },{merge:true}); setOgrKayitOnay(true); if(typeof showToast==='function') showToast("✅ Kaydedildi!"); setTimeout(function(){ setOgrKayitOnay(false); },3000); }catch(e){ alert("Hata: "+e.message); } }} className={`mt-2 w-full font-black py-3 rounded-lg text-sm text-white transition ${ogrKayitOnay?'bg-emerald-800':'bg-emerald-600 hover:bg-emerald-700'}`}>{ogrKayitOnay?'✅ Kaydedildi!':'💾 Öğretmen İsim & Şifrelerini Kaydet'}</button>
                                                 <div className="mt-3"><GirisKayitlari db={db} /></div>
+                                            </div>
+                                            </ZYKart>
+                                            <ZYKart ad="ozet" baslik="📊 Okulun durumu" alt="Canlı kullanım, katılım ve sistem testi">
+                                            <div>
                                                 <SistemTest db={db} globalConfig={globalConfig} apiKey={apiKey} />
                                                 <YoneticiGenelBakis db={db} />
                                                 <CanliDurum db={db} />
                                                 <KatilimTakip db={db} />
                                             </div>
-                                            <div>
+                                            </ZYKart>
+                                            <ZYKart ad="kisi" baslik="🔐 Kurum giriş kodu" alt="Veli, öğrenci ve öğretmenin okula girerken yazdığı kod"><div>
                                                 <label className="block text-[10px] font-black text-amber-400 uppercase mb-1">Kurum Giriş Kodu (Şifre)</label>
                                                 <input type="text" value={adminInputKurumKodu} onChange={(e)=>setAdminInputKurumKodu(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 font-bold text-amber-900 transition-all" />
+                                            </div></ZYKart>
+                                            <ZYKart ad="ai" baslik="🔑 Ortak yapay zekâ anahtarları" alt="Herkeste çalışan anahtar havuzu · test · sahipleri"><div>
                                                 <label className="block text-[10px] font-black text-emerald-500 uppercase mb-1 mt-3">🔑 Ortak AI Anahtarları (herkeste çalışır — istediğin kadar, 1000+ anahtar)</label>
                                                 <textarea value={globalConfig?.paylasilanKey||''} onChange={(e)=>setGlobalConfig({...globalConfig, paylasilanKey:e.target.value})} rows="4" placeholder="Her satıra bir anahtar (AIzaSy...). Velilerin/öğretmenlerin gönderdiği anahtarları buraya yapıştır — hepsi havuza eklenir, sistem otomatik dağıtır." className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-emerald-500 font-mono text-xs transition-all resize-y"></textarea>
                                                 <div className="grid grid-cols-3 gap-2 mt-2">
@@ -10794,8 +10814,12 @@ const renderSharedUI = () => (
                                                 </div>}
                                                 <AnahtarSahipleri db={db} globalConfig={globalConfig} setGlobalConfig={setGlobalConfig} />
                                                 <button onClick={async()=>{ try{ const {doc,setDoc}=window.FirebaseSDK; const _ham=(globalConfig?.paylasilanKey||'').split(/[\s,;]+/).map(function(x){return x.trim();}).filter(function(x){return x.length>10;}); const temiz=[]; let _cift=0; _ham.forEach(function(k){ if(temiz.indexOf(k)<0) temiz.push(k); else _cift++; }); const metin=temiz.join('\n'); await setDoc(doc(db,"maas_config","k12_global"),{paylasilanKey:metin},{merge:true}); try{ setGlobalConfig({...globalConfig, paylasilanKey:metin}); }catch(e){} try{ window.ZIRVE_PAYLASILAN_KEYS=temiz; window.ZIRVE_PAYLASILAN_KEY=temiz[0]||''; }catch(e){} showToast('🌍 '+temiz.length+' ortak anahtar HERKESE AÇILDI — AI aktif.'+(_cift>0?(' ('+_cift+' tekrar eden temizlendi)'):'')); }catch(e){ alert('Hata: '+e.message); } }} className="mt-2 w-full bg-emerald-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-emerald-700">Ortak Anahtarları Kaydet (herkeste çalışsın)</button>
+                                            </div></ZYKart>
+                                            <ZYKart ad="ozet" baslik="🚀 Sürüm yayını" alt="Yeni sürümü herkese duyur"><div>
                                                 <button onClick={async()=>{ try{ const {doc,setDoc}=window.FirebaseSDK; await setDoc(doc(db,"maas_config","k12_global"),{surum:LOCAL_SURUM},{merge:true}); showToast('🚀 Sürüm '+LOCAL_SURUM+' yayınlandı — açık cihazlara "yenile" bildirimi gidecek.'); setGlobalConfig({...globalConfig, surum:LOCAL_SURUM}); }catch(e){ alert('Hata: '+e.message); } }} className="mt-2 w-full bg-indigo-600 text-white font-bold py-2.5 rounded-lg text-sm hover:bg-indigo-700"><i className="fa-solid fa-cloud-arrow-up mr-1"></i>🚀 Sürüm {LOCAL_SURUM}'i Yayınla</button>
                                                 <p className="text-[11px] font-bold mt-1 text-center">{Number(globalConfig?.surum||0)>=LOCAL_SURUM ? <span className="text-emerald-600">✅ Yayında olan sürüm: {globalConfig?.surum} (bu dosya: {LOCAL_SURUM}) — herkes güncel</span> : <span className="text-amber-600">⏳ Yayındaki sürüm: {globalConfig?.surum||'—'} · Bu dosya: {LOCAL_SURUM} → yayınlamak için butona basın</span>}</p>
+                                            </div></ZYKart>
+                                            <ZSekme ad="ai"><div>
                                                 <div className="mt-3 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-3">
                                                   <p className="font-black text-amber-800 text-sm mb-1">🚀 Hiç kesinti istemiyorsan (okul/kurumsal için)</p>
                                                   <p className="text-[12px] text-slate-600 mb-2">Ücretsiz anahtarların günlük kotası vardır; çok kullanıcıda dolabilir. Kesintisiz kullanım için Google'dan <b>FATURALI (ücretli)</b> bir anahtar alıp havuza ekleyin — kod tarafında fark yok, sadece kotası çok büyük olur.</p>
@@ -10812,11 +10836,11 @@ const renderSharedUI = () => (
                                                     <a href="https://wa.me/905076319287" target="_blank" rel="noopener noreferrer" className="flex-1 text-center bg-green-600 text-white font-black py-2 rounded-lg text-xs">📱 WhatsApp Yardım</a>
                                                   </div>
                                                 </div>
-                                            </div>
+                                            </div></ZSekme>
                                         </div>
                                     </div>
 
-                                    <div className="space-y-4 bg-emerald-50 p-6 rounded-3xl border border-emerald-200">
+                                    <ZSekme ad="duyuru"><div className="space-y-4 bg-emerald-50 p-6 rounded-3xl border border-emerald-200">
                                         <h3 className="font-bold text-emerald-700 mb-4 flex items-center gap-2"><i className="fa-solid fa-chalkboard-user"></i> Sınıf Görev Panosu</h3>
                                         <div className="space-y-3">
                                             <div>
@@ -10832,10 +10856,10 @@ const renderSharedUI = () => (
                                                 <textarea value={adminHwOrtaokul} onChange={(e)=>setAdminHwOrtaokul(e.target.value)} rows="2" className="w-full p-2 rounded-lg border-2 border-white shadow-sm outline-none focus:border-emerald-500 text-xs resize-none"></textarea>
                                             </div>
                                         </div>
-                                    </div>
+                                    </div></ZSekme>
                                 </div>
                                 
-                                <div className="mt-6 pt-6 border-t flex justify-end gap-3">
+                                <div className={(user && !user.isAnonymous)?"sticky bottom-24 z-20 mt-5 flex justify-center":"mt-6 pt-6 border-t flex justify-end gap-3"}>
                                     <button onClick={async ()=>{
                                         const { getFirestore, doc, setDoc } = window.FirebaseSDK;
                                         const firestore = getFirestore();
@@ -10868,6 +10892,7 @@ const renderSharedUI = () => (
                             </div>
                         )}
                     </div>
+                </ZSekmeli>
                 </div>
             </div>
         )}
