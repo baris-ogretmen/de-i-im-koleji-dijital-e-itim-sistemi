@@ -54,10 +54,16 @@
   window.dispatchEvent(new Event('firebase-sdk-ready'));
 </script>
 
+<script>(function(){try{var a=JSON.parse(localStorage.getItem('zarac')||'{}')||{};var h=document.documentElement;h.classList.add('zarac-gizli');['robot','anahtar','ayar','yukari','aiuyari','yukle','mod','lisans'].forEach(function(k){if(a[k])h.classList.add('zg-'+k);});}catch(e){}})();</script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Andika:wght@400;700&display=swap');
 
 body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; color: #1f2937; -webkit-tap-highlight-color: transparent; }
+/* v48 · ZİRVE ARAÇLAR: yüzen düğme/pencereler varsayılan GİZLİ — Ayarlar → 🧰 Araçlar'dan tek tek açılır */
+html.zarac-gizli:not(.zg-robot) #zu-robot, html.zarac-gizli:not(.zg-anahtar) #zu-anahtar, html.zarac-gizli:not(.zg-yukari) #zu-yukari,
+html.zarac-gizli:not(.zg-aiuyari) #zu-ai, html.zarac-gizli:not(.zg-aiuyari) #zirve-ai-uyari, html.zarac-gizli:not(.zg-yukle) #zpwa-bant,
+html.zarac-gizli:not(.zg-mod) #zu-mod, html.zarac-gizli:not(.zg-lisans) #zlisans-fab { display:none !important; }
+html.zarac-gizli:not(.zg-ayar):not(.zarac-admin) #zu-ayar { display:none !important; }
 /* v47: telefonda yazı alanları rahat ve büyük — iPhone'un yakınlaştırması da engellenir */
 @media (max-width: 640px){ input[type=text], input[type=email], input[type=password], input[type=tel], input[type=number], input:not([type]), select, textarea { font-size: 16px !important; } textarea[rows="2"], textarea[rows="3"] { min-height: 96px; } }
 .textarea-auto { display: block; width: 100%; overflow: hidden; resize: none; min-height: 40px; line-height: 1.5; }
@@ -1351,7 +1357,7 @@ const DraggableRobot = ({ apiKey, modelName }) => {
     };
 
     return (
-        <div className="fixed z-[99999]" style={{ left: pos.x + 'px', top: pos.y + 'px' }}>
+        <div id="zu-robot" className="fixed z-[99999]" style={{ left: pos.x + 'px', top: pos.y + 'px' }}>
             {robotGizli ? (
                 <button onMouseDown={onMouseDown} onTouchStart={onTouchStart} onClick={() => { if (dragDistance > 5) return; setRobotGizli(false); localStorage.setItem('robot_gizli', '0'); }} className="z-[99999] bg-sky-500 hover:bg-sky-600 text-white rounded-full w-12 h-12 shadow-lg flex items-center justify-center text-xl cursor-move" title="Sürükle ile taşı / dokun ile aç">🤖</button>
             ) : (
@@ -7405,7 +7411,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 47;
+const LOCAL_SURUM = 48;
 const SurumBanner = ({ db }) => {
   const [yeni,setYeni]=useState(false); const [yeniNo,setYeniNo]=useState(0);
   useEffect(()=>{ if(!db) return; const kontrol=async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn&&sn.exists()){ const sv=Number((sn.data()||{}).surum||0); if(sv>LOCAL_SURUM){ setYeni(true); setYeniNo(sv); } } }catch(e){}
@@ -8581,6 +8587,45 @@ const ZTumAraclar = ({ sekmeler, gruplar, onSec, onKapat, aktif }) => {
     <button onClick={onKapat} aria-label="Kapat" className="fixed right-4 z-[99981] w-14 h-14 rounded-full bg-slate-800 text-white text-[22px] font-black shadow-2xl active:scale-95" style={{bottom:'calc(16px + env(safe-area-inset-bottom))'}}>✕</button>
   </div>);
 };
+/* ============================================================================
+   v48 — 🧰 ARAÇLAR (ZİRVE): ekranda yüzen düğme ve pencereler varsayılan olarak gizli;
+   buradan tek tek açılır ya da doğrudan kullanılır. Hiçbir araç silinmedi.
+   ============================================================================ */
+const ZARAC_LISTE=[['robot','🤖','Asistan robotu','Ekranda gezen yapay zekâ yardımcısı'],['anahtar','🔑','Ücretsiz AI anahtarı düğmesi','Sağ alttaki sarı yardım düğmesi'],['ayar','⚙️','Ayarlar dişlisi','Sol altta (profil kartındaki ⚙️ her zaman var)'],['yukari','⬆️','Yukarı çık düğmesi','Uzun sayfada en üste götürür'],['aiuyari','⚠️','Yapay zekâ bilgi kutuları','“İçerik yapay zekâ ile üretildi” uyarıları'],['yukle','📲','Uygulamayı yükle bandı','Telefona uygulama gibi kurma önerisi'],['mod','🎛️','Ekran modu düğmesi','Telefon/tablet/tahta ölçek modu'],['lisans','🏷️','Lisans düğmesi','Kurum lisans bilgisi']];
+function zAracOku(){ try{ return JSON.parse(localStorage.getItem('zarac')||'{}')||{}; }catch(e){ return {}; } }
+function zAracUygula(a){ try{ const h=document.documentElement; h.classList.add('zarac-gizli'); ZARAC_LISTE.forEach(x=>h.classList.toggle('zg-'+x[0],!!(a&&a[x[0]]))); }catch(e){} }
+function zAyarAc(){ try{ window.dispatchEvent(new CustomEvent('zayar-ac')); }catch(e){} }
+const ZAraclarPanel = () => {
+  const [a,setA]=useState(zAracOku); const [acik,setAcik]=useState(false);
+  const yaz=(y)=>{ setA(y); try{ localStorage.setItem('zarac',JSON.stringify(y)); }catch(e){} zAracUygula(y); };
+  const deg=(k)=>yaz({...a,[k]:!a[k]});
+  const hepsi=(v)=>{ const y={}; ZARAC_LISTE.forEach(x=>{ y[x[0]]=v; }); yaz(y); };
+  const acikSay=ZARAC_LISTE.filter(x=>a[x[0]]).length;
+  return (<div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm mb-5">
+    <button onClick={()=>setAcik(!acik)} className="w-full flex items-center gap-3 text-left">
+      <span className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 text-white flex items-center justify-center text-xl shrink-0">🧰</span>
+      <span className="flex-1 min-w-0"><span className="block text-[16px] font-black text-slate-800">Araçlar</span><span className="block text-[12px] text-slate-500 font-bold">Ekranda yüzen düğmeler · {acikSay?(acikSay+' açık'):'hepsi gizli (sade görünüm)'}</span></span>
+      <span className="text-slate-400 font-black">{acik?'▲':'▼'}</span>
+    </button>
+    {acik && <div className="mt-3">
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <button onClick={()=>{ try{ window.ZPWA_YUKLE&&window.ZPWA_YUKLE(); }catch(e){} }} className="bg-indigo-50 border border-indigo-200 text-indigo-700 font-black text-[13px] rounded-xl py-3">📲 Telefona yükle</button>
+        <button onClick={()=>{ try{ const b=document.getElementById('zu-anahtar'); b&&b.click(); }catch(e){} }} className="bg-amber-50 border border-amber-200 text-amber-700 font-black text-[13px] rounded-xl py-3">🔑 Ücretsiz AI anahtarı</button>
+        <button onClick={()=>{ try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){} }} className="bg-slate-50 border border-slate-200 text-slate-700 font-black text-[13px] rounded-xl py-3">⬆️ En üste çık</button>
+        <button onClick={()=>{ try{ window.ZIRVE_saglik&&window.ZIRVE_saglik(); }catch(e){} }} className="bg-emerald-50 border border-emerald-200 text-emerald-700 font-black text-[13px] rounded-xl py-3">🩺 Sağlık testi</button>
+      </div>
+      <p className="text-[12px] font-black text-slate-500 mb-1.5">Ekranda görünsün mü?</p>
+      <div className="divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden">{ZARAC_LISTE.map(x=>(
+        <button key={x[0]} onClick={()=>deg(x[0])} className="w-full flex items-center gap-3 px-3 py-3 bg-white text-left active:bg-slate-50">
+          <span className="text-[22px] w-8 text-center">{x[1]}</span>
+          <span className="flex-1 min-w-0"><span className="block text-[14px] font-black text-slate-800">{x[2]}</span><span className="block text-[11.5px] text-slate-500">{x[3]}</span></span>
+          <span className={`w-12 h-7 shrink-0 rounded-full p-0.5 transition ${a[x[0]]?'bg-emerald-500':'bg-slate-300'}`}><span className={`block w-6 h-6 rounded-full bg-white shadow transition-transform ${a[x[0]]?'translate-x-5':''}`}></span></span>
+        </button>))}</div>
+      <div className="flex gap-2 mt-2"><button onClick={()=>hepsi(false)} className="flex-1 bg-slate-800 text-white font-black text-[12.5px] rounded-xl py-2.5">✨ Hepsini gizle (sade)</button><button onClick={()=>hepsi(true)} className="flex-1 bg-white border border-slate-300 text-slate-700 font-black text-[12.5px] rounded-xl py-2.5">Hepsini göster</button></div>
+      <p className="text-[11px] text-slate-400 mt-2 leading-snug">ℹ️ Yapay zekâ ile üretilen içerikler nadiren hatalı olabilir; önemli konularda kaynaktan teyit edin. Ayarlara her zaman profil kartındaki <b>⚙️</b> düğmesinden ulaşırsınız.</p>
+    </div>}
+  </div>);
+};
 const Katla = ({ id, baslik, ikon, renk, alt, children, acikBaslangic }) => {
   const k='zkatla_'+(id||baslik);
   const [acik,setAcik]=useState(()=>{ try{ const v=localStorage.getItem(k); return v===null ? !!acikBaslangic : v==='1'; }catch(e){ return !!acikBaslangic; } });
@@ -8622,7 +8667,7 @@ const GunlukKarsilama = ({ db, user, rol, profil, onCikis }) => {
       <div className="rounded-3xl overflow-hidden shadow-lg">
         <div className="bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900 text-white px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div><p className="text-[11px] font-black text-amber-300">{selam}{user&&user.name?(rol==='parent'?(', '+String(user.name).split(' ')[0]+' velisi'):(', '+String(user.name).split(' ')[0])):''} 👋</p><p className="text-[15px] font-black">📅 {t.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric',weekday:'long'})}</p></div>
-          <div className="flex items-center gap-2"><p className="text-2xl font-black tabular-nums text-emerald-300">🕒 {t.toLocaleTimeString('tr-TR')}</p><ZQrPaylas kucuk={true} />{onCikis && <button onClick={onCikis} className="bg-rose-500 hover:bg-rose-600 text-white font-black text-[12px] px-3 py-1.5 rounded-xl whitespace-nowrap"><i className="fa-solid fa-right-from-bracket mr-1"></i>Çıkış</button>}</div>
+          <div className="flex items-center gap-2"><p className="text-2xl font-black tabular-nums text-emerald-300">🕒 {t.toLocaleTimeString('tr-TR')}</p><ZQrPaylas kucuk={true} /><button onClick={zAyarAc} title="Ayarlar" aria-label="Ayarlar" className="bg-white/15 hover:bg-white/25 text-white font-black text-[13px] w-9 h-9 rounded-full flex items-center justify-center">⚙️</button>{onCikis && <button onClick={onCikis} className="bg-rose-500 hover:bg-rose-600 text-white font-black text-[12px] px-3 py-1.5 rounded-xl whitespace-nowrap"><i className="fa-solid fa-right-from-bracket mr-1"></i>Çıkış</button>}</div>
         </div>
         <div className="bg-gradient-to-br from-fuchsia-500 via-violet-500 to-sky-500 text-white px-4 py-3">
           <p className="text-[10px] font-black tracking-[0.2em] text-white/80">✨ GÜNÜN EĞİTİM SÖZÜ</p>
@@ -8890,9 +8935,11 @@ const App = () => {
 // K12 SİSTEM STATELERİ VE EKRAN SÜRESİ
 const [systemRole, setSystemRole] = useState(null);
 const [adminAsli, setAdminAsli] = useState(false);
+useEffect(()=>{ try{ document.documentElement.classList.toggle('zarac-admin', !!adminAsli); }catch(e){} },[adminAsli]);
 const [k12User, setK12User] = useState(null);
 const [screenTimeLeft, setScreenTimeLeft] = useState(0);
 const [showSettings, setShowSettings] = useState(false);
+useEffect(()=>{ const f=()=>setShowSettings(true); window.addEventListener('zayar-ac',f); return ()=>window.removeEventListener('zayar-ac',f); },[]);
 const [ogrKayitOnay, setOgrKayitOnay] = useState(false);
 const [keyTestSonuc, setKeyTestSonuc] = useState([]);
 const [keyTestCalisiyor, setKeyTestCalisiyor] = useState(false);
@@ -10713,6 +10760,7 @@ const renderSharedUI = () => (
                     {(user && !user.isAnonymous) ? <div className="sticky top-0 z-30 -mx-3 sm:-mx-5 px-3 sm:px-5 pt-2 pb-3 mb-3 bg-slate-100/95 backdrop-blur flex items-center gap-3"><div className="w-10 h-10 shrink-0 rounded-2xl bg-gradient-to-br from-rose-500 to-orange-500 text-white flex items-center justify-center text-lg shadow">🏛️</div><div className="flex-1 min-w-0"><p className="text-[17px] font-black text-slate-800 leading-tight truncate">Yönetim Merkezi</p><p className="text-[11px] text-slate-500 font-bold truncate">Değişim Koleji · kurucu paneli</p></div><button onClick={()=>setShowSettings(false)} className="shrink-0 whitespace-nowrap bg-slate-800 text-white font-black text-[14px] px-4 py-2 rounded-full shadow active:scale-95">✕ Kapat</button></div> : <button onClick={()=>setShowSettings(false)} className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition z-50"><i className="fa-solid fa-circle-xmark text-3xl"></i></button>}
                     
                     {!(user && !user.isAnonymous) && <h2 className="text-3xl font-black text-slate-800 tracking-tight mb-6 border-b pb-4"><i className="fa-solid fa-gear text-indigo-600 mr-3"></i>Sistem Ayarları</h2>}
+                    <ZSekme ad="ozet"><ZAraclarPanel /></ZSekme>
 
                     {/* BÖLÜM 1: HERKESE AÇIK AI AYARLARI (ÖĞRENCİ/VELİ KENDİ KEYİNİ GİREBİLİR) */}
                     <ZSekme ad="ai">
@@ -14111,7 +14159,7 @@ notes.map(n => (
   var ertelenen=null, bant=null;
   function bantGoster(html, butonlu){
     if(kapatildi() || bant) return;
-    bant=document.createElement('div');
+    bant=document.createElement('div'); bant.id='zpwa-bant';
     bant.style.cssText='position:fixed;left:10px;right:10px;bottom:12px;z-index:2147483200;background:linear-gradient(135deg,'+RENK+',#7c3aed);color:#fff;border-radius:18px;padding:12px 14px;box-shadow:0 12px 40px rgba(0,0,0,.35);font:600 14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex;gap:10px;align-items:center;max-width:560px;margin:0 auto';
     bant.innerHTML='<div style="font-size:28px">📲</div><div style="flex:1;min-width:0">'+html+'</div>'+(butonlu?'<button id="zpwaKur" style="background:#fff;color:'+RENK+';border:0;border-radius:12px;padding:9px 12px;font-weight:900;cursor:pointer;white-space:nowrap">Yükle</button>':'')+'<button id="zpwaKapat" aria-label="Kapat" style="background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:10px;width:30px;height:30px;cursor:pointer;font-size:16px">✕</button>';
     document.body.appendChild(bant);
