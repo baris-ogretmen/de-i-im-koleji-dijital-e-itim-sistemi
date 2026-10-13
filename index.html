@@ -2806,7 +2806,8 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
 /* --- Öğrenci Kayıt & Yönetim --- */
 const OgrenciYonetim = ({ db, ogrenciler, teslimler }) => {
   const [ad, setAd] = useState('');
-  const [sinif, setSinif] = useState(OKUL_SINIFLAR[0]);
+  const [sinif, setSinif] = useState('');
+  const [sube, setSube] = useState('');
   const [no, setNo] = useState('');
   const [veliAdi, setVeliAdi] = useState('');
   const [veliTel, setVeliTel] = useState('');
@@ -2816,24 +2817,29 @@ const OgrenciYonetim = ({ db, ogrenciler, teslimler }) => {
   const [ara, setAra] = useState('');
   const [duzenleId, setDuzenleId] = useState(null);
 
+  const _subeler = sinif ? zSinifSubeleri(ogrenciler, sinif) : [];
+  useEffect(()=>{ if(!_subeler.length){ if(sube) setSube(''); return; } if(sube && _subeler.indexOf(sube)>=0) return; const ana=/^ana ?(okulu|sinif)|okul ?oncesi/.test(zNorm(sinif)); if(!duzenleId && ana && ad.trim().length>2 && ZSUBE_ANAOKULU_A.some(n=>zAdEslesir(ad,n)) && _subeler.indexOf('A')>=0) setSube('A'); },[sinif, ad, _subeler.join(',')]);
   const kaydet = async () => {
     if(ad.trim().length < 2) return alert("Geçerli bir öğrenci adı girin.");
+    if(!sinif) return alert("👆 Önce öğrencinin sınıfını seçin.");
+    if(_subeler.length && _subeler.indexOf(sube)<0) return alert("🏫 "+sinif+" için şube seçin: "+_subeler.map(x=>x+" şubesi").join(" mi, ")+" mi?");
+    const _sb = _subeler.length ? {sube} : {};
     let liste = ogrenciler.slice();
     if(duzenleId){
-      liste = liste.map(o=> o.id===duzenleId ? { ...o, ad:ad.trim(), sinif, no:no.trim(), veliAdi:veliAdi.trim(), veliTel:veliTel.trim(), notlar:notlar.trim(), dogumTarihi:dogumTarihi } : o);
+      liste = liste.map(o=> { if(o.id!==duzenleId) return o; const y={ ...o, ad:ad.trim(), sinif, no:no.trim(), veliAdi:veliAdi.trim(), veliTel:veliTel.trim(), notlar:notlar.trim(), dogumTarihi:dogumTarihi, ..._sb }; if(!_subeler.length && y.sube && y.sinif!==o.sinif) delete y.sube; if(zNorm(o.ad)!==zNorm(ad)){ const es=(o.eskiAdlar||[]).concat([o.ad]).filter((x,i,a)=>x&&a.indexOf(x)===i).slice(-5); y.eskiAdlar=es; } return y; });
     } else {
       const cift = liste.find(o=> okulNorm(o.ad)===okulNorm(ad) && o.sinif===sinif);
       if(cift && !window.confirm("Aynı isimde bir öğrenci bu sınıfta zaten var. Yine de eklensin mi?")) return;
-      liste.push({ id:yeniId(), ad:ad.trim(), sinif, no:no.trim(), veliAdi:veliAdi.trim(), veliTel:veliTel.trim(), notlar:notlar.trim(), dogumTarihi:dogumTarihi, dna:null, puan:0, rozetler:[], tarih:Date.now() });
+      liste.push({ id:yeniId(), ad:ad.trim(), sinif, ..._sb, no:no.trim(), veliAdi:veliAdi.trim(), veliTel:veliTel.trim(), notlar:notlar.trim(), dogumTarihi:dogumTarihi, dna:null, puan:0, rozetler:[], tarih:Date.now() });
     }
     const ok = await okulYaz(db, "k12_ogrenciler", { liste });
-    if(ok){ setFiltreSinif(sinif); setAd(''); setNo(''); setVeliAdi(''); setVeliTel(''); setNotlar(''); setDogumTarihi(''); setDuzenleId(null); toast(duzenleId?'✏️ Öğrenci güncellendi.':'✅ Öğrenci kaydedildi ve aşağıda listelendi.','green'); }
+    if(ok){ setFiltreSinif(sinif); setAd(''); setNo(''); setVeliAdi(''); setVeliTel(''); setNotlar(''); setDogumTarihi(''); setDuzenleId(null); setSube(''); toast((duzenleId?'✏️ Öğrenci güncellendi':'✅ Öğrenci kaydedildi')+(_sb.sube?(' · '+sinif+' '+_sb.sube+' şubesi'):'')+'.','green'); }
   };
   const sil = async (id) => {
     if(!window.confirm("Bu öğrenci kaydı silinsin mi? (Ödev/teslim geçmişi kalır)")) return;
     await okulYaz(db, "k12_ogrenciler", { liste: ogrenciler.filter(o=>o.id!==id) });
   };
-  const duzenle = (o) => { setDuzenleId(o.id); setAd(o.ad); setSinif(o.sinif); setNo(o.no||''); setVeliAdi(o.veliAdi||''); setVeliTel(o.veliTel||''); setNotlar(o.notlar||''); setDogumTarihi(o.dogumTarihi||''); window.scrollTo({top:0,behavior:'smooth'}); };
+  const duzenle = (o) => { setDuzenleId(o.id); setAd(o.ad); setSinif(o.sinif); setSube(o.sube||''); setNo(o.no||''); setVeliAdi(o.veliAdi||''); setVeliTel(o.veliTel||''); setNotlar(o.notlar||''); setDogumTarihi(o.dogumTarihi||''); window.scrollTo({top:0,behavior:'smooth'}); };
 
   const gorunen = ogrenciler
     .filter(o=> filtreSinif==='hepsi' || o.sinif===filtreSinif)
@@ -2842,25 +2848,31 @@ const OgrenciYonetim = ({ db, ogrenciler, teslimler }) => {
 
   return (
     <div>
-      <ZSubeYonetim db={db} />
+      {(typeof window!=='undefined' && window.ZIRVE_admin===true) && <ZSubeYonetim db={db} />}
       <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
         <h4 className="font-black text-indigo-800 mb-3 flex items-center gap-2 text-sm">
           <i className={`fa-solid ${duzenleId?'fa-user-pen':'fa-user-plus'}`}></i>{duzenleId?'Öğrenciyi Düzenle':'Yeni Öğrenci Kaydet'}
         </h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
           <input value={ad} onChange={e=>setAd(e.target.value)} placeholder="Ad Soyad" className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-medium outline-none focus:border-indigo-400" />
-          <select value={sinif} onChange={e=>setSinif(e.target.value)} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none focus:border-indigo-400">
+          <select value={sinif} onChange={e=>{ setSinif(e.target.value); setSube(''); }} className={`px-3 py-2.5 rounded-lg border text-sm font-bold outline-none focus:border-indigo-400 ${sinif?'border-gray-200':'border-amber-300 text-amber-700'}`}>
+            <option value="">👆 Sınıf seçin</option>
             {OKUL_SINIFLAR.map(s=><option key={s} value={s}>{s}</option>)}
           </select>
+          {_subeler.length>0 && <div className="sm:col-span-2 bg-violet-50 border-2 border-violet-200 rounded-xl p-3">
+            <p className="text-[14px] font-black text-violet-800 mb-2">🏫 {sinif} — hangi şube? <span className="text-rose-600">*</span></p>
+            <div className="grid grid-cols-2 gap-2">{_subeler.map(x=>(<button type="button" key={x} onClick={()=>setSube(x)} className={`py-3 rounded-xl text-[16px] font-black border-2 ${sube===x?'bg-violet-600 text-white border-violet-600':'bg-white text-violet-800 border-violet-200'}`}>{x} şubesi</button>))}</div>
+            {!sube && <p className="text-[12px] font-bold text-amber-700 mt-1.5">Şube seçmeden kaydedilmez.</p>}
+          </div>}
           <input value={no} onChange={e=>setNo(e.target.value)} placeholder="Okul No (opsiyonel)" className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-indigo-400" />
           <input value={veliAdi} onChange={e=>setVeliAdi(e.target.value)} placeholder="Veli Adı (opsiyonel)" className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-indigo-400" />
           <input value={veliTel} onChange={e=>setVeliTel(e.target.value)} placeholder="Veli Telefonu (opsiyonel)" className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-indigo-400" />
           <input value={notlar} onChange={e=>setNotlar(e.target.value)} placeholder="Kısa not (ilgi alanı, ihtiyaç…)" className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-indigo-400" />
-          <input type="date" value={dogumTarihi} onChange={e=>setDogumTarihi(e.target.value)} title="Doğum Tarihi (opsiyonel)" className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-indigo-400 text-slate-500" />
+          <label className="block"><span className="block text-[12px] font-bold text-slate-500 mb-1 ml-1">🎂 Doğum tarihi (opsiyonel)</span><input type="date" value={dogumTarihi} onChange={e=>setDogumTarihi(e.target.value)} title="Doğum Tarihi (opsiyonel)" className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none focus:border-indigo-400 text-slate-500 bg-white" /></label>
         </div>
         <div className="flex gap-2">
           <button onClick={kaydet} className="flex-1 bg-indigo-600 text-white font-black py-2.5 rounded-lg text-sm hover:bg-indigo-700 transition"><i className="fa-solid fa-floppy-disk mr-1"></i>{duzenleId?'Güncelle':'Kaydet'}</button>
-          {duzenleId && <button onClick={()=>{setDuzenleId(null);setAd('');setNo('');setVeliAdi('');setVeliTel('');setNotlar('');}} className="px-4 bg-gray-200 text-gray-700 font-bold py-2.5 rounded-lg text-sm">Vazgeç</button>}
+          {duzenleId && <button onClick={()=>{setDuzenleId(null);setAd('');setNo('');setVeliAdi('');setVeliTel('');setNotlar('');setSube('');}} className="px-4 bg-gray-200 text-gray-700 font-bold py-2.5 rounded-lg text-sm">Vazgeç</button>}
         </div>
       </div>
 
@@ -2888,7 +2900,7 @@ const OgrenciYonetim = ({ db, ogrenciler, teslimler }) => {
                 <div className="flex-1 min-w-0">
                   <p className="font-black text-slate-800 text-sm truncate">{o.ad} {o.no && <span className="text-slate-400 font-normal">· No {o.no}</span>}</p>
                   <p className="text-[11px] text-slate-500 font-medium truncate">
-                    <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-bold">{o.sinif}</span>
+                    <span className="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-bold">{o.sinif}{o.sube?(' · '+o.sube):''}</span>
                     {' '}<i className="fa-solid fa-coins text-amber-500"></i> {o.puan||0} Yıldız · {yapilan} teslim
                     {baskin && <span> · <i className="fa-solid fa-dna text-emerald-500"></i> {baskin.a.ad}</span>}
                   </p>
@@ -3007,6 +3019,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
     if(tur==='sinif' && sube && subeler.indexOf(sube)>=0) kayitlar.forEach(k=>{ k.sube=sube; });
     if(resim || _vidOk || (kayitlar[0]&&kayitlar[0].dosyalar)){ kayitlar.forEach(k=>{ const _mb=zMedyaBitisHesap(medyaSure, k.bitis); if(_mb>0) k.medyaBitis=_mb; }); }
     const ok = await okulYaz(db, "k12_odevler", { liste: [...kayitlar, ...odevler] });
+    if(ok) zPushOdevler(db, kayitlar);
     if(ok && resim){ for(const k of kayitlar){ try{ await okulYaz(db, "k12_res_"+k.id, { data: resim, tur: resimTur }); }catch(e){} } }
     setKaydediliyor(false);
     if(ok){ setKonu(''); setDetay(''); setSonTeslim(''); setLink(''); setResim(''); setResimTur(''); setCoklu({}); if(!video||_vidOk){ setVideo(null); setVidDosya(null); } if(_dosOk) setDosyalar([]); setLinkler([{url:'',ad:''}]); toast((bilgi?'📢 Bilgilendirme':'🚀 Ödev')+(tur==='birey'?(kayitlar.length>1?` ${kayitlar.length} öğrenciye gönderildi.`:` ${hedef?hedef.ad:''} adlı öğrenciye gönderildi.`):` ${sinif} sınıfına gönderildi.`),'green'); }
@@ -3431,7 +3444,7 @@ const OgrenciMerkezi = ({ db, user }) => {
   const sinifDaki = ogrenciler.filter(o=>o.sinif===sinifim);
   const otoEslesme = sinifDaki.find(o=> okulNorm(o.ad)===okulNorm(user && user.name));
   const [secId, setSecId] = useState('');
-  const _ikinci = otoEslesme ? null : sinifDaki.find(o=> zNorm(o.ad)===zNorm(user && user.name));
+  const _ikinci = otoEslesme ? null : (sinifDaki.find(o=> zNorm(o.ad)===zNorm(user && user.name)) || sinifDaki.find(o=> (o.eskiAdlar||[]).some(a=>zNorm(a)===zNorm(user && user.name))));
   const ben = otoEslesme || _ikinci || ((typeof window!=='undefined' && window.ZIRVE_admin===true) ? (sinifDaki.find(o=>o.id===secId) || null) : null);
 
   const [mesajTaslak, setMesajTaslak] = useState({});
@@ -3471,6 +3484,7 @@ const OgrenciMerkezi = ({ db, user }) => {
     if(cevap.length < 10 && !foto){ alert("Önce yaptığını yaz (birkaç kelime) VEYA ödevinin fotoğrafını ekle. Yapmadan gönderemezsin 🙂"); return; }
     const kayit = { id:yeniId(), odevId:odev.id, ogrenciId:ben.id, ogrenciAd:ben.ad, durum:'yapildi', mesaj:cevap, resimVar:!!foto, tarih:Date.now() };
     const okT = await okulYaz(db, "k12_teslim", { liste:[kayit, ...teslimler] });
+    if(okT) zPushOgretmene(db, odev.ekleyen, '✅ '+(ben.ad||'Öğrenci')+' ödevini teslim etti', (odev.ders||'')+(odev.konu?(' · '+odev.konu):''), 't'+kayit.id);
     if(okT && foto){ try{ await okulYaz(db, "k12_tres_"+kayit.id, { data: foto }); }catch(e){} setTeslimResim(p=>{ const y={...p}; delete y[odev.id]; return y; }); }
     if(okT){
       const liste = ogrenciler.map(o=> o.id===ben.id ? zYildizEkle(o,10,'📝 Ödev tamamlandı'+(odev.ders?(': '+odev.ders):''),'','odev') : o);
@@ -3659,7 +3673,7 @@ const VeliMerkezi = ({ db, user }) => {
   const sinifim = (user && user.grade) || '';
   const _vad=(x)=>String(x||'').replace(/[İIı]/g,'i').replace(/[Ğğ]/g,'g').replace(/[Üü]/g,'u').replace(/[Şş]/g,'s').replace(/[Öö]/g,'o').replace(/[Çç]/g,'c').toLowerCase().replace(/\s+/g,' ').trim();
   const sinifDaki = ogrenciler.filter(o=>o.sinif===sinifim);
-  const gosterilecek = sinifDaki.filter(o=> _vad(o.ad)===_vad((user&&user.name)||''));
+  const gosterilecek = sinifDaki.filter(o=> _vad(o.ad)===_vad((user&&user.name)||'') || (o.eskiAdlar||[]).some(a=>_vad(a)===_vad((user&&user.name)||'')));
   const [cocukId, setCocukId] = useState('');
   useEffect(()=>{ if(!cocukId && gosterilecek.length>0) setCocukId(gosterilecek[0].id); }, [ogrenciler.length, gosterilecek.length]);
   const cocuk = sinifDaki.find(o=>o.id===cocukId) || null;
@@ -3902,6 +3916,7 @@ function cozKey(){
   try{ if(window.ZIRVE_PAYLASILAN_KEY && String(window.ZIRVE_PAYLASILAN_KEY).trim().length>10) return String(window.ZIRVE_PAYLASILAN_KEY).trim(); }catch(e){}
   try{ if(window.ZIRVE && window.ZIRVE.RING && Array.isArray(window.ZIRVE.RING.keys) && window.ZIRVE.RING.keys.length) return String(window.ZIRVE.RING.keys[0]).trim(); }catch(e){}
   try{ if(typeof GOMULU_ANAHTARLAR!=='undefined' && GOMULU_ANAHTARLAR && GOMULU_ANAHTARLAR.length){ const g=String(GOMULU_ANAHTARLAR[0]||'').trim(); if(g.length>10) return g; } }catch(e){}
+  try{ if(window.ZKASA_URL) return 'KASA-anahtar-kasada-saklaniyor-00'; }catch(e){} /* v52: anahtar kasada — istek kasadan geçer */
   return '';
 }
 function cozModel(){
@@ -4600,7 +4615,7 @@ const RandevuVeli = ({ db, user }) => {
   const ogrenciler = (ogrDoc && ogrDoc.liste) || [];
   const [cocukId, setCocukId] = useState('');
   const [not, setNot] = useState('');
-  const kendiCocuklari = ogrenciler.filter(o=> (!(user&&user.grade) || String(o.sinif)===String(user.grade)) && zNorm(o.ad)===zNorm(user&&user.name));
+  const kendiCocuklari = ogrenciler.filter(o=> (!(user&&user.grade) || String(o.sinif)===String(user.grade)) && (zNorm(o.ad)===zNorm(user&&user.name) || (o.eskiAdlar||[]).some(a=>zNorm(a)===zNorm(user&&user.name))));
   useEffect(()=>{ if(!cocukId && kendiCocuklari.length) setCocukId(kendiCocuklari[0].id); }, [kendiCocuklari.length]);
   const cocuk = kendiCocuklari.find(o=>o.id===cocukId) || kendiCocuklari[0];
   const bugun = new Date().toISOString().slice(0,10);
@@ -4999,7 +5014,7 @@ const MesajOgretmen = ({ db, user, mesajlar, ogrenciler }) => {
   const acik = seciliId && grup[seciliId];
   const thread = acik ? grup[seciliId].list.slice().sort((a,b)=>a.ts-b.ts) : [];
   const ac = async (id) => { setSeciliId(id); if(window.ZIRVE_admin===true) return; /* yönetim okuyunca öğretmenin 'okunmadı' bildirimi kaybolmasın */ const ids=new Set(((grup[id]&&grup[id].list)||[]).filter(m=>(m.gonderen==='veli'||m.gonderen==='ogrenci')&&!m.okOgretmen).map(m=>m.id)); if(!ids.size) return; const yeni=(mesajlar||[]).map(m=> ids.has(m.id) ? {...m, okOgretmen:true} : m); await okulYaz(db,"k12_mesajlar",{liste:yeni}); };
-  const gonder = async (ek) => { const _ses=ek&&ek.ses; if((!metin.trim()&&!_ses)||!acik) return; if(_onizleme && !window.confirm('👁️ Yönetici önizlemesindesiniz. Bu mesaj '+_onizleme+' adına veliye gidecek. Gönderilsin mi?')) return; const g=grup[seciliId]; const sahipAd = (_yonetici && g.sahip) ? g.sahip : _benAdi; const yeni=[...(mesajlar||[]), {id:yeniId(), ts:Date.now(), ogrenciId:g.ogrenciId, ogrenciAd:g.ad, sinif:g.sinif, gonderen:'ogretmen', ad:_benAdi, ogretmen:sahipAd, metin:(metin.trim()||'🎤 Sesli mesaj'), okOgretmen:true, okVeli:false, ...(g.kanal==='ogrenci'?{kanal:'ogrenci'}:{}), ...(_ses?{ses:_ses}:{})}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ setMetin(''); toast(g.kanal==='ogrenci'?'Cevap gönderildi, öğrenciye iletildi.':'Cevap gönderildi, veliye iletildi.','green'); } };
+  const gonder = async (ek) => { const _ses=ek&&ek.ses; if((!metin.trim()&&!_ses)||!acik) return; if(_onizleme && !window.confirm('👁️ Yönetici önizlemesindesiniz. Bu mesaj '+_onizleme+' adına veliye gidecek. Gönderilsin mi?')) return; const g=grup[seciliId]; const sahipAd = (_yonetici && g.sahip) ? g.sahip : _benAdi; const yeni=[...(mesajlar||[]), {id:yeniId(), ts:Date.now(), ogrenciId:g.ogrenciId, ogrenciAd:g.ad, sinif:g.sinif, gonderen:'ogretmen', ad:_benAdi, ogretmen:sahipAd, metin:(metin.trim()||'🎤 Sesli mesaj'), okOgretmen:true, okVeli:false, ...(g.kanal==='ogrenci'?{kanal:'ogrenci'}:{}), ...(_ses?{ses:_ses}:{})}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ const _m=yeni[yeni.length-1]; zPushGonder(db,['k12_push_s_'+zSinifSlug(g.sinif)],e=>e.ogrId===g.ogrenciId && (g.kanal==='ogrenci'?e.rol==='ogrenci':e.rol==='veli'),{baslik:'💬 '+(_m.ad||'Öğretmen')+' öğretmenden mesaj', govde:_ses?'🎤 Sesli mesaj':_m.metin, etiket:'m'+_m.id}); } if(ok){ setMetin(''); toast(g.kanal==='ogrenci'?'Cevap gönderildi, öğrenciye iletildi.':'Cevap gönderildi, veliye iletildi.','green'); } };
   const mesajSil = async (id) => { if(!window.confirm('Bu mesaj silinsin mi?')) return; await okulYaz(db,"k12_mesajlar",{liste:(mesajlar||[]).filter(x=>x.id!==id)}); };
   const sohbetTemizle = async () => { if(!window.confirm('Bu veliyle olan (yalnızca SİZİN) tüm yazışma geçmişi silinsin mi?')) return; const ids=new Set(thread.map(m=>m.id)); await okulYaz(db,"k12_mesajlar",{liste:(mesajlar||[]).filter(x=>!ids.has(x.id))}); setSeciliId(''); };
   const [duzenleId, setDuzenleId] = useState(''); const [duzenleMetin, setDuzenleMetin] = useState('');
@@ -5106,7 +5121,7 @@ const MesajVeli = ({ db, cocuk, user, ogrMod }) => {
   if(!cocuk) return null;
   const thread = tumu.filter(m=> secili==='__genel__' ? !sahip[m.id] : (sahip[m.id] && zAyniKisi(sahip[m.id], secili))).sort((a,b)=>a.ts-b.ts);
   const okunmayan = (ad)=> tumu.filter(m=>m.gonderen==='ogretmen' && !m.okVeli && zAyniKisi(sahip[m.id]||'',ad)).length;
-  const gonder = async (ek) => { const _ses=ek&&ek.ses; if(!metin.trim() && !_ses) return; if(!secili || secili==='__genel__') return alert('Önce hangi öğretmene yazdığınızı seçin.'); const yeni=[...mesajlar, {id:yeniId(), ts:Date.now(), ogrenciId:cocuk.id, ogrenciAd:cocuk.ad, sinif:cocuk.sinif, gonderen:BEN, ad:ogrMod?(cocuk.ad||'Öğrenci'):((user&&user.name)||'Veli'), ogretmen:secili, metin:(metin.trim()||'🎤 Sesli mesaj'), okOgretmen:false, okVeli:true, ...(ogrMod?{kanal:'ogrenci'}:{}), ...(_ses?{ses:_ses}:{})}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ setMetin(''); setOgrt(secili); toast('✉️ Mesajınız '+secili+' öğretmene iletildi.','green'); } };
+  const gonder = async (ek) => { const _ses=ek&&ek.ses; if(!metin.trim() && !_ses) return; if(!secili || secili==='__genel__') return alert('Önce hangi öğretmene yazdığınızı seçin.'); const yeni=[...mesajlar, {id:yeniId(), ts:Date.now(), ogrenciId:cocuk.id, ogrenciAd:cocuk.ad, sinif:cocuk.sinif, gonderen:BEN, ad:ogrMod?(cocuk.ad||'Öğrenci'):((user&&user.name)||'Veli'), ogretmen:secili, metin:(metin.trim()||'🎤 Sesli mesaj'), okOgretmen:false, okVeli:true, ...(ogrMod?{kanal:'ogrenci'}:{}), ...(_ses?{ses:_ses}:{})}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ const _m=yeni[yeni.length-1]; zPushOgretmene(db, secili, '💬 '+(ogrMod?'🧒 ':'👨‍👩‍👧 ')+(_m.ad||'')+' · '+(_m.ogrenciAd||''), _ses?'🎤 Sesli mesaj':_m.metin, 'm'+_m.id); } if(ok){ setMetin(''); setOgrt(secili); toast('✉️ Mesajınız '+secili+' öğretmene iletildi.','green'); } };
   const mesajSil = async (id) => { if(!window.confirm('Bu mesaj geri alınsın (silinsin) mi?')) return; await okulYaz(db,"k12_mesajlar",{liste:mesajlar.filter(x=>x.id!==id)}); };
   const sohbetTemizle = async () => { if(!window.confirm('Bu öğretmenle olan yazışma geçmişi silinsin mi?')) return; const ids=new Set(thread.map(m=>m.id)); await okulYaz(db,"k12_mesajlar",{liste:mesajlar.filter(x=>!ids.has(x.id))}); };
   const mesajGuncelle = async () => { if(!duzenleMetin.trim())return; await okulYaz(db,"k12_mesajlar",{liste:mesajlar.map(x=>x.id===duzenleId?{...x,metin:duzenleMetin.trim(),duzenlendi:true}:x)}); setDuzenleId(''); setDuzenleMetin(''); };
@@ -7436,7 +7451,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 51;
+const LOCAL_SURUM = 52;
 const SurumBanner = ({ db }) => {
   const [yeni,setYeni]=useState(false); const [yeniNo,setYeniNo]=useState(0);
   useEffect(()=>{ if(!db) return; const kontrol=async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn&&sn.exists()){ const sv=Number((sn.data()||{}).surum||0); if(sv>LOCAL_SURUM){ setYeni(true); setYeniNo(sv); } } }catch(e){}
@@ -8222,21 +8237,56 @@ const ZSubeSec = ({ subeler, deger, setDeger, sinif }) => {
     <p className="text-[10.5px] text-violet-700/80 mt-1">{deger?('Yalnızca '+sinif+' '+deger+' şubesinin veli ve öğrencileri görür.'):'Sınıftaki herkes görür.'}</p>
   </div>);
 };
+/* Yönetim Merkezi: öğrenci adını düzelt · sınıf/şube değiştir */
+const ZYoneticiOgrenciler = ({ db }) => {
+  const d=useOkulDoc(db,'k12_ogrenciler'); const liste=((d&&d.liste)||[]).filter(Boolean);
+  const [ara,setAra]=useState(''); const [snf,setSnf]=useState(''); const [duz,setDuz]=useState(null);
+  const siniflar=Array.from(new Set(liste.map(o=>o.sinif).filter(Boolean))).sort((a,b)=>OKUL_SINIFLAR.indexOf(a)-OKUL_SINIFLAR.indexOf(b));
+  const q=zNorm(ara).trim();
+  const gor=(q||snf) ? liste.filter(o=>(!snf||o.sinif===snf) && (!q || zNorm(o.ad).indexOf(q)>=0)).sort((a,b)=>String(a.ad).localeCompare(String(b.ad),'tr')).slice(0,80) : [];
+  const kaydet=async()=>{ if(!duz) return; const o=liste.find(x=>x.id===duz.id); if(!o) return; const yad=String(duz.ad||'').trim(); if(yad.length<2) return alert('Geçerli bir ad yazın.'); const sb=zSinifSubeleri(liste,duz.sinif);
+    const y={...o, ad:yad, sinif:duz.sinif}; if(sb.length){ if(sb.indexOf(duz.sube)<0) return alert('Şube seçin.'); y.sube=duz.sube; } else delete y.sube;
+    if(zNorm(o.ad)!==zNorm(yad)) y.eskiAdlar=(o.eskiAdlar||[]).concat([o.ad]).filter((x,i,a)=>x&&a.indexOf(x)===i).slice(-5);
+    const ok=await okulYaz(db,'k12_ogrenciler',{liste:liste.map(x=>x.id===o.id?y:x)}); if(ok){ toast('✅ '+yad+' güncellendi','green'); setDuz(null); } };
+  return (<div>
+    <div className="grid grid-cols-1 gap-2">
+      <input value={ara} onChange={e=>setAra(e.target.value)} placeholder="🔎 Öğrenci adı yazın…" style={{minHeight:58,fontSize:17}} className="w-full p-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50 text-[16px] font-semibold outline-none focus:border-indigo-500" />
+      <select value={snf} onChange={e=>setSnf(e.target.value)} style={{minHeight:58,fontSize:17}} className="w-full p-3.5 rounded-2xl border-2 border-slate-200 bg-white text-[15px] font-bold outline-none"><option value="">Tüm sınıflar</option>{siniflar.map(s=><option key={s} value={s}>{s} ({liste.filter(o=>o.sinif===s).length})</option>)}</select>
+    </div>
+    {!q && !snf && <p className="text-[12.5px] text-slate-500 mt-2">Bir isim yazın ya da sınıf seçin.</p>}
+    <div className="mt-2 space-y-2">{gor.map(o=>{ const ac=duz&&duz.id===o.id; const sb=ac?zSinifSubeleri(liste,duz.sinif):[]; return (<div key={o.id} className={`rounded-2xl border-2 ${ac?'border-indigo-300 bg-indigo-50/50':'border-slate-100 bg-slate-50'} p-3`}>
+      {!ac ? <div className="flex items-center gap-2"><div className="flex-1 min-w-0"><p className="text-[15px] font-black text-slate-800 truncate">{o.ad}</p><p className="text-[12px] font-bold text-slate-500">{o.sinif}{o.sube?(' · '+o.sube+' şubesi'):''}{(o.eskiAdlar&&o.eskiAdlar.length)?(' · eski: '+o.eskiAdlar.join(', ')):''}</p></div><button onClick={()=>setDuz({id:o.id,ad:o.ad,sinif:o.sinif,sube:o.sube||''})} className="shrink-0 bg-white border-2 border-indigo-200 text-indigo-700 font-black text-[13px] px-3.5 py-2 rounded-xl">✏️ Düzelt</button></div>
+      : <div className="space-y-2">
+        <input value={duz.ad} onChange={e=>setDuz({...duz,ad:e.target.value})} className="w-full p-3 rounded-xl border-2 border-indigo-200 bg-white text-[16px] font-bold outline-none" />
+        <select value={duz.sinif} onChange={e=>setDuz({...duz,sinif:e.target.value,sube:''})} className="w-full p-3 rounded-xl border-2 border-slate-200 bg-white text-[15px] font-bold">{OKUL_SINIFLAR.map(s=><option key={s} value={s}>{s}</option>)}</select>
+        {sb.length>0 && <div className="grid grid-cols-2 gap-2">{sb.map(x=><button key={x} onClick={()=>setDuz({...duz,sube:x})} className={`py-2.5 rounded-xl font-black text-[15px] border-2 ${duz.sube===x?'bg-violet-600 text-white border-violet-600':'bg-white text-violet-800 border-violet-200'}`}>{x} şubesi</button>)}</div>}
+        <div className="grid grid-cols-2 gap-2"><button onClick={kaydet} className="bg-indigo-600 text-white font-black text-[15px] py-3 rounded-xl">💾 Kaydet</button><button onClick={()=>setDuz(null)} className="bg-slate-200 text-slate-700 font-black text-[15px] py-3 rounded-xl">Vazgeç</button></div>
+      </div>}
+    </div>); })}</div>
+    <p className="text-[11px] text-slate-400 mt-2">Ad düzeltilince eski adla giriş yapan veli/öğrenci de girmeye devam eder.</p>
+  </div>);
+};
 /* Şube yönetimi: kim hangi şubede? tek dokunuşla taşı */
 const ZSubeYonetim = ({ db }) => {
   const d=useOkulDoc(db,'k12_ogrenciler'); const g=useOkulDoc(db,'k12_global'); const liste=(d&&d.liste)||[];
   const [acik,setAcik]=useState(false);
   const siniflar=[]; liste.forEach(o=>{ if(o&&o.sube&&siniflar.indexOf(o.sinif)<0) siniflar.push(o.sinif); });
   if(!siniflar.length) return null;
-  const rap=g&&g.subeGoc_anaokulu_v1;
+  const _anaMi=(s)=>/^ana ?(okulu|sinif)|okul ?oncesi/.test(zNorm(s));
+  const _ana=liste.filter(o=>o&&_anaMi(o.sinif));
+  const _kullanilan={}; const _eksik=ZSUBE_ANAOKULU_A.filter(n=>{ const m=_ana.find(o=>!_kullanilan[o.id] && zAdEslesir(o.ad,n)) || _ana.find(o=>!_kullanilan[o.id] && o.sube==='A' && zNorm(o.ad).split(' ')[0]===zNorm(n).split(' ')[0]); if(m){ _kullanilan[m.id]=1; return false; } return true; });
+  const _yanlisB=_ana.filter(o=>o.sube!=='A' && ZSUBE_ANAOKULU_A.some(n=>zAdEslesir(o.ad,n)));
+  const rap=_eksik.length?{eslesmeyen:_eksik}:null;
+  const adDuzelt=async(o)=>{ const y=window.prompt('✏️ Doğru adı yazın:', o.ad); if(!y || y.trim().length<2 || y.trim()===o.ad) return; const es=(o.eskiAdlar||[]).concat([o.ad]).filter((x,i,a)=>x&&a.indexOf(x)===i).slice(-5); const ok=await okulYaz(db,'k12_ogrenciler',{liste:liste.map(x=>x.id===o.id?{...x,ad:y.trim(),eskiAdlar:es}:x)}); if(ok) toast('✏️ '+o.ad+' → '+y.trim(),'green'); };
   const tasi=async(o,s)=>{ const ok=await okulYaz(db,'k12_ogrenciler',{liste:liste.map(x=>x.id===o.id?{...x,sube:s}:x)}); if(ok) toast('🏫 '+o.ad+' → '+s+' şubesi','green'); };
   return (<div className="bg-white border-2 border-violet-200 rounded-2xl p-3 mb-4 shadow-sm">
     <button onClick={()=>setAcik(!acik)} className="w-full flex items-center gap-3 text-left"><span className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white flex items-center justify-center text-lg shrink-0">🏫</span><span className="flex-1 min-w-0"><span className="block text-[15px] font-black text-slate-800">Şubeler</span><span className="block text-[11.5px] text-slate-500 font-bold truncate">{siniflar.map(s=>s+': '+zSinifSubeleri(liste,s).map(x=>x+' ('+liste.filter(o=>o.sinif===s&&o.sube===x).length+')').join(' · ')).join(' | ')}</span></span><span className="text-slate-400 font-black">{acik?'▲':'▼'}</span></button>
     {acik && <div className="mt-3 space-y-3">
-      {rap && rap.eslesmeyen && rap.eslesmeyen.length>0 && <p className="text-[12px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2.5">⚠️ Listede olup kayıtta bulunamayan: <b>{rap.eslesmeyen.join(', ')}</b> — bu öğrenci kayıtlıysa aşağıdan A şubesine taşıyın.</p>}
+      {rap && rap.eslesmeyen && rap.eslesmeyen.length>0 && <p className="text-[12px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2.5">⚠️ A şubesi listesinde olup henüz kayıtlı olmayan: <b>{rap.eslesmeyen.join(', ')}</b> — Sınıfım → Yeni Öğrenci Kaydet'ten Anaokulu + A şubesi seçerek kaydedin (bu isimlerde A kendiliğinden seçilir).</p>}
+      {_yanlisB.length>0 && <div className="bg-sky-50 border border-sky-200 rounded-xl p-2.5"><p className="text-[12px] font-bold text-sky-800">ℹ️ A listesinde olup B'de görünen: <b>{_yanlisB.map(o=>o.ad).join(', ')}</b></p><button onClick={async()=>{ const ids={}; _yanlisB.forEach(o=>ids[o.id]=1); const ok=await okulYaz(db,'k12_ogrenciler',{liste:liste.map(x=>ids[x.id]?{...x,sube:'A'}:x)}); if(ok) toast('🏫 '+_yanlisB.length+' öğrenci A şubesine alındı','green'); }} className="mt-2 w-full bg-sky-600 text-white font-black text-[13px] py-2.5 rounded-xl">Hepsini A şubesine al</button></div>}
       {siniflar.map(s=>{ const sb=zSinifSubeleri(liste,s); return (<div key={s}>{sb.map(x=>{ const l=liste.filter(o=>o.sinif===s&&o.sube===x).sort((a,b)=>String(a.ad).localeCompare(String(b.ad),'tr')); return (<div key={x} className="mb-2"><p className="text-[13px] font-black text-violet-800 mb-1">{s} · {x} şubesi ({l.length})</p>
-        <div className="space-y-1">{l.map(o=>(<div key={o.id} className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2"><span className="flex-1 min-w-0 text-[13.5px] font-bold text-slate-700 truncate">{o.ad}</span>{sb.filter(y=>y!==x).map(y=><button key={y} onClick={()=>tasi(o,y)} className="shrink-0 bg-white border border-violet-200 text-violet-700 font-black text-[11.5px] px-2.5 py-1 rounded-full">→ {y}</button>)}</div>))}</div></div>); })}</div>); })}
-      <p className="text-[10.5px] text-slate-400">Şubesiz eski gönderiler sınıfın tamamında görünmeye devam eder. Yeni öğrenci eklerken şubesini buradan ayarlayabilirsiniz.</p>
+        <div className="space-y-1">{l.map(o=>(<div key={o.id} className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2"><span className="flex-1 min-w-0 text-[13.5px] font-bold text-slate-700 truncate">{o.ad}</span><button onClick={()=>adDuzelt(o)} className="shrink-0 text-slate-400 px-1.5" title="Adı düzelt">✏️</button>{sb.filter(y=>y!==x).map(y=><button key={y} onClick={()=>tasi(o,y)} className="shrink-0 bg-white border border-violet-200 text-violet-700 font-black text-[11.5px] px-2.5 py-1 rounded-full">→ {y}</button>)}</div>))}</div></div>); })}</div>); })}
+      <p className="text-[10.5px] text-slate-400">🔒 Bu kartı yalnızca yönetici görür. ✏️ ile yanlış yazılmış adı düzeltebilirsiniz (eski adla giriş yapan veli/öğrenci yine girebilir). Şubesiz eski gönderiler sınıfın tamamında görünür.</p>
     </div>}
   </div>);
 };
@@ -8282,6 +8332,7 @@ const ZBildirimKarti = ({ rol }) => {
 const ZBildirimBekci = ({ db, rol, ogr, ad }) => {
   const od=useOkulDoc(db,'k12_odevler'), md=useOkulDoc(db,'k12_mesajlar'), pd=useOkulDoc(db,'k12_pano'), td=useOkulDoc(db, rol==='ogretmen'?'k12_teslim':'k12_teslim__yok');
   const anahtar='zbil_son_'+rol+'_'+((ogr&&ogr.id)||zNorm(ad||''));
+  useEffect(()=>{ if(rol!=='ogretmen' && !ogr) return; if(rol==='ogretmen' && !ad) return; const f=()=>{ zPushKaydet(db,rol,ogr,ad); }; const t=setTimeout(f,4000); window.addEventListener('zbil-degisti',f); window.addEventListener('zkasa-degisti',f); return ()=>{ clearTimeout(t); window.removeEventListener('zbil-degisti',f); window.removeEventListener('zkasa-degisti',f); }; },[ogr&&ogr.id, ogr&&ogr.sinif, ogr&&ogr.sube, rol, ad]);
   const yeniSay=useRef(0);
   useEffect(()=>{ const f=()=>{ if(document.visibilityState==='visible'){ yeniSay.current=0; zRozetSay(0); } }; document.addEventListener('visibilitychange',f); return ()=>document.removeEventListener('visibilitychange',f); },[]);
   useEffect(()=>{ try{
@@ -8310,6 +8361,58 @@ const ZBildirimBekci = ({ db, rol, ogr, ad }) => {
   }catch(e){} },[od,md,pd,td,ogr&&ogr.id,ad,rol]);
   return null;
 };
+/* ============================================================================
+   v52 — 📬 UYGULAMA KAPALIYKEN BİLDİRİM (Web Push) + 🔐 ANAHTAR KASASI
+   Kasa/bildirim sunucusu adresi: k12_global.kasaUrl (Yönetim Merkezi → Yapay Zekâ).
+   Abonelikler: k12_push_s_<sınıf> (veli/öğrenci) · k12_push_ogretmen (öğretmenler)
+   ============================================================================ */
+const ZPUSH_PUBLIC='BIXVUEpl8HJuKI61AtSnjS3WTdVvW7-TZeCZUTwJyw1Gd5hxFrUMvt95U_LHmEplAhaf9hqF0tS7zX3JRAcUfEk';
+function zSinifSlug(s){ return zNorm(s||'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'genel'; }
+function zKisaHash(s){ let h=5381; s=String(s||''); for(let i=0;i<s.length;i++) h=((h<<5)+h+s.charCodeAt(i))|0; return 'e'+(h>>>0).toString(36); }
+function zKasaUrl(){ try{ return String(window.ZKASA_URL||'').replace(/\/+$/,''); }catch(e){ return ''; } }
+function zB64uBytes(s){ s=String(s).replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='='; const b=atob(s); const u=new Uint8Array(b.length); for(let i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u; }
+async function zPushAbonelik(){ try{ if(!('serviceWorker' in navigator) || typeof PushManager==='undefined' || zBildirimDurum()!=='granted') return null; const reg=await Promise.race([navigator.serviceWorker.ready, new Promise(r=>setTimeout(()=>r(null),6000))]); if(!reg||!reg.pushManager) return null;
+  let sub=await reg.pushManager.getSubscription(); if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:zB64uBytes(ZPUSH_PUBLIC)}); return sub?sub.toJSON():null; }catch(e){ return null; } }
+/* Bu cihazı bildirim listesine yaz (günde bir kez tazelenir) */
+async function zPushKaydet(db, rol, ogr, ad){ try{ if(!db||!zKasaUrl()||window.ZIRVE_admin===true&&!rol) return false; const s=await zPushAbonelik(); if(!s||!s.endpoint) return false;
+  const belge = rol==='ogretmen' ? 'k12_push_ogretmen' : ('k12_push_s_'+zSinifSlug(ogr&&ogr.sinif)); const k=zKisaHash(s.endpoint);
+  const isaret='zpush_'+belge+'_'+k+'_'+((ogr&&ogr.id)||zNorm(ad||'')); try{ if(Number(localStorage.getItem(isaret)||0)>Date.now()-864e5) return true; }catch(e){}
+  const e={s:{endpoint:s.endpoint,keys:{p256dh:s.keys.p256dh,auth:s.keys.auth}}, rol:rol, ts:Date.now()}; if(ogr&&ogr.id) e.ogrId=ogr.id; if(ogr&&ogr.sube) e.sube=ogr.sube; if(ogr&&ogr.sinif) e.sinif=ogr.sinif; if(ad) e.ad=String(ad).slice(0,60);
+  const {doc,setDoc}=window.FirebaseSDK; await setDoc(doc(db,'maas_config',belge),{[k]:e},{merge:true}); try{ localStorage.setItem(isaret,String(Date.now())); localStorage.setItem('zpush_aktif','1'); }catch(x){} return true; }catch(e){ return false; } }
+/* Hedeflere bildirim gönder (kasa sunucusu üzerinden) — sessiz, hata uygulamayı etkilemez */
+async function zPushGonder(db, belgeler, filtre, veri){ try{ const url=zKasaUrl(); if(!url||!db||!window.FirebaseSDK) return; const oku=zVidOku(db); const abon=[], yer={};
+  for(const b of belgeler){ const v=(await oku(b))||{}; Object.keys(v).forEach(k=>{ const e=v[k]; if(!e||typeof e!=='object'||!e.s||!e.s.endpoint) return; if(filtre(e)){ abon.push(e.s); yer[e.s.endpoint]=[b,k]; } }); }
+  if(!abon.length) return;
+  const r=await fetch(url+'/bildir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({abonelikler:abon, veri:{baslik:veri.baslik, govde:String(veri.govde||'').slice(0,280), url:location.href.split('#')[0], etiket:veri.etiket||''}})});
+  const j=await r.json().catch(()=>({})); const {doc,setDoc,deleteField}=window.FirebaseSDK;
+  for(const ep of (j.biten||[])){ const y=yer[ep]; if(y&&deleteField){ try{ await setDoc(doc(db,'maas_config',y[0]),{[y[1]]:deleteField()},{merge:true}); }catch(e){} } }
+}catch(e){} }
+function zPushSinifBelgeleri(sinif, siniflar){ if(sinif==='TÜM OKUL') return (siniflar||[]).map(s=>'k12_push_s_'+zSinifSlug(s)); return ['k12_push_s_'+zSinifSlug(sinif)]; }
+/* Yönetim: kasa / bildirim sunucusu kartı */
+const ZKasaKarti = ({ db, globalConfig, setGlobalConfig }) => {
+  const [u,setU]=useState((globalConfig&&globalConfig.kasaUrl)||''); const [d,setD]=useState(null); const [yuk,setYuk]=useState('');
+  useEffect(()=>{ setU((globalConfig&&globalConfig.kasaUrl)||''); },[globalConfig&&globalConfig.kasaUrl]);
+  const temiz=()=>String(u||'').trim().replace(/\/+$/,'');
+  const kaydet=async()=>{ const t=temiz(); if(t && !/^https:\/\/[^\s]+$/.test(t)) return alert('Adres https:// ile başlamalı.'); try{ const {doc,setDoc}=window.FirebaseSDK; await setDoc(doc(db,'maas_config','k12_global'),{kasaUrl:t},{merge:true}); try{ setGlobalConfig({...globalConfig,kasaUrl:t}); }catch(e){} window.ZKASA_URL=t; try{ localStorage.setItem('zkasa_url',t); }catch(e){} toast(t?'🔐 Kasa adresi kaydedildi — herkeste devrede':'Kasa kapatıldı','green'); }catch(e){ alert('Kaydedilemedi: '+(e.message||e)); } };
+  const test=async()=>{ const t=temiz(); if(!t) return; setYuk('test'); setD(null); try{ const r=await fetch(t+'/saglik'); const j=await r.json(); let ai='—'; try{ const a=await fetch(t+'/g/v1beta/models/gemini-2.5-flash:generateContent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:'Sadece "tamam" yaz.'}]}]})}); ai=a.ok?'✅ çalışıyor':('⛔ '+a.status); }catch(e){ ai='⛔ ulaşılamadı'; } setD({ok:!!j.ok, anahtar:j.anahtar||0, ai:ai, bildirim:!!j.bildirim}); }catch(e){ setD({ok:false}); } setYuk(''); };
+  const kendime=async()=>{ setYuk('bil'); try{ if(zBildirimDurum()!=='granted'){ const r=await zBildirimIzin(); if(r!=='granted'){ setYuk(''); return; } } const s=await zPushAbonelik(); if(!s){ alert(zIosMu()&&!zKurulu()?'iPhone’da önce uygulamayı ana ekrana ekleyip oradan açın.':'Bu cihazda bildirim aboneliği açılamadı. sw.js dosyasının okul sistemiyle aynı klasörde olduğundan emin olun.'); setYuk(''); return; } const r=await fetch(temiz()+'/bildir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({abonelikler:[s],veri:{baslik:'🔔 Deneme bildirimi',govde:'Kasa sunucusu çalışıyor. Uygulama kapalıyken de bildirim gelecek.',url:location.href.split('#')[0],etiket:'zkasa-test'}})}); const j=await r.json().catch(()=>({})); toast(j.gonderilen?'📬 Deneme bildirimi gönderildi — uygulamayı kapatıp bekleyin':'Bildirim gönderilemedi','green'); }catch(e){ alert('Gönderilemedi: '+(e.message||e)); } setYuk(''); };
+  return (<div>
+    <p className="text-[12.5px] text-slate-600 leading-snug mb-2">Kasa sunucusu kurulunca: yapay zekâ anahtarları <b>hiçbir telefona gitmez</b> (çalınamaz) ve bildirimler <b>uygulama kapalıyken de</b> gelir. Kurulum rehberindeki Cloudflare adresini buraya yapıştırın.</p>
+    <input value={u} onChange={e=>setU(e.target.value)} placeholder="https://degisim-kasa.xxxx.workers.dev" inputMode="url" className="w-full p-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50 text-[15px] font-semibold outline-none focus:border-fuchsia-500" />
+    <div className="grid grid-cols-3 gap-2 mt-2">
+      <button onClick={kaydet} className="bg-fuchsia-600 text-white font-black text-[13px] py-3 rounded-xl">💾 Kaydet</button>
+      <button onClick={test} disabled={!u||!!yuk} className="bg-slate-800 text-white font-black text-[13px] py-3 rounded-xl">{yuk==='test'?'⏳':'🩺 Test et'}</button>
+      <button onClick={kendime} disabled={!u||!!yuk} className="bg-indigo-600 text-white font-black text-[13px] py-3 rounded-xl">{yuk==='bil'?'⏳':'🔔 Bana dene'}</button>
+    </div>
+    {d && (d.ok ? <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-[12.5px] font-bold text-emerald-800 leading-relaxed">✅ Kasa çalışıyor · 🔑 kasada {d.anahtar} anahtar · 🤖 yapay zekâ: {d.ai} · 🔔 bildirim: {d.bildirim?'hazır':'—'}{d.anahtar===0 && <span className="block text-amber-700">⚠️ Kasaya henüz anahtar eklenmemiş (Cloudflare → GEMINI_KEYS).</span>}</div>
+      : <div className="mt-2 bg-rose-50 border border-rose-200 rounded-xl p-2.5 text-[12.5px] font-bold text-rose-700">⛔ Kasaya ulaşılamadı. Adresi ve Cloudflare kurulumunu kontrol edin.</div>)}
+    {(globalConfig&&globalConfig.kasaUrl) ? <p className="text-[11px] text-emerald-700 font-bold mt-2">🟢 Kasa devrede: yapay zekâ istekleri önce kasadan geçer; kasa yanıt vermezse eski anahtar havuzu yedek olarak çalışır. Kasa sorunsuz çalıştıktan sonra yukarıdaki ortak anahtarları silebilirsiniz.</p> : <p className="text-[11px] text-slate-400 mt-2">Kasa adresi boşken sistem eskisi gibi çalışır.</p>}
+  </div>);
+};
+const zPushOgrFiltre=(k)=>(e)=>(e.rol==='veli'||e.rol==='ogrenci') && (k.tur==='birey' ? e.ogrId===k.ogrenciId : zSubeUyar(k,{sube:e.sube}));
+function zPushOdevler(db, kayitlar){ try{ (kayitlar||[]).forEach(k=>{ zPushGonder(db, ['k12_push_s_'+zSinifSlug(k.sinif)], zPushOgrFiltre(k), {baslik:(k.bilgi?'📢 Yeni hatırlatma':'📝 Yeni ödev')+(k.ders?(' · '+k.ders):''), govde:k.detay||k.konu||'', etiket:'o'+k.id}); }); }catch(e){} }
+function zPushOzetler(db, yeni, siniflar){ try{ (yeni||[]).forEach(p=>{ zPushGonder(db, zPushSinifBelgeleri(p.sinif, siniflar), e=>(e.rol==='veli'||e.rol==='ogrenci') && zSubeUyar(p,{sube:e.sube}), {baslik:'📰 Yeni özet · '+(p.ogretmen||'Öğretmen'), govde:String(p.metin||'').split('\n').filter(x=>x.trim()).slice(0,2).join(' · '), etiket:'p'+p.id}); }); }catch(e){} }
+function zPushOgretmene(db, ogretmenAd, baslik, govde, etiket){ try{ if(!ogretmenAd) return; zPushGonder(db, ['k12_push_ogretmen'], e=>e.rol==='ogretmen' && zAyniKisi(e.ad||'', ogretmenAd), {baslik, govde, etiket}); }catch(e){} }
 /* 👁️ Görüldü: veli/öğrenci kartı ekranda görünce (1 sn) kaydedilir — ayda bir belge */
 function zGorAy(k){ const d=new Date((k&&(k.tarih||k.ts))||Date.now()); return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0'); }
 async function zGorulduYaz(db,kayit,ogr,rol){ try{ if(!db||!window.FirebaseSDK||window.ZIRVE_admin===true) return; const {doc,setDoc}=window.FirebaseSDK; const w={}; w[kayit.id]={[(rol==='veli'?'v_':'o_')+ogr.id]:Date.now()}; await setDoc(doc(db,'maas_config','k12_goruldu_'+zGorAy(kayit)),w,{merge:true}); }catch(e){} }
@@ -9149,6 +9252,7 @@ const OzetAktar = ({ db, user }) => {
     let _dosOk=true; if(dosyalar.length){ const _ds=await zDosyaGonder(db, dosyalar, setYd); _dosOk=_ds.length===dosyalar.length; if(_ds.length) yeni.forEach(y=>{ y.dosyalar=_ds; }); }
     if(gorsel || _vidOk || (yeni[0]&&yeni[0].dosyalar)){ yeni.forEach(y=>{ const _mb=zMedyaBitisHesap(medyaSure, y.bitis); if(_mb>0) y.medyaBitis=_mb; }); }
     const ok=await okulYaz(db,"k12_pano",{liste:yeni.concat(pano)});
+    if(ok) zPushOzetler(db, yeni, siniflar);
     if(ok){ toast('🚀 '+yeni.length+' sınıfa gönderildi — veliler ve öğrenciler Sınıf Panosu\'nda görüyor.','green'); setParcalar([]); setHam(''); setSecili({}); setBilgi(''); setGorsel(''); setLinkler([{url:'',ad:''}]); if(!video||_vidOk) setVideo(null); if(_dosOk) setDosyalar([]); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
   };
   const tekParca = parcalar.length===1 && !parcalar[0].sinif;
@@ -9232,6 +9336,7 @@ const [keyTestCalisiyor, setKeyTestCalisiyor] = useState(false);
 
 // DİNAMİK DUYURU (HABER BANDI VE POPUP) YÖNETİMİ
 const [globalConfig, setGlobalConfig] = useState({ news: "", popup: "" });
+useEffect(()=>{ try{ if(!globalConfig || !Object.prototype.hasOwnProperty.call(globalConfig,'kasaUrl')) return; const u=String(globalConfig.kasaUrl||'').trim().replace(/\/+$/,''); const once=window.ZKASA_URL||''; window.ZKASA_URL=u; try{ if(u) localStorage.setItem('zkasa_url',u); else localStorage.removeItem('zkasa_url'); }catch(e){} if(u!==once) window.dispatchEvent(new CustomEvent('zkasa-degisti')); }catch(e){} },[globalConfig&&globalConfig.kasaUrl]);
 const [showUserPopup, setShowUserPopup] = useState(false);
 const [haberGizli, setHaberGizli] = useState(false);
 const [adminInputNews, setAdminInputNews] = useState("");
@@ -11100,6 +11205,8 @@ const renderSharedUI = () => (
                                                 <textarea value={adminInputPopup} onChange={(e)=>setAdminInputPopup(e.target.value)} rows="6" placeholder="Herkese açılışta bir kez gösterilecek önemli duyuru…" className="w-full p-4 rounded-2xl border-2 border-slate-200 bg-slate-50 outline-none focus:border-amber-500 focus:bg-white resize-y transition-all text-[16px] leading-relaxed font-medium text-slate-800 min-h-[160px]"></textarea>
                                             </div>
                                             </ZYKart>
+                                            <ZYKart ad="kisi" baslik="🎓 Öğrenci adları & şubeler" alt="Yanlış yazılan adı düzelt · sınıf / şube değiştir"><ZYoneticiOgrenciler db={db} /></ZYKart>
+                                            <ZYKart ad="kisi" baslik="🏫 Şube listesi" alt="Kim hangi şubede · tek dokunuşla taşı"><ZSubeYonetim db={db} /></ZYKart>
                                             <ZYKart ad="kisi" baslik="👩‍🏫 Öğretmenler & şifreler" alt="Öğretmen adları, kişisel şifreler ve giriş kayıtları">
                                            <div>
                                                 <label className="block text-[13px] font-black text-amber-700 mb-1.5">Öğretmen İsimleri (Virgülle Ayırın)</label>
@@ -11123,6 +11230,7 @@ const renderSharedUI = () => (
                                                 <label className="block text-[13px] font-black text-amber-700 mb-1.5">Kurum Giriş Kodu (Şifre)</label>
                                                 <input type="text" value={adminInputKurumKodu} onChange={(e)=>setAdminInputKurumKodu(e.target.value)} className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-amber-500 font-bold text-amber-900 transition-all" />
                                             </div></ZYKart>
+                                            <ZYKart ad="ai" baslik="🔐 Anahtar kasası + kapalıyken bildirim" alt="Anahtarlar telefonlara gitmez · uygulama kapalıyken de bildirim"><ZKasaKarti db={db} globalConfig={globalConfig} setGlobalConfig={setGlobalConfig} /></ZYKart>
                                             <ZYKart ad="ai" baslik="🔑 Ortak yapay zekâ anahtarları" alt="Herkeste çalışan anahtar havuzu · test · sahipleri"><div>
                                                 <label className="block text-[10px] font-black text-emerald-500 uppercase mb-1 mt-3">🔑 Ortak AI Anahtarları (herkeste çalışır — istediğin kadar, 1000+ anahtar)</label>
                                                 <textarea value={globalConfig?.paylasilanKey||''} onChange={(e)=>setGlobalConfig({...globalConfig, paylasilanKey:e.target.value})} rows="4" placeholder="Her satıra bir anahtar (AIzaSy...). Velilerin/öğretmenlerin gönderdiği anahtarları buraya yapıştır — hepsi havuza eklenir, sistem otomatik dağıtır." className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-emerald-500 font-mono text-xs transition-all resize-y"></textarea>
@@ -14420,6 +14528,22 @@ notes.map(n => (
   }
   function baslat(){ modPill(); uygula(); aiBanner(); yerlestir(); surukleAta(); yukariCikButonu(); setTimeout(surukleAta,900); setTimeout(surukleAta,2200); setInterval(surukleAta,1200); }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", baslat); else baslat();
+})();
+</script>
+<script>
+/* v52 🔐 ANAHTAR KASASI: kasa adresi varsa yapay zekâ istekleri anahtarsız olarak kasaya gider; kasa cevap vermezse eski yol (yedek) çalışır */
+(function(){ try{ var u0=localStorage.getItem('zkasa_url'); if(u0 && !window.ZKASA_URL) window.ZKASA_URL=u0; }catch(e){}
+  var onceki=window.fetch; if(!onceki) return; var ham=window.ZIRVE_ORIG_FETCH||onceki;
+  window.fetch=function(input, init){
+    try{ var kasa=String(window.ZKASA_URL||'').replace(/\/+$/,''); var url=(typeof input==='string')?input:'';
+      if(kasa && url.indexOf('https://generativelanguage.googleapis.com/')===0){
+        var p=new URL(url); p.searchParams.delete('key'); var hedef=kasa+'/g'+p.pathname+p.search;
+        var i2={}; if(init){ for(var a in init) i2[a]=init[a]; } if(i2.headers){ try{ var h=new Headers(i2.headers); h.delete('x-goog-api-key'); i2.headers=h; }catch(e){} }
+        var self=this, args=arguments;
+        return ham.call(window, hedef, i2).then(function(r){ if(r.ok || (r.status>=400 && r.status<500 && [401,403,404,429].indexOf(r.status)<0)) return r; return onceki.apply(self,args); }, function(){ return onceki.apply(self,args); });
+      } }catch(e){}
+    return onceki.apply(this, arguments);
+  };
 })();
 </script>
 <script>
