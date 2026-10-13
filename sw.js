@@ -11,9 +11,14 @@ self.addEventListener('notificationclick', function(e){
     if (self.clients.openWindow) return self.clients.openWindow(url);
   }));
 });
-/* İleride sunucudan gelecek "uygulama kapalıyken" bildirimleri için hazır */
+/* Sürüm 52: uygulama KAPALIYKEN gelen bildirimler (kasa sunucusundan) */
 self.addEventListener('push', function(e){
   var d = {};
   try { d = e.data ? e.data.json() : {}; } catch(x){ d = { baslik:'Değişim Koleji', govde: e.data ? e.data.text() : '' }; }
-  e.waitUntil(self.registration.showNotification(d.baslik || d.title || 'Değişim Koleji', { body: d.govde || d.body || '', icon: d.icon, data: { url: d.url || self.registration.scope } }));
+  var opt = { body: d.govde || d.body || '', icon: d.icon, badge: d.icon, data: { url: d.url || self.registration.scope } };
+  if (d.etiket) { opt.tag = d.etiket; opt.renotify = false; }
+  e.waitUntil(Promise.all([
+    self.registration.showNotification(d.baslik || d.title || 'Değişim Koleji', opt),
+    (self.navigator && self.navigator.setAppBadge) ? self.registration.getNotifications().then(function(l){ return self.navigator.setAppBadge(l.length||1); }).catch(function(){}) : Promise.resolve()
+  ]));
 });
