@@ -7451,7 +7451,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 52;
+const LOCAL_SURUM = 53;
 const SurumBanner = ({ db }) => {
   const [yeni,setYeni]=useState(false); const [yeniNo,setYeniNo]=useState(0);
   useEffect(()=>{ if(!db) return; const kontrol=async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn&&sn.exists()){ const sv=Number((sn.data()||{}).surum||0); if(sv>LOCAL_SURUM){ setYeni(true); setYeniNo(sv); } } }catch(e){}
@@ -8391,6 +8391,11 @@ function zPushSinifBelgeleri(sinif, siniflar){ if(sinif==='TÜM OKUL') return (s
 /* Yönetim: kasa / bildirim sunucusu kartı */
 const ZKasaKarti = ({ db, globalConfig, setGlobalConfig }) => {
   const [u,setU]=useState((globalConfig&&globalConfig.kasaUrl)||''); const [d,setD]=useState(null); const [yuk,setYuk]=useState('');
+  const [sifre,setSifre]=useState(()=>{ try{ return localStorage.getItem('zkasa_sifre')||''; }catch(e){ return ''; } }); const [yeniK,setYeniK]=useState(''); const [kl,setKl]=useState(null); const [ks,setKs]=useState(null);
+  const kasaIstek=async(yol,govde)=>{ const r=await fetch(String(u||'').trim().replace(/\/+$/,'')+yol,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sifre:sifre,...(govde||{})})}); const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.hata||('Hata '+r.status)); try{ localStorage.setItem('zkasa_sifre',sifre); }catch(e){} return j; };
+  const kasayaEkle=async(metin)=>{ if(!sifre) return alert('Önce kasa şifresini yazın (Cloudflare\'da YONETICI_SIFRE olarak koyduğunuz şifre).'); if(!String(metin||'').trim()) return alert('Eklenecek anahtar yok.'); setYuk('ekle'); setKs(null); try{ const j=await kasaIstek('/anahtar/ekle',{anahtarlar:metin}); setKs(j); setYeniK(''); toast('🔐 Kasaya '+j.eklenen+' anahtar eklendi · kasada toplam '+j.toplam,'green'); setKl(null); }catch(e){ alert('⛔ '+e.message); } setYuk(''); };
+  const kasaListe=async()=>{ if(!sifre) return alert('Önce kasa şifresini yazın.'); setYuk('liste'); try{ setKl(await kasaIstek('/anahtar/liste')); }catch(e){ alert('⛔ '+e.message); } setYuk(''); };
+  const kasadanSil=async(x)=>{ if(!window.confirm(x.m+' kasadan silinsin mi?')) return; try{ await kasaIstek('/anahtar/sil',{i:x.i}); toast('🗑️ Silindi','green'); setKl(await kasaIstek('/anahtar/liste')); }catch(e){ alert('⛔ '+e.message); } };
   useEffect(()=>{ setU((globalConfig&&globalConfig.kasaUrl)||''); },[globalConfig&&globalConfig.kasaUrl]);
   const temiz=()=>String(u||'').trim().replace(/\/+$/,'');
   const kaydet=async()=>{ const t=temiz(); if(t && !/^https:\/\/[^\s]+$/.test(t)) return alert('Adres https:// ile başlamalı.'); try{ const {doc,setDoc}=window.FirebaseSDK; await setDoc(doc(db,'maas_config','k12_global'),{kasaUrl:t},{merge:true}); try{ setGlobalConfig({...globalConfig,kasaUrl:t}); }catch(e){} window.ZKASA_URL=t; try{ localStorage.setItem('zkasa_url',t); }catch(e){} toast(t?'🔐 Kasa adresi kaydedildi — herkeste devrede':'Kasa kapatıldı','green'); }catch(e){ alert('Kaydedilemedi: '+(e.message||e)); } };
@@ -8406,6 +8411,25 @@ const ZKasaKarti = ({ db, globalConfig, setGlobalConfig }) => {
     </div>
     {d && (d.ok ? <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-[12.5px] font-bold text-emerald-800 leading-relaxed">✅ Kasa çalışıyor · 🔑 kasada {d.anahtar} anahtar · 🤖 yapay zekâ: {d.ai} · 🔔 bildirim: {d.bildirim?'hazır':'—'}{d.anahtar===0 && <span className="block text-amber-700">⚠️ Kasaya henüz anahtar eklenmemiş (Cloudflare → GEMINI_KEYS).</span>}</div>
       : <div className="mt-2 bg-rose-50 border border-rose-200 rounded-xl p-2.5 text-[12.5px] font-bold text-rose-700">⛔ Kasaya ulaşılamadı. Adresi ve Cloudflare kurulumunu kontrol edin.</div>)}
+    {(globalConfig&&globalConfig.kasaUrl) && <div className="mt-4 bg-amber-50 border-2 border-amber-200 rounded-2xl p-3.5">
+      <p className="text-[15px] font-black text-amber-900">🗝️ Kasaya anahtar ekle</p>
+      <p className="text-[12px] text-amber-800 mt-0.5 mb-2">Yeni gelen anahtarları buraya yapıştırın → doğrudan kasaya gider, telefonlara gitmez. Bozuk anahtar kendiliğinden ayıklanır.</p>
+      <input type="password" value={sifre} onChange={e=>setSifre(e.target.value)} placeholder="🔒 Kasa şifresi" autoComplete="current-password" style={{minHeight:54,fontSize:16}} className="w-full p-3 rounded-xl border-2 border-amber-200 bg-white font-bold outline-none focus:border-amber-500 mb-2" />
+      <textarea value={yeniK} onChange={e=>setYeniK(e.target.value)} rows="4" placeholder={'AIza...\nAIza...\n(bir veya birden çok anahtar)'} style={{fontSize:15}} className="w-full p-3 rounded-xl border-2 border-amber-200 bg-white font-mono outline-none focus:border-amber-500" />
+      <div className="grid grid-cols-1 gap-2 mt-2">
+        <button onClick={()=>kasayaEkle(yeniK)} disabled={!!yuk} className="bg-amber-500 text-white font-black text-[16px] py-3.5 rounded-xl">{yuk==='ekle'?'⏳ Deneniyor ve ekleniyor…':'🔐 Kasaya ekle'}</button>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={()=>{ const t=String((globalConfig&&globalConfig.paylasilanKey)||''); if(!t.trim()) return alert('Ortak havuzda anahtar yok.'); if(window.confirm('Ortak havuzdaki anahtarların hepsi kasaya kopyalansın mı? (Zaten kasada olanlar atlanır)')) kasayaEkle(t); }} disabled={!!yuk} className="bg-white border-2 border-amber-300 text-amber-800 font-black text-[13px] py-3 rounded-xl">📥 Ortak havuzdakileri kasaya taşı</button>
+          <button onClick={kasaListe} disabled={!!yuk} className="bg-white border-2 border-amber-300 text-amber-800 font-black text-[13px] py-3 rounded-xl">{yuk==='liste'?'⏳':'📋 Kasadakileri göster'}</button>
+        </div>
+      </div>
+      {ks && <p className="mt-2 text-[13px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5">✅ {ks.eklenen} eklendi{ks.zatenVardi?(' · '+ks.zatenVardi+' zaten vardı'):''}{ks.gecersiz&&ks.gecersiz.length?(' · ⛔ '+ks.gecersiz.length+' bozuk (eklenmedi): '+ks.gecersiz.join(', ')):''} · 🔑 kasada toplam {ks.toplam}</p>}
+      {kl && <div className="mt-2 bg-white border border-amber-200 rounded-xl p-2.5">
+        <p className="text-[13px] font-black text-slate-700 mb-1">🔑 Kasada toplam {kl.toplam} anahtar</p>
+        {kl.sabit && kl.sabit.length>0 && <p className="text-[11.5px] text-slate-500 mb-1">Cloudflare'de sabit: {kl.sabit.length} (buradan silinmez)</p>}
+        <div className="space-y-1">{(kl.kasa||[]).map(x=>(<div key={x.i} className="flex items-center gap-2 bg-slate-50 rounded-lg px-2.5 py-1.5"><span className="flex-1 font-mono text-[13px] text-slate-700">{x.m}</span><button onClick={()=>kasadanSil(x)} className="text-rose-600 font-black text-[12px] px-2">🗑️ Sil</button></div>))}</div>
+      </div>}
+    </div>}
     {(globalConfig&&globalConfig.kasaUrl) ? <p className="text-[11px] text-emerald-700 font-bold mt-2">🟢 Kasa devrede: yapay zekâ istekleri önce kasadan geçer; kasa yanıt vermezse eski anahtar havuzu yedek olarak çalışır. Kasa sorunsuz çalıştıktan sonra yukarıdaki ortak anahtarları silebilirsiniz.</p> : <p className="text-[11px] text-slate-400 mt-2">Kasa adresi boşken sistem eskisi gibi çalışır.</p>}
   </div>);
 };
