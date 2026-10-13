@@ -2741,6 +2741,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && <HizliOgrenciBul db={db} ogrenciler={ogrenciler} teslimler={teslimler} user={user} />}
         <BugunDerslerim db={db} user={user} />
         <ZMedyaBekci db={db} />
+        <ZSubeBekci db={db} />
         <AiDurum db={db} user={user} rol="teacher" />
         {!yukleniyor && sekme!=='haftanin' && <HaftaninOyHatirlat db={db} user={user} ogrenciler={ogrenciler} onAc={()=>setSekme('haftanin')} />}
         {yukleniyor && <div className="text-center text-slate-400 py-8"><i className="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p className="text-sm font-bold">Veritabanı yükleniyor…</p></div>}
@@ -2839,6 +2840,7 @@ const OgrenciYonetim = ({ db, ogrenciler, teslimler }) => {
 
   return (
     <div>
+      <ZSubeYonetim db={db} />
       <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-4">
         <h4 className="font-black text-indigo-800 mb-3 flex items-center gap-2 text-sm">
           <i className={`fa-solid ${duzenleId?'fa-user-pen':'fa-user-plus'}`}></i>{duzenleId?'Öğrenciyi Düzenle':'Yeni Öğrenci Kaydet'}
@@ -2923,6 +2925,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
   const [video, setVideo] = useState(null); const [vidDosya, setVidDosya] = useState(null);
   const [medyaSure, setMedyaSure] = useState(zMedyaSureOku); const [yd, setYd] = useState(null);
   const [dosyalar, setDosyalar] = useState([]); const [linkler, setLinkler] = useState([{url:'',ad:''}]);
+  const [sube, setSube] = useState(''); const subeler = zSinifSubeleri(ogrenciler, sinif);
   useEffect(()=>{ if(!bilgi||sureElle) return; const tah=zSureTahmin(konu+' '+detay); if(tah) setSure(tah); },[konu,detay,bilgi]);
   const dosyaSec = (e) => {
     const f = e.target.files && e.target.files[0]; if(!f) return;
@@ -2999,6 +3002,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
     let _vidOk=false; if(video){ const _vid=await zVideoGonder(db, video, setYd); if(_vid){ _vidOk=true; kayitlar.forEach(k=>{ k.videoId=_vid; k.videoSure=Math.round(video.sure||0); }); } }
     let _dosOk=true; if(dosyalar.length){ const _ds=await zDosyaGonder(db, dosyalar, setYd); _dosOk=_ds.length===dosyalar.length; if(_ds.length) kayitlar.forEach(k=>{ k.dosyalar=_ds; }); }
     const _lk=zLinkTemiz(linkler); if(_lk.length) kayitlar.forEach(k=>{ k.linkler=_lk; });
+    if(tur==='sinif' && sube && subeler.indexOf(sube)>=0) kayitlar.forEach(k=>{ k.sube=sube; });
     if(resim || _vidOk || (kayitlar[0]&&kayitlar[0].dosyalar)){ kayitlar.forEach(k=>{ const _mb=zMedyaBitisHesap(medyaSure, k.bitis); if(_mb>0) k.medyaBitis=_mb; }); }
     const ok = await okulYaz(db, "k12_odevler", { liste: [...kayitlar, ...odevler] });
     if(ok && resim){ for(const k of kayitlar){ try{ await okulYaz(db, "k12_res_"+k.id, { data: resim, tur: resimTur }); }catch(e){} } }
@@ -3038,7 +3042,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
         {bilgi && <p className="text-[11px] text-sky-700 bg-sky-50 border border-sky-200 rounded-lg px-3 py-2 mb-2 font-bold">📢 "Yarın tablet getirsin", "Pazartesi gezi var" gibi haberler için. Öğrenci yazı yazmak zorunda kalmaz, sadece <b>👍 Okudum</b>'a basar; siz kimin okuduğunu Teslimler'de görürsünüz.</p>}
         {bilgi && <div className="flex items-center gap-1.5 flex-wrap mb-2"><span className="text-[11px] font-black text-sky-700">⏳ Ne zaman kendiliğinden kalksın?{!sureElle && zSureTahmin(konu+' '+detay) ? <span className="ml-1 text-[10px] font-bold text-emerald-600">(yazınıza göre otomatik seçildi ✨)</span> : null}</span>{SURE_SECENEK.map(x=>(<button key={x[0]} onClick={()=>{ setSure(x[0]); setSureElle(true); }} className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${sure===x[0]?'bg-sky-600 text-white border-sky-600':'bg-white text-slate-600 border-slate-200'}`}>{x[1]}</button>))}</div>}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-          <select value={sinif} onChange={e=>{setSinif(e.target.value); setOgrenciId('');}} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none">
+          <select value={sinif} onChange={e=>{setSinif(e.target.value); setOgrenciId(''); setSube('');}} className="px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-bold outline-none">
             {OKUL_SINIFLAR.map(s=><option key={s} value={s}>{s}</option>)}
           </select>
           {tur==='birey' ? (
@@ -3073,6 +3077,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
           </button>}
           </div>
         </div>
+        {tur==='sinif' && <ZSubeSec subeler={subeler} deger={sube} setDeger={setSube} sinif={sinif} />}
         <textarea value={detay} onChange={e=>setDetay(e.target.value)} rows="3" placeholder="Öğrenci tam olarak ne yapacak?" className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none resize-y mb-2"></textarea>
         {!bilgi && <div className="flex items-center gap-2 mb-3">
           <label className="text-[11px] font-black text-rose-700 uppercase">Son Teslim:</label>
@@ -3125,6 +3130,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
                 <p className="text-xs font-black text-slate-800">
                   {o.tur==='birey' ? <span className="text-violet-600"><i className="fa-solid fa-user mr-1"></i>{o.ogrenciAd}</span> : <span className="text-rose-600"><i className="fa-solid fa-users mr-1"></i>{o.sinif}</span>}
                   {' · '}{o.ders}{o.konu?` · ${o.konu}`:''}
+                  {o.sube && <span className="ml-1 text-[9px] bg-violet-600 text-white font-black px-1.5 py-0.5 rounded-full">{o.sube} şubesi</span>}
                   {o.bilgi && <span className="ml-1 text-[9px] bg-sky-500 text-white font-black px-1.5 py-0.5 rounded-full">📢 BİLGİ</span>}
                   {o.bitis>0 && <span className={`ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${zAktifMi(o)?'bg-amber-100 text-amber-700':'bg-slate-200 text-slate-500'}`}>⏳ {zKalan(o.bitis)}</span>}
                   {o.bilgi && !o.bitis && <span className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">📌 kalıcı</span>}
@@ -3436,7 +3442,7 @@ const OgrenciMerkezi = ({ db, user }) => {
   };
   const yapilanIds = new Set(teslimler.filter(t=> ben && t.ogrenciId===ben.id).map(t=>t.odevId));
 
-  const benimTumu = odevler.filter(o=> o.sinif===sinifim && (o.tur==='sinif' || (ben && o.ogrenciId===ben.id)) && zAktifMi(o));
+  const benimTumu = odevler.filter(o=> o.sinif===sinifim && (o.tur==='sinif' || (ben && o.ogrenciId===ben.id)) && zAktifMi(o) && (o.tur!=='sinif' || zSubeUyar(o,ben)));
   const benimOdevler = benimTumu.filter(o=>!o.bilgi);
   const benimBilgiler = benimTumu.filter(o=>o.bilgi);
   const benimDuyurular = duyurular.filter(d=> d.sinif==='hepsi' || d.sinif===sinifim).slice(0,5);
@@ -3544,7 +3550,7 @@ const OgrenciMerkezi = ({ db, user }) => {
 
       <ZSekme ad="bugun odev" icerik="ob-hatirlat"><HatirlatmaKarti db={db} sinif={sinifim} bilgiler={benimBilgiler} yapilanIds={yapilanIds} onOkudum={ben?okudum:null} /></ZSekme>
       <ZSekme ad="ben">{ben && <YildizNedenleri ogrenci={ben} />}</ZSekme>
-      <ZSekme ad="bugun"><DersOzetleri db={db} sinif={sinifim} /></ZSekme>
+      <ZSekme ad="bugun"><DersOzetleri db={db} sinif={sinifim} ogr={ben} /></ZSekme>
       <ZSekme ad="mesaj">{ben && <Katla id="ob-mesaj" baslik="Öğretmenime Yaz" ikon="💬" renk="from-sky-500 to-indigo-600" alt="İstediğin öğretmene mesaj gönder"><MesajVeli db={db} cocuk={ben} user={user} ogrMod={true} /></Katla>}</ZSekme>
       <ZSekme ad="ogren"><KaynakKarti db={db} sinif={sinifim} /></ZSekme>
       <ZSekme ad="ogren"><MebKitaplar db={db} user={user} sinif={sinifim} /></ZSekme>
@@ -3653,14 +3659,14 @@ const VeliMerkezi = ({ db, user }) => {
   const cocuk = sinifDaki.find(o=>o.id===cocukId) || null;
 
   const cocukYapilanIds = new Set(teslimler.filter(t=> cocuk && t.ogrenciId===cocuk.id).map(t=>t.odevId));
-  const cocukTumu = cocuk ? odevler.filter(o=> o.sinif===sinifim && (o.tur==='sinif' || o.ogrenciId===cocuk.id) && zAktifMi(o)) : [];
+  const cocukTumu = cocuk ? odevler.filter(o=> o.sinif===sinifim && (o.tur==='sinif' || o.ogrenciId===cocuk.id) && zAktifMi(o) && (o.tur!=='sinif' || zSubeUyar(o,cocuk))) : [];
   const cocukOdevler = cocukTumu.filter(o=>!o.bilgi);
   const cocukBilgiler = cocukTumu.filter(o=>o.bilgi);
   /* v44: Bugün kartı sayıları */
   const _vmDoc = useOkulDoc(db, "k12_mesajlar"); const _vpDoc = useOkulDoc(db, "k12_pano");
   const _vOkunmayan = cocuk ? (((_vmDoc&&_vmDoc.liste)||[]).filter(m=>m && m.ogrenciId===cocuk.id && m.gonderen==='ogretmen' && m.kanal!=='ogrenci' && !m.okVeli).length) : 0;
   const _vBekleyen = cocukOdevler.filter(o=>!cocukYapilanIds.has(o.id)).length;
-  const _vOzet = cocuk ? (((_vpDoc&&_vpDoc.liste)||[]).filter(p=>zOzetMi(p) && (p.sinif===cocuk.sinif||p.sinif==='TÜM OKUL') && zAktifMi(p) && (Date.now()-(p.ts||0))<3*86400000).length) : 0;
+  const _vOzet = cocuk ? (((_vpDoc&&_vpDoc.liste)||[]).filter(p=>zOzetMi(p) && (p.sinif===cocuk.sinif||p.sinif==='TÜM OKUL') && zSubeUyar(p,cocuk) && zAktifMi(p) && (Date.now()-(p.ts||0))<3*86400000).length) : 0;
   useZRozet('odev', _vBekleyen); useZRozet('mesaj', _vOkunmayan);
 
   if(ogrDoc===null) return null;
@@ -3673,7 +3679,7 @@ const VeliMerkezi = ({ db, user }) => {
         {gosterilecek.length===0 ? (
           <p className="text-sm text-slate-500 bg-emerald-50 rounded-xl p-3">Çocuğunuz bulunamadı. Girişte çocuğunuzun adını okuldaki kayıtla aynı yazdığınızdan emin olun.</p>
         ) : gosterilecek.length===1 ? (
-          <div className="bg-emerald-50 rounded-xl px-4 py-2.5 text-sm font-black text-emerald-800 inline-block">{gosterilecek[0].ad} · {gosterilecek[0].sinif}</div>
+          <div className="bg-emerald-50 rounded-xl px-4 py-2.5 text-sm font-black text-emerald-800 inline-block">{gosterilecek[0].ad} · {gosterilecek[0].sinif}{gosterilecek[0].sube?(' '+gosterilecek[0].sube+' şubesi'):''}</div>
         ) : (
           <select value={cocukId} onChange={e=>setCocukId(e.target.value)} className="px-4 py-2.5 rounded-xl border-2 border-emerald-200 text-sm font-bold outline-none">
             {gosterilecek.map(o=><option key={o.id} value={o.id}>{o.ad}</option>)}
@@ -3696,7 +3702,7 @@ const VeliMerkezi = ({ db, user }) => {
           <div id="vb-hatirlat"><HatirlatmaKarti db={db} sinif={cocuk.sinif} bilgiler={cocukBilgiler} yapilanIds={cocukYapilanIds} veli={true} /></div>
           </ZSekme>
           <ZSekme ad="okul bugun">
-          <div id="vb-dersozet"><DersOzetleri db={db} sinif={cocuk.sinif} /></div>
+          <div id="vb-dersozet"><DersOzetleri db={db} sinif={cocuk.sinif} ogr={cocuk} /></div>
           </ZSekme>
           <ZSekme ad="cocuk">
           <YildizNedenleri ogrenci={cocuk} veli={true} />
@@ -6819,13 +6825,13 @@ const BugununOzeti = ({ db, ogrenci, paylas }) => {
   if(!ogrenci) return null;
   const bugunStr=new Date().toISOString().slice(0,10);
   const yok=yoklama.find(r=>r.tarih===bugunStr && r.ogrenciId===ogrenci.id);
-  const bugunOdev=odevler.filter(o=> ((o.tur!=='birey'&&o.sinif===ogrenci.sinif)||(o.tur==='birey'&&o.ogrenciId===ogrenci.id)) && o.tarih && (new Date(o.tarih).toISOString().slice(0,10)===bugunStr)).length;
+  const bugunOdev=odevler.filter(o=> ((o.tur!=='birey'&&o.sinif===ogrenci.sinif&&zSubeUyar(o,ogrenci))||(o.tur==='birey'&&o.ogrenciId===ogrenci.id)) && o.tarih && (new Date(o.tarih).toISOString().slice(0,10)===bugunStr)).length;
   const okunmamis=mesajlar.filter(m=>m.ogrenciId===ogrenci.id && m.gonderen==='ogretmen' && !m.okVeli).length;
   const dt=ogrenci.dogumTarihi||''; const dg = dt && dt.length>=10 && dt.slice(5)===bugunStr.slice(5);
   const yokAd={geldi:'Geldi ✅',gelmedi:'Gelmedi ❌',gec:'Geç ⏰'};
   // Hafta
   const hb=zHaftaBasi(), hbStr=zTarihStr(hb);
-  const benimMi=(o)=> (o.tur!=='birey'&&o.sinif===ogrenci.sinif)||(o.tur==='birey'&&o.ogrenciId===ogrenci.id);
+  const benimMi=(o)=> (o.tur!=='birey'&&o.sinif===ogrenci.sinif&&zSubeUyar(o,ogrenci))||(o.tur==='birey'&&o.ogrenciId===ogrenci.id);
   const haftaOdev=odevler.filter(o=>benimMi(o) && (o.tarih||0)>=hb && !o.bilgi && zAktifMi(o));
   const yapilan=new Set(teslimler.filter(t=>t.ogrenciId===ogrenci.id).map(t=>t.odevId));
   const haftaYapilan=haftaOdev.filter(o=>yapilan.has(o.id)).length;
@@ -7415,7 +7421,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 49;
+const LOCAL_SURUM = 50;
 const SurumBanner = ({ db }) => {
   const [yeni,setYeni]=useState(false); const [yeniNo,setYeniNo]=useState(0);
   useEffect(()=>{ if(!db) return; const kontrol=async()=>{ try{ const {doc,getDoc}=window.FirebaseSDK; const sn=await getDoc(doc(db,"maas_config","k12_global")); if(sn&&sn.exists()){ const sv=Number((sn.data()||{}).surum||0); if(sv>LOCAL_SURUM){ setYeni(true); setYeniNo(sv); } } }catch(e){}
@@ -8168,6 +8174,56 @@ const ZEkler = ({ db, o }) => {
     {aktif && (o.dosyalar||[]).map(d=><ZDosya key={d.id} db={db} d={d} />)}
   </>);
 };
+/* ============================================================================
+   v50 — 🏫 ŞUBE SİSTEMİ (Anaokulu A / B …)
+   Öğrencinin sınıfı aynı kalır ("Anaokulu"), yanına şube eklenir: ogrenci.sube = 'A' | 'B'.
+   Gönderiye şube seçilirse kayıt.sube yazılır → yalnız o şubenin veli ve öğrencisi görür.
+   Şubesiz (eski) gönderiler sınıfın tamamına görünmeye devam eder — hiçbir şey kaybolmaz.
+   ============================================================================ */
+function zSubeUyar(kayit, ogr){ return !kayit || !kayit.sube || !!(ogr && ogr.sube && ogr.sube===kayit.sube); }
+function zSinifSubeleri(ogrenciler, sinif){ const l=[]; (ogrenciler||[]).forEach(o=>{ if(o && o.sinif===sinif && o.sube && l.indexOf(o.sube)<0) l.push(o.sube); }); return l.sort(); }
+/* Barış Öğretmen'in verdiği Anaokulu A şubesi listesi (13 Ekim 2026) — bir kez, kendiliğinden uygulanır */
+const ZSUBE_ANAOKULU_A=['Ayaz selim GÖGCE','Dolunay VURALGİL','Miray ULUSLAR','Miray ÇELİKGÜN','Kübra neva','Ramin İBRAHİM','Yamaç KOCA'];
+function zAdEslesir(kayitAd, listeAd){ const a=zNorm(kayitAd).replace(/\s+/g,' ').trim(), b=zNorm(listeAd).replace(/\s+/g,' ').trim(); if(!a||!b) return false; if(a===b) return true; const at=a.split(' '), bt=b.split(' '); return bt.every((t,i)=>at[i]===t) || bt.every(t=>at.indexOf(t)>=0); }
+async function zSubeGocu(db){ try{ if(!db||!window.FirebaseSDK) return; const {doc,getDoc,setDoc}=window.FirebaseSDK;
+  const g=await getDoc(doc(db,'maas_config','k12_global')); if(g.exists() && g.data().subeGoc_anaokulu_v1) return;
+  const sn=await getDoc(doc(db,'maas_config','k12_ogrenciler')); if(!sn.exists()) return; const liste=(sn.data().liste)||[];
+  const anaMi=(s)=>/^ana ?(okulu|sinif)|okul ?oncesi/.test(zNorm(s));
+  const A=[], B=[], bulunan={};
+  const yeni=liste.map(o=>{ if(!o || !anaMi(o.sinif) || o.sube) return o; const esl=ZSUBE_ANAOKULU_A.find(n=>zAdEslesir(o.ad,n)); if(esl){ bulunan[esl]=1; A.push(o.ad); return {...o, sube:'A'}; } B.push(o.ad); return {...o, sube:'B'}; });
+  const eslesmeyen=ZSUBE_ANAOKULU_A.filter(n=>!bulunan[n]);
+  if(A.length||B.length) await setDoc(doc(db,'maas_config','k12_ogrenciler'),{liste:yeni, guncelleme:Date.now()},{merge:true});
+  await setDoc(doc(db,'maas_config','k12_global'),{subeGoc_anaokulu_v1:{ts:Date.now(),A:A,B:B,eslesmeyen:eslesmeyen}},{merge:true});
+  try{ toast('🏫 Anaokulu şubeleri ayarlandı: A şubesi '+A.length+' · B şubesi '+B.length+' öğrenci','green'); }catch(e){}
+}catch(e){} }
+const ZSubeBekci = ({ db }) => { useEffect(()=>{ if(!db) return; const t=setTimeout(()=>{ zSubeGocu(db); },6000); return ()=>clearTimeout(t); },[db]); return null; };
+/* Şube seçici çipleri (gönderirken) */
+const ZSubeSec = ({ subeler, deger, setDeger, sinif }) => {
+  if(!subeler || !subeler.length) return null;
+  return (<div className="bg-violet-50 border-2 border-violet-200 rounded-xl px-2.5 py-2 mb-2">
+    <p className="text-[12.5px] font-black text-violet-800 mb-1.5">🏫 {sinif} — hangi şubeye?</p>
+    <div className="flex flex-wrap gap-1.5">{[['','👥 Tüm şubeler']].concat(subeler.map(s=>[s,s+' şubesi'])).map(x=>(<button type="button" key={x[0]||'tum'} onClick={()=>setDeger(x[0])} className={`px-3.5 py-2 rounded-full text-[13px] font-black border-2 ${deger===x[0]?'bg-violet-600 text-white border-violet-600':'bg-white text-violet-800 border-violet-200'}`}>{x[1]}</button>))}</div>
+    <p className="text-[10.5px] text-violet-700/80 mt-1">{deger?('Yalnızca '+sinif+' '+deger+' şubesinin veli ve öğrencileri görür.'):'Sınıftaki herkes görür.'}</p>
+  </div>);
+};
+/* Şube yönetimi: kim hangi şubede? tek dokunuşla taşı */
+const ZSubeYonetim = ({ db }) => {
+  const d=useOkulDoc(db,'k12_ogrenciler'); const g=useOkulDoc(db,'k12_global'); const liste=(d&&d.liste)||[];
+  const [acik,setAcik]=useState(false);
+  const siniflar=[]; liste.forEach(o=>{ if(o&&o.sube&&siniflar.indexOf(o.sinif)<0) siniflar.push(o.sinif); });
+  if(!siniflar.length) return null;
+  const rap=g&&g.subeGoc_anaokulu_v1;
+  const tasi=async(o,s)=>{ const ok=await okulYaz(db,'k12_ogrenciler',{liste:liste.map(x=>x.id===o.id?{...x,sube:s}:x)}); if(ok) toast('🏫 '+o.ad+' → '+s+' şubesi','green'); };
+  return (<div className="bg-white border-2 border-violet-200 rounded-2xl p-3 mb-4 shadow-sm">
+    <button onClick={()=>setAcik(!acik)} className="w-full flex items-center gap-3 text-left"><span className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white flex items-center justify-center text-lg shrink-0">🏫</span><span className="flex-1 min-w-0"><span className="block text-[15px] font-black text-slate-800">Şubeler</span><span className="block text-[11.5px] text-slate-500 font-bold truncate">{siniflar.map(s=>s+': '+zSinifSubeleri(liste,s).map(x=>x+' ('+liste.filter(o=>o.sinif===s&&o.sube===x).length+')').join(' · ')).join(' | ')}</span></span><span className="text-slate-400 font-black">{acik?'▲':'▼'}</span></button>
+    {acik && <div className="mt-3 space-y-3">
+      {rap && rap.eslesmeyen && rap.eslesmeyen.length>0 && <p className="text-[12px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2.5">⚠️ Listede olup kayıtta bulunamayan: <b>{rap.eslesmeyen.join(', ')}</b> — bu öğrenci kayıtlıysa aşağıdan A şubesine taşıyın.</p>}
+      {siniflar.map(s=>{ const sb=zSinifSubeleri(liste,s); return (<div key={s}>{sb.map(x=>{ const l=liste.filter(o=>o.sinif===s&&o.sube===x).sort((a,b)=>String(a.ad).localeCompare(String(b.ad),'tr')); return (<div key={x} className="mb-2"><p className="text-[13px] font-black text-violet-800 mb-1">{s} · {x} şubesi ({l.length})</p>
+        <div className="space-y-1">{l.map(o=>(<div key={o.id} className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2"><span className="flex-1 min-w-0 text-[13.5px] font-bold text-slate-700 truncate">{o.ad}</span>{sb.filter(y=>y!==x).map(y=><button key={y} onClick={()=>tasi(o,y)} className="shrink-0 bg-white border border-violet-200 text-violet-700 font-black text-[11.5px] px-2.5 py-1 rounded-full">→ {y}</button>)}</div>))}</div></div>); })}</div>); })}
+      <p className="text-[10.5px] text-slate-400">Şubesiz eski gönderiler sınıfın tamamında görünmeye devam eder. Yeni öğrenci eklerken şubesini buradan ayarlayabilirsiniz.</p>
+    </div>}
+  </div>);
+};
 const OzetGorsel = ({ db, id }) => {
   const g=useOkulDoc(db, id?("k12_pgorsel_"+id):"k12_pgorsel__yok");
   const [buyuk,setBuyuk]=useState(false);
@@ -8243,8 +8299,8 @@ const OzetKart = ({ p, db }) => {
 };
 const zOzetMi = (p)=> p && (p.kaynak==='ozet' || p.kaynak==='sinifozet');
 
-const DersOzetleri = ({ db, sinif }) => {
-  const d=useOkulDoc(db,"k12_pano"); const liste=((d&&d.liste)||[]).filter(p=>zOzetMi(p) && (p.sinif===sinif||p.sinif==='TÜM OKUL') && zAktifMi(p)).sort((a,b)=>(b.ts||0)-(a.ts||0));
+const DersOzetleri = ({ db, sinif, ogr }) => {
+  const d=useOkulDoc(db,"k12_pano"); const liste=((d&&d.liste)||[]).filter(p=>zOzetMi(p) && (p.sinif===sinif||p.sinif==='TÜM OKUL') && (!ogr || zSubeUyar(p,ogr)) && zAktifMi(p)).sort((a,b)=>(b.ts||0)-(a.ts||0));
   const [hepsi,setHepsi]=useState(false);
   if(!liste.length) return null;
   const gor=hepsi?liste:liste.slice(0,2);
@@ -8886,7 +8942,7 @@ const OzetAktar = ({ db, user }) => {
   const [secili,setSecili]=useState({});
   const [sure,setSure]=useState(()=>{ try{ return localStorage.getItem('zozet_sure')||'7'; }catch(e){ return '7'; } });
   const sureSec=(v)=>{ setSure(v); try{ localStorage.setItem('zozet_sure',v); }catch(e){} };
-  const [gorsel,setGorsel]=useState(''); const [linkler,setLinkler]=useState([{url:'',ad:''}]); const [video,setVideo]=useState(null); const [dosyalar,setDosyalar]=useState([]); const [medyaSure,setMedyaSure]=useState(()=>{ const v=zMedyaSureOku(); return v==='0'?'ayni':v; }); const [yd,setYd]=useState(null);
+  const [gorsel,setGorsel]=useState(''); const [linkler,setLinkler]=useState([{url:'',ad:''}]); const [video,setVideo]=useState(null); const [dosyalar,setDosyalar]=useState([]); const [ozSube,setOzSube]=useState(''); const [medyaSure,setMedyaSure]=useState(()=>{ const v=zMedyaSureOku(); return v==='0'?'ayni':v; }); const [yd,setYd]=useState(null);
   const gorselSec=(e)=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return; zKartGorselHazirla(f).then(setGorsel).catch(()=>alert('Görsel okunamadı.')); };
   /* Robotik planından gelen "⏳ Ekosistem süresi: 1 hafta" satırını oku ve metinden temizle */
   useEffect(()=>{ const m=String(ham||'').match(/⏳\s*Ekosistem süresi:\s*([^\n]+)/i); if(!m) return; const e=zNorm(m[1]); const v= /bugun/.test(e)?'bugun' : /yarin/.test(e)?'yarin' : /kalici/.test(e)?'0' : /2 hafta/.test(e)?'14' : /hafta sonu/.test(e)?'hafta' : /1 ay|ay/.test(e)?'30' : /3 gun/.test(e)?'3' : '7'; setSure(v); setHam(String(ham).replace(/\n*⏳\s*Ekosistem süresi:[^\n]*\n?/i,'\n').trim()); setBilgi('⏳ Robotik planından gelen süre uygulandı: '+(SURE_ETIKET[v]||v)); },[ham]);
@@ -8942,6 +8998,7 @@ const OzetAktar = ({ db, user }) => {
     if(_lk.length) yeni.forEach(y=>{ y.linkler=_lk; });
     if(gorsel){ const gid='g'+ts.toString(36); const gok=await okulYaz(db,"k12_pgorsel_"+gid,{data:gorsel, ts}); if(gok) yeni.forEach(y=>{ y.gorselId=gid; }); }
     if(!window.confirm(yeni.length+' sınıf panosuna gönderilecek.\n⏳ Kalma süresi: '+(SURE_ETIKET[sure]||sure)+(video?'\n🎬 Video: '+zSureYaz(video.sure):'')+'\n\nOnaylıyor musunuz?')) return;
+    if(ozSube) yeni.forEach(y=>{ if(zSinifSubeleri(ogrenciler,y.sinif).indexOf(ozSube)>=0) y.sube=ozSube; });
     let _vidOk=false; if(video){ const _vid=await zVideoGonder(db, video, setYd); if(_vid){ _vidOk=true; yeni.forEach(y=>{ y.videoId=_vid; }); } }
     let _dosOk=true; if(dosyalar.length){ const _ds=await zDosyaGonder(db, dosyalar, setYd); _dosOk=_ds.length===dosyalar.length; if(_ds.length) yeni.forEach(y=>{ y.dosyalar=_ds; }); }
     if(gorsel || _vidOk || (yeni[0]&&yeni[0].dosyalar)){ yeni.forEach(y=>{ const _mb=zMedyaBitisHesap(medyaSure, y.bitis); if(_mb>0) y.medyaBitis=_mb; }); }
@@ -8969,6 +9026,7 @@ const OzetAktar = ({ db, user }) => {
           <div className="flex flex-wrap gap-1.5">{[['bugun','☀️ Bugün'],['yarin','🌙 Yarın akşama'],['7','1 hafta'],['14','2 hafta'],['30','1 ay'],['0','📌 Kalıcı']].map(x=>(<button key={x[0]} onClick={()=>sureSec(x[0])} className={`px-2.5 py-1 rounded-full text-[11px] font-black border ${sure===x[0]?'bg-indigo-600 text-white border-indigo-600':'bg-white text-slate-600 border-slate-200'}`}>{x[1]}</button>))}</div>
         </div>
         <ZEkEditor gorsel={gorsel} setGorsel={setGorsel} gorselSec={gorselSec} linkler={linkler} setLinkler={setLinkler} />
+        {(()=>{ const sb=[]; siniflar.forEach(x=>zSinifSubeleri(ogrenciler,x).forEach(y=>{ if(sb.indexOf(y)<0) sb.push(y); })); const ss=siniflar.filter(x=>zSinifSubeleri(ogrenciler,x).length).join(', '); return sb.length ? <ZSubeSec subeler={sb.sort()} deger={ozSube} setDeger={setOzSube} sinif={ss} /> : null; })()}
         <ZVideoSec deger={video} setDeger={setVideo} />
         <ZDosyaSec liste={dosyalar} setListe={setDosyalar} />
         {(gorsel || video || dosyalar.length) ? <ZMedyaSure deger={medyaSure} setDeger={setMedyaSure} ayniVar={true} /> : null}
