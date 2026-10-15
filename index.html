@@ -2666,6 +2666,8 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
     { k:'whatsapp', ad:'Veli WhatsApp', ikon:'fa-whatsapp', grup:'iletisim' },
     { k:'aniduvari', ad:'Anı Duvarı', ikon:'fa-images', grup:'iletisim' },
     { k:'haftanin', ad:'Haftanın Öğrencisi 🗳️', ikon:'fa-star', grup:'iletisim' },
+    { k:'hafta5', ad:'Haftalık 5 Soru 📝', ikon:'fa-circle-question', grup:'iletisim' },
+    { k:'kitapkose', ad:'Kitap Köşesi 📚', ikon:'fa-book-open-reader', grup:'iletisim' },
     { k:'ders',    ad:'Ders Programı', ikon:'fa-table-list', grup:'program' },
     { k:'takvim',  ad:'Okul Takvimi', ikon:'fa-calendar-days', grup:'program' },
     { k:'yemek',   ad:'Yemek Listesi', ikon:'fa-utensils', grup:'program' },
@@ -2766,6 +2768,8 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='lig'     && <SinifLigi db={db} />}
         {!yukleniyor && sekme==='takvim'  && <OkulTakvimi db={db} duzenlenebilir={true} user={user} />}
         {!yukleniyor && sekme==='haftanin' && <HaftaninOgrencisi db={db} duzenlenebilir={true} ogrenciler={ogrenciler} user={user} />}
+        {!yukleniyor && sekme==='hafta5' && <ZHaftaSoruOgretmen db={db} user={user} ogrenciler={ogrenciler} />}
+        {!yukleniyor && sekme==='kitapkose' && <ZKitapKosesi db={db} rol="ogretmen" user={user} />}
         {!yukleniyor && sekme==='anket'   && <VeliAnketi db={db} duzenlenebilir={true} user={user} />}
         {!yukleniyor && sekme==='pano'    && <SinifPanosu db={db} duzenlenebilir={true} user={user} />}
         {!yukleniyor && sekme==='katilim' && <KatilimTakip db={db} />}
@@ -3018,6 +3022,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
     const _lk=zLinkTemiz(linkler); if(_lk.length) kayitlar.forEach(k=>{ k.linkler=_lk; });
     if(tur==='sinif' && sube && subeler.indexOf(sube)>=0) kayitlar.forEach(k=>{ k.sube=sube; });
     if(resim || _vidOk || (kayitlar[0]&&kayitlar[0].dosyalar)){ kayitlar.forEach(k=>{ const _mb=zMedyaBitisHesap(medyaSure, k.bitis); if(_mb>0) k.medyaBitis=_mb; }); }
+    kayitlar.forEach(k=>{ k._b=1; }); /* v60: bu cihaz bildirimi kendisi gönderiyor (kasa tekrar göndermesin) */
     const ok = await okulYaz(db, "k12_odevler", { liste: [...kayitlar, ...odevler] });
     if(ok) zPushOdevler(db, kayitlar);
     if(ok && resim){ for(const k of kayitlar){ try{ await okulYaz(db, "k12_res_"+k.id, { data: resim, tur: resimTur }); }catch(e){} } }
@@ -3373,7 +3378,7 @@ const DuyuruYonetim = ({ db, user, duyurular }) => {
   const gonder = async () => {
     if(!metin.trim()) return alert("Duyuru metni boş olamaz.");
     const _h = (hedef==='t'||hedef==='h') ? hedef : hedef; const _s = hedef==='t' ? 'hepsi' : sinif;
-    const kayit = { id:yeniId(), sinif:_s, metin:metin.trim(), ekleyen:(user&&user.name)||'Öğretmen', tarih:Date.now(), hedef:_h };
+    const kayit = { id:yeniId(), sinif:_s, metin:metin.trim(), ekleyen:(user&&user.name)||'Öğretmen', tarih:Date.now(), hedef:_h, _b:1 };
     if(!window.confirm('📢 Duyuru '+ZDUYURU_HEDEF[_h]+' — '+(_s==='hepsi'?'tüm okula':(_s+' sınıfına'))+' gidecek ve telefonlara bildirim düşecek.\n\nGönderilsin mi?')) return;
     const ok = await okulYaz(db, "k12_duyuru", { liste:[kayit, ...duyurular] });
     if(ok){ setMetin(''); zPushDuyuru(db, kayit); toast('📢 Duyuru yayınlandı · bildirim gönderildi.','green'); }
@@ -3488,7 +3493,7 @@ const OgrenciMerkezi = ({ db, user }) => {
     const cevap = (mesajTaslak[odev.id]||'').trim();
     const foto = teslimResim[odev.id];
     if(cevap.length < 10 && !foto){ alert("Önce yaptığını yaz (birkaç kelime) VEYA ödevinin fotoğrafını ekle. Yapmadan gönderemezsin 🙂"); return; }
-    const kayit = { id:yeniId(), odevId:odev.id, ogrenciId:ben.id, ogrenciAd:ben.ad, durum:'yapildi', mesaj:cevap, resimVar:!!foto, tarih:Date.now() };
+    const kayit = { id:yeniId(), odevId:odev.id, ogrenciId:ben.id, ogrenciAd:ben.ad, durum:'yapildi', mesaj:cevap, resimVar:!!foto, tarih:Date.now(), _b:1 };
     const okT = await okulYaz(db, "k12_teslim", { liste:[kayit, ...teslimler] });
     if(okT) zPushOgretmene(db, odev.ekleyen, '✅ '+(ben.ad||'Öğrenci')+' ödevini teslim etti', (odev.ders||'')+(odev.konu?(' · '+odev.konu):''), 't'+kayit.id);
     if(okT && foto){ try{ await okulYaz(db, "k12_tres_"+kayit.id, { data: foto }); }catch(e){} setTeslimResim(p=>{ const y={...p}; delete y[odev.id]; return y; }); }
@@ -3558,6 +3563,8 @@ const OgrenciMerkezi = ({ db, user }) => {
 
       <ZSekme ad="odev"><Katla id="ob-program" baslik="Ders Programım" ikon="📚" renk="from-sky-500 to-cyan-600" alt="Bugünün dersleri renkli"><DersProgrami db={db} duzenlenebilir={false} sinif={sinifim} /></Katla></ZSekme>
       <ZSekme ad="bugun"><HaftaninOgrencisi db={db} duzenlenebilir={false} ogrenciler={ogrenciler} sinif={sinifim} /><ZOgretmenSecimleri db={db} sinif={sinifim} ogrId={ben&&ben.id} /></ZSekme>
+      <ZSekme ad="bugun"><ZGununBilgisi />{ben && <ZHaftaSoruOgrenci db={db} ben={ben} ogrenciler={ogrenciler} />}</ZSekme>
+      <ZSekme ad="ogren">{ben && zSinifSeviye(ben.sinif)>=2 && <ZKelimeOyunu db={db} ben={ben} ogrenciler={ogrenciler} />}{ben && <ZKitapKosesi db={db} ben={ben} rol="ogrenci" />}</ZSekme>
       <ZSekme ad="bugun"><SinifPanosu db={db} duzenlenebilir={false} sinif={sinifim} /></ZSekme>
       <ZSekme ad="ben"><Katla id="ob-kulup" baslik="Kulüp & Etkinlikler" ikon="🎭" renk="from-pink-500 to-rose-500"><KulupEtkinlik db={db} duzenlenebilir={false} /></Katla></ZSekme>
       <ZSekme ad="ogren"><Katla id="ob-kitapkurdu" baslik="Kitap Kurdu Türkiye Yolculuğu" ikon="🗺️" renk="from-emerald-500 to-teal-600"><KitapKurduHaritasi ogrenciler={ogrenciler} /></Katla></ZSekme>
@@ -3775,7 +3782,10 @@ const VeliMerkezi = ({ db, user }) => {
           <ZSekme ad="bugun">
           <HaftaninOgrencisi db={db} duzenlenebilir={false} ogrenciler={ogrenciler} sinif={cocuk.sinif} />
           <ZOgretmenSecimleri db={db} sinif={cocuk.sinif} ogrId={cocuk.id} />
+          <ZGununBilgisi />
+          <ZHaftaSoruVeli db={db} cocuk={cocuk} />
           </ZSekme>
+          <ZSekme ad="cocuk"><ZKitapKosesi db={db} sinif={cocuk.sinif} rol="veli" ogrId={cocuk.id} /></ZSekme>
           <ZSekme ad="okul">
           <Katla id="vb-kulup" baslik="Kulüp & Etkinlikler" ikon="🎭" renk="from-pink-500 to-rose-500"><KulupEtkinlik db={db} duzenlenebilir={false} /></Katla>
           </ZSekme>
@@ -5022,7 +5032,7 @@ const MesajOgretmen = ({ db, user, mesajlar, ogrenciler }) => {
   const acik = seciliId && grup[seciliId];
   const thread = acik ? grup[seciliId].list.slice().sort((a,b)=>a.ts-b.ts) : [];
   const ac = async (id) => { setSeciliId(id); if(window.ZIRVE_admin===true) return; /* yönetim okuyunca öğretmenin 'okunmadı' bildirimi kaybolmasın */ const ids=new Set(((grup[id]&&grup[id].list)||[]).filter(m=>(m.gonderen==='veli'||m.gonderen==='ogrenci')&&!m.okOgretmen).map(m=>m.id)); if(!ids.size) return; const yeni=(mesajlar||[]).map(m=> ids.has(m.id) ? {...m, okOgretmen:true} : m); await okulYaz(db,"k12_mesajlar",{liste:yeni}); };
-  const gonder = async (ek) => { const _ses=ek&&ek.ses; if((!metin.trim()&&!_ses)||!acik) return; if(_onizleme && !window.confirm('👁️ Yönetici önizlemesindesiniz. Bu mesaj '+_onizleme+' adına veliye gidecek. Gönderilsin mi?')) return; const g=grup[seciliId]; const sahipAd = (_yonetici && g.sahip) ? g.sahip : _benAdi; const yeni=[...(mesajlar||[]), {id:yeniId(), ts:Date.now(), ogrenciId:g.ogrenciId, ogrenciAd:g.ad, sinif:g.sinif, gonderen:'ogretmen', ad:_benAdi, ogretmen:sahipAd, metin:(metin.trim()||'🎤 Sesli mesaj'), okOgretmen:true, okVeli:false, ...(g.kanal==='ogrenci'?{kanal:'ogrenci'}:{}), ...(_ses?{ses:_ses}:{})}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ const _m=yeni[yeni.length-1]; zPushOlay({rol:[g.kanal==='ogrenci'?'ogrenci':'veli'], ogrId:g.ogrenciId},{baslik:'💬 '+(_m.ad||'Öğretmen')+' öğretmenden mesaj', govde:_ses?'🎤 Sesli mesaj':_m.metin, etiket:'m'+_m.id}); } if(ok){ setMetin(''); toast(g.kanal==='ogrenci'?'Cevap gönderildi, öğrenciye iletildi.':'Cevap gönderildi, veliye iletildi.','green'); } };
+  const gonder = async (ek) => { const _ses=ek&&ek.ses; if((!metin.trim()&&!_ses)||!acik) return; if(_onizleme && !window.confirm('👁️ Yönetici önizlemesindesiniz. Bu mesaj '+_onizleme+' adına veliye gidecek. Gönderilsin mi?')) return; const g=grup[seciliId]; const sahipAd = (_yonetici && g.sahip) ? g.sahip : _benAdi; const yeni=[...(mesajlar||[]), {id:yeniId(), ts:Date.now(), ogrenciId:g.ogrenciId, ogrenciAd:g.ad, sinif:g.sinif, gonderen:'ogretmen', ad:_benAdi, ogretmen:sahipAd, metin:(metin.trim()||'🎤 Sesli mesaj'), okOgretmen:true, okVeli:false, _b:1, ...(g.kanal==='ogrenci'?{kanal:'ogrenci'}:{}), ...(_ses?{ses:_ses}:{})}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ const _m=yeni[yeni.length-1]; zPushOlay({rol:[g.kanal==='ogrenci'?'ogrenci':'veli'], ogrId:g.ogrenciId},{baslik:'💬 '+(_m.ad||'Öğretmen')+' öğretmenden mesaj', govde:_ses?'🎤 Sesli mesaj':_m.metin, etiket:'m'+_m.id}); } if(ok){ setMetin(''); toast(g.kanal==='ogrenci'?'Cevap gönderildi, öğrenciye iletildi.':'Cevap gönderildi, veliye iletildi.','green'); } };
   const mesajSil = async (id) => { if(!window.confirm('Bu mesaj silinsin mi?')) return; await okulYaz(db,"k12_mesajlar",{liste:(mesajlar||[]).filter(x=>x.id!==id)}); };
   const sohbetTemizle = async () => { if(!window.confirm('Bu veliyle olan (yalnızca SİZİN) tüm yazışma geçmişi silinsin mi?')) return; const ids=new Set(thread.map(m=>m.id)); await okulYaz(db,"k12_mesajlar",{liste:(mesajlar||[]).filter(x=>!ids.has(x.id))}); setSeciliId(''); };
   const [duzenleId, setDuzenleId] = useState(''); const [duzenleMetin, setDuzenleMetin] = useState('');
@@ -5129,7 +5139,7 @@ const MesajVeli = ({ db, cocuk, user, ogrMod }) => {
   if(!cocuk) return null;
   const thread = tumu.filter(m=> secili==='__genel__' ? !sahip[m.id] : (sahip[m.id] && zAyniKisi(sahip[m.id], secili))).sort((a,b)=>a.ts-b.ts);
   const okunmayan = (ad)=> tumu.filter(m=>m.gonderen==='ogretmen' && !m.okVeli && zAyniKisi(sahip[m.id]||'',ad)).length;
-  const gonder = async (ek) => { const _ses=ek&&ek.ses; if(!metin.trim() && !_ses) return; if(!secili || secili==='__genel__') return alert('Önce hangi öğretmene yazdığınızı seçin.'); const yeni=[...mesajlar, {id:yeniId(), ts:Date.now(), ogrenciId:cocuk.id, ogrenciAd:cocuk.ad, sinif:cocuk.sinif, gonderen:BEN, ad:ogrMod?(cocuk.ad||'Öğrenci'):((user&&user.name)||'Veli'), ogretmen:secili, metin:(metin.trim()||'🎤 Sesli mesaj'), okOgretmen:false, okVeli:true, ...(ogrMod?{kanal:'ogrenci'}:{}), ...(_ses?{ses:_ses}:{})}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ const _m=yeni[yeni.length-1]; zPushOgretmene(db, secili, '💬 '+(ogrMod?'🧒 ':'👨‍👩‍👧 ')+(_m.ad||'')+' · '+(_m.ogrenciAd||''), _ses?'🎤 Sesli mesaj':_m.metin, 'm'+_m.id); } if(ok){ setMetin(''); setOgrt(secili); toast('✉️ Mesajınız '+secili+' öğretmene iletildi.','green'); } };
+  const gonder = async (ek) => { const _ses=ek&&ek.ses; if(!metin.trim() && !_ses) return; if(!secili || secili==='__genel__') return alert('Önce hangi öğretmene yazdığınızı seçin.'); const yeni=[...mesajlar, {id:yeniId(), ts:Date.now(), ogrenciId:cocuk.id, ogrenciAd:cocuk.ad, sinif:cocuk.sinif, gonderen:BEN, ad:ogrMod?(cocuk.ad||'Öğrenci'):((user&&user.name)||'Veli'), ogretmen:secili, metin:(metin.trim()||'🎤 Sesli mesaj'), okOgretmen:false, okVeli:true, _b:1, ...(ogrMod?{kanal:'ogrenci'}:{}), ...(_ses?{ses:_ses}:{})}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ const _m=yeni[yeni.length-1]; zPushOgretmene(db, secili, '💬 '+(ogrMod?'🧒 ':'👨‍👩‍👧 ')+(_m.ad||'')+' · '+(_m.ogrenciAd||''), _ses?'🎤 Sesli mesaj':_m.metin, 'm'+_m.id); } if(ok){ setMetin(''); setOgrt(secili); toast('✉️ Mesajınız '+secili+' öğretmene iletildi.','green'); } };
   const mesajSil = async (id) => { if(!window.confirm('Bu mesaj geri alınsın (silinsin) mi?')) return; await okulYaz(db,"k12_mesajlar",{liste:mesajlar.filter(x=>x.id!==id)}); };
   const sohbetTemizle = async () => { if(!window.confirm('Bu öğretmenle olan yazışma geçmişi silinsin mi?')) return; const ids=new Set(thread.map(m=>m.id)); await okulYaz(db,"k12_mesajlar",{liste:mesajlar.filter(x=>!ids.has(x.id))}); };
   const mesajGuncelle = async () => { if(!duzenleMetin.trim())return; await okulYaz(db,"k12_mesajlar",{liste:mesajlar.map(x=>x.id===duzenleId?{...x,metin:duzenleMetin.trim(),duzenlendi:true}:x)}); setDuzenleId(''); setDuzenleMetin(''); };
@@ -7496,7 +7506,166 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 59;
+/* ============================================================================
+   v61 — VELİ ÖNERİLERİ: 💡 Günün Bilgisi · 🔤 Günün Kelimesi · 📝 Haftalık 5 Soru · 📚 Kitap Köşesi
+   ============================================================================ */
+const ZGUNUN_BILGI=[
+'🐙 Ahtapotun üç kalbi vardır.','🍯 Bal bozulmaz; arkeologlar binlerce yıllık, hâlâ yenebilecek bal buldu.','🏔️ Dünya’nın en yüksek dağı Everest’tir (8.849 m).','🌊 Türkiye’nin en uzun nehri Kızılırmak’tır.',
+'🌙 Ay, Dünya’nın tek doğal uydusudur.','☀️ Güneş’in ışığı Dünya’ya yaklaşık 8 dakikada ulaşır.','👂 Vücudumuzdaki en küçük kemik kulağımızdaki üzengi kemiğidir.','🦒 Zürafaların dili 45–50 santimetreye kadar uzayabilir.',
+'♟️ Satranç dünyanın en eski strateji oyunlarından biridir; kökeni Hindistan’a dayanır.','🇹🇷 Mustafa Kemal Atatürk 1881’de Selanik’te doğdu.','🏛️ TBMM 23 Nisan 1920’de açıldı.','🎉 Cumhuriyet 29 Ekim 1923’te ilan edildi.',
+'💧 Van Gölü Türkiye’nin en büyük gölüdür.','⛰️ Ağrı Dağı Türkiye’nin en yüksek dağıdır (5.137 m).','📅 Bir yıl 365 gündür; artık yıllar 366 gün çeker.','♨️ Su, deniz seviyesinde 100 °C’de kaynar.',
+'🐝 Arılar dans ederek birbirlerine çiçeklerin yerini anlatır.','🐧 Penguenler uçamaz ama harika yüzücüdür.','🪐 Jüpiter, Güneş Sistemi’nin en büyük gezegenidir.','☄️ Merkür, Güneş’e en yakın gezegendir.',
+'❤️ Kalbimiz günde yaklaşık 100.000 kez atar.','🐬 Yunuslar uyurken beyinlerinin yalnızca yarısını dinlendirir.','🐘 Filler yıllar sonra bile arkadaşlarını tanıyabilir.','🌏 Pasifik, dünyanın en büyük okyanusudur.',
+'🌉 İstanbul iki kıta üzerinde kurulu bir şehirdir: Asya ve Avrupa.','🐻‍❄️ Kutup ayılarının derisi siyahtır; tüyleri ışığı yansıttığı için beyaz görünür.','🎋 Bazı bambu türleri bir günde 90 santimetreye kadar uzayabilir.','🌈 Gökkuşağında yedi renk görürüz.',
+'🐢 Bazı kaplumbağalar 100 yıldan fazla yaşayabilir.','🥚 Devekuşu yumurtası dünyadaki en büyük kuş yumurtasıdır.','🔊 Ses havada saniyede yaklaşık 340 metre yol alır.','🌱 Bitkiler güneş ışığıyla kendi besinini üretir; buna fotosentez denir.',
+'🔴 Mars’a rengi yüzünden “Kızıl Gezegen” denir.','🐜 Karıncalar kendi ağırlıklarının kat kat fazlasını taşıyabilir.','🦋 Kelebekler tatları ayaklarıyla alır.','🗺️ Piri Reis ünlü dünya haritasını 1513’te çizdi.',
+'🏺 Göbeklitepe yaklaşık 12.000 yıllıktır; bilinen en eski tapınak alanlarındandır.','🧠 Beynimiz vücut ağırlığımızın yaklaşık %2’si kadardır ama enerjimizin yaklaşık %20’sini kullanır.','❄️ Kar taneleri çoğunlukla altı köşelidir.','🪵 Ağacın yaşını gövdesindeki halkaları sayarak anlayabiliriz.',
+'➗ Cahit Arf, matematikteki “Arf değişmezi” ile tanınan Türk matematikçidir.','🧪 Aziz Sancar 2015’te Nobel Kimya Ödülü’nü kazandı.','🕌 Mimar Sinan yüzlerce eser yaptı; Selimiye Camii’ni “ustalık eserim” diye anlatır.','🦅 Kartallar çok uzaktaki küçük hayvanları bile görebilir.',
+'🔥 Venüs, Güneş Sistemi’nin en sıcak gezegenidir.','🎨 Ahtapotlar renk değiştirerek saklanabilir.','🦴 Yetişkin bir insanın vücudunda 206 kemik vardır.','🦖 Kuşlar dinozorların akrabasıdır.',
+'🧊 Dünyanın en büyük çölü buzlarla kaplı Antarktika’dır.','🏜️ Sahra, dünyanın en büyük sıcak çölüdür.','⭐ Kutup Yıldızı hep kuzey yönünde görünür.','🐋 Mavi balina dünyadaki en büyük hayvandır.',
+'🐆 Çita karada en hızlı koşan hayvandır.','🍅 Domates bilimsel olarak bir meyvedir.','🖌️ Ebru, su üzerine serpilen boyaların kâğıda aktarıldığı geleneksel bir sanatımızdır.','😄 Nasreddin Hoca fıkraları dünyada pek çok dile çevrilmiştir.',
+'✈️ Sabiha Gökçen dünyanın ilk kadın savaş pilotu olarak bilinir.','🌍 Dünya’nın yüzeyinin yaklaşık %71’i sularla kaplıdır; bu yüzden uzaydan mavi görünür.'];
+function zGunIndeks(){ const d=new Date(); return Math.floor((new Date(d.getFullYear(),d.getMonth(),d.getDate()) - new Date(2026,0,1))/864e5); }
+function zBugunKod(){ const d=new Date(); return d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0'); }
+const ZGununBilgisi = () => { const n=ZGUNUN_BILGI.length; const i=((zGunIndeks()%n)+n)%n;
+  return (<div className="bg-gradient-to-br from-cyan-500 to-blue-600 text-white rounded-3xl p-4 shadow-md mt-4"><p className="text-[12px] font-black tracking-widest opacity-90">💡 GÜNÜN BİLGİSİ</p><p className="text-[17px] font-bold leading-snug mt-1.5">{ZGUNUN_BILGI[i]}</p><p className="text-[11px] opacity-80 mt-2">Her gün yeni bir bilgi · yarın tekrar bak!</p></div>); };
+
+/* 🔤 Günün Kelimesi (5 harf, 6 hak) — herkese aynı kelime, puan ve sıralama */
+const ZKELIMELER='KALEM KİTAP BAHÇE ÇİÇEK GÜNEŞ BULUT DENİZ ORMAN KUZEY GÜNEY MASAL ŞEKER ELMAS ARMUT LİMON KİRAZ ÇİLEK KAVUN KABAK SOĞAN BİBER HAVUÇ ÇORAP ŞAPKA BALIK KÖPEK TAVUK HOROZ ASLAN TİLKİ GEYİK ZEBRA KOYUN KARGA ŞAHİN KEKİK ÇAYIR TARLA NEHİR IRMAK YAYLA KÖPRÜ SARAY KULÜP MÜZİK RESİM TOPAÇ BEBEK HALAY ZURNA DAVUL KEMAN GİTAR SINIF KARNE YAZAR BİLGİ CEVAP SAYFA DÜNYA ŞEHİR KÖYLÜ İNSAN ÇOCUK SEVGİ BARIŞ HUZUR HAYAT YAŞAM ZAMAN HAFTA YARIN BUGÜN AKŞAM SABAH ÖĞLEN BAHAR KUTUP ROKET KAYAK PATEN TENİS VOLEY GÜREŞ MERAK CESUR NAZİK TEMİZ DÜZEN ŞIRIN TATLI ACELE HIZLI DUVAR HAVLU SABUN TABAK KAŞIK ÇATAL FIRIN TEPSİ KUMAŞ İPLİK DÜĞME MAKAS SİLGİ'.split(' ');
+function zKelimeRenk(tahmin, hedef){ const t=[...tahmin], h=[...hedef], r=Array(5).fill('y'); const kalan={};
+  h.forEach((c,i)=>{ if(t[i]===c) r[i]='g'; else kalan[c]=(kalan[c]||0)+1; });
+  t.forEach((c,i)=>{ if(r[i]==='g') return; if(kalan[c]>0){ r[i]='s'; kalan[c]--; } else r[i]='x'; }); return r; }
+const ZKelimeOyunu = ({ db, ben, ogrenciler }) => {
+  const kod=zBugunKod(); const n=ZKELIMELER.length; const hedef=ZKELIMELER[((zGunIndeks()%n)+n)%n];
+  const lk='zkel_'+kod+'_'+((ben&&ben.id)||'x');
+  const [tahminler,setT]=useState(()=>{ try{ return JSON.parse(localStorage.getItem(lk)||'[]'); }catch(e){ return []; } });
+  const [giris,setGiris]=useState(''); const [acik,setAcik]=useState(false);
+  const sk=useOkulDoc(db,'k12_kelime_'+kod); const kazandi=tahminler.indexOf(hedef)>=0; const bitti=kazandi||tahminler.length>=6;
+  const kaydet=async(l)=>{ try{ localStorage.setItem(lk,JSON.stringify(l)); }catch(e){}
+    const won=l.indexOf(hedef)>=0, son=won||l.length>=6; if(!son||!ben||!db) return;
+    const v={}; v[ben.id]={ad:ben.ad, sinif:ben.sinif, deneme:won?l.length:7, ok:won, ts:Date.now()}; await okulYaz(db,'k12_kelime_'+kod,v);
+    if(won && !(sk&&sk[ben.id])){ try{ await okulYaz(db,'k12_ogrenciler',{liste:(ogrenciler||[]).map(x=>x.id===ben.id?zYildizEkle(x,5,'🔤 Günün Kelimesi bulundu ('+l.length+'. denemede)','','kelime'):x)}); }catch(e){} toast('🎉 Bildin! +5 yıldız','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} } };
+  const gonder=()=>{ const g=giris.toLocaleUpperCase('tr').replace(/[^A-ZÇĞİÖŞÜ]/g,''); if(g.length!==5) return toast('5 harfli bir kelime yazın','red'); if(tahminler.indexOf(g)>=0) return toast('Bu kelimeyi zaten denediniz','red'); const l=tahminler.concat([g]); setT(l); setGiris(''); kaydet(l); };
+  const bas=(c)=>{ if(bitti) return; if(c==='⌫') setGiris(x=>[...x].slice(0,-1).join('')); else if(c==='✔') gonder(); else setGiris(x=>[...x].length<5?x+c:x); };
+  const harfDurum={}; tahminler.forEach(t=>{ const r=zKelimeRenk(t,hedef); [...t].forEach((c,i)=>{ const o={g:3,s:2,x:1}[r[i]]; if(!harfDurum[c]||harfDurum[c]<o) harfDurum[c]=o; }); });
+  const renk={g:'bg-emerald-500 text-white border-emerald-500',s:'bg-amber-400 text-white border-amber-400',x:'bg-slate-400 text-white border-slate-400',y:'bg-white text-slate-800 border-slate-300'};
+  const sira=((sk&&Object.keys(sk).map(k=>sk[k]).filter(x=>x&&x.ok&&typeof x==='object'))||[]).sort((a,b)=>(a.deneme-b.deneme)||((a.ts||0)-(b.ts||0))).slice(0,10);
+  const satirlar=[]; for(let i=0;i<6;i++){ const t=tahminler[i]; const aktif=!t && i===tahminler.length && !bitti; const harfler=t?[...t]:(aktif?[...giris]:[]); const r=t?zKelimeRenk(t,hedef):Array(5).fill('y');
+    satirlar.push(<div key={i} className="grid grid-cols-5 gap-1.5">{[0,1,2,3,4].map(j=>(<div key={j} className={'h-12 rounded-xl border-2 flex items-center justify-center text-[22px] font-black '+renk[r[j]]}>{harfler[j]||''}</div>))}</div>); }
+  const klavye=['ERTYUIOPĞÜ','ASDFGHJKLŞİ','ZCVBNMÖÇ'];
+  return (<div className="bg-white border-2 border-emerald-200 rounded-3xl p-4 shadow-sm mt-4">
+    <button onClick={()=>setAcik(!acik)} className="w-full flex items-center gap-3 text-left"><span className="text-3xl">🔤</span><span className="flex-1"><span className="block text-[18px] font-black text-emerald-800">Günün Kelimesi</span><span className="block text-[12.5px] text-slate-500">{kazandi?('✅ Bugün '+tahminler.length+'. denemede buldun!'):(bitti?('Bugünün kelimesi: '+hedef):'5 harfli kelimeyi 6 denemede bul · +5 yıldız')}</span></span><span className="text-slate-400 font-black">{acik?'▲':'▼'}</span></button>
+    {acik && <div className="mt-3">
+      <p className="text-[11.5px] text-slate-500 mb-2">🟩 doğru yerde · 🟨 kelimede var ama yeri farklı · ⬜ kelimede yok</p>
+      <div className="space-y-1.5 max-w-[320px] mx-auto">{satirlar}</div>
+      {!bitti && <div className="mt-3 space-y-1.5">{klavye.map((r,ri)=>(<div key={ri} className="flex justify-center gap-1">{ri===2 && <button onClick={()=>bas('✔')} className="px-2.5 h-11 rounded-lg bg-emerald-600 text-white text-[13px] font-black">✔</button>}{[...r].map(c=>(<button key={c} onClick={()=>bas(c)} className={'w-[8.5%] min-w-[26px] h-11 rounded-lg text-[15px] font-black '+(harfDurum[c]===3?'bg-emerald-500 text-white':harfDurum[c]===2?'bg-amber-400 text-white':harfDurum[c]===1?'bg-slate-300 text-slate-500':'bg-slate-100 text-slate-800')}>{c}</button>))}{ri===2 && <button onClick={()=>bas('⌫')} className="px-2.5 h-11 rounded-lg bg-slate-200 text-slate-700 text-[15px] font-black">⌫</button>}</div>))}</div>}
+      {bitti && !kazandi && <p className="text-center mt-3 text-[15px] font-black text-slate-700">Bugünün kelimesi: <span className="text-emerald-700">{hedef}</span> · yarın yeni kelime!</p>}
+      <div className="mt-4 bg-emerald-50 rounded-2xl p-3"><p className="text-[13px] font-black text-emerald-800 mb-1">🏆 Bugünün en hızlıları</p>
+        {sira.length? sira.map((x,i)=>(<p key={i} className="text-[13px] text-slate-700"><b>{i+1}.</b> {String(x.ad||'').split(' ')[0]} <span className="text-slate-400">({x.sinif})</span> · {x.deneme}. denemede</p>)) : <p className="text-[12.5px] text-slate-400">İlk bulan sen ol!</p>}</div>
+    </div>}
+  </div>);
+};
+
+/* 📝 Haftalık 5 Soru: öğretmen hazırlar (istersen yapay zekâ ile), öğrenci çözer (+2 yıldız/doğru), veli sonucu görür */
+function zBosSoru(){ return {s:'', secenek:['','','',''], dogru:0}; }
+const ZHaftaSoruOgretmen = ({ db, user, ogrenciler }) => {
+  const qd=useOkulDoc(db,'k12_quiz'); const liste=((qd&&qd.liste)||[]).filter(Boolean);
+  const siniflar=zSiniflar(ogrenciler||[]); const [sinif,setSinif]=useState(''); const [ders,setDers]=useState(''); const [konu,setKonu]=useState('');
+  const [sorular,setSorular]=useState([zBosSoru(),zBosSoru(),zBosSoru(),zBosSoru(),zBosSoru()]); const [yuk,setYuk]=useState(false); const [acikQ,setAcikQ]=useState('');
+  const hk=zHaftaKey(); const cd=useOkulDoc(db,'k12_quizcevap_'+hk);
+  const guncelle=(i,f)=>setSorular(l=>l.map((x,j)=>j===i?f(x):x));
+  const aiHazirla=async()=>{ if(!sinif||!ders||!konu.trim()) return alert('Sınıf, ders ve bu hafta işlenen konuları yazın.'); setYuk(true);
+    try{ const p='Sen bir öğretmensin. '+sinif+' öğrencileri için "'+ders+'" dersinde bu hafta işlenen şu konulardan en önemli bilgileri ölçen 5 adet 4 seçenekli soru hazırla: '+konu+'\nKurallar: Türkçe, yaşa uygun, kısa ve net; her sorunun tek doğru cevabı olsun; seçenekler birbirine benzer uzunlukta olsun.\nSADECE şu JSON dizisini döndür: [{"s":"soru","secenek":["A","B","C","D"],"dogru":0}] (dogru = doğru seçeneğin 0-3 sırası)';
+      let c=await geminiMetin(cozKey(),cozModel(),p); c=String(c||'').replace(/```json/gi,'').replace(/```/g,'').trim(); const m=c.match(/\[[\s\S]*\]/); const arr=JSON.parse(m?m[0]:c);
+      const yeni=arr.slice(0,5).map(x=>({s:String(x.s||'').slice(0,300), secenek:[0,1,2,3].map(k=>String((x.secenek||[])[k]||'').slice(0,120)), dogru:Math.min(3,Math.max(0,Number(x.dogru)||0))}));
+      while(yeni.length<5) yeni.push(zBosSoru()); setSorular(yeni); toast('✨ Sorular hazır — kontrol edip yayınlayın','green'); }catch(e){ alert('Yapay zekâ soruları hazırlayamadı, tekrar deneyin.'); } setYuk(false); };
+  const yayinla=async()=>{ if(!sinif||!ders) return alert('Sınıf ve ders seçin.'); const dolu=sorular.filter(q=>q.s.trim() && q.secenek.every(x=>x.trim())); if(dolu.length<5) return alert('5 sorunun hepsini ve 4 seçeneğini doldurun.');
+    const q={id:yeniId(), sinif, ders:ders.trim(), konu:konu.trim().slice(0,200), ogretmen:(user&&user.name)||'Öğretmen', hafta:hk, ts:Date.now(), sorular:dolu};
+    const ok=await okulYaz(db,'k12_quiz',{liste:[q].concat(liste).slice(0,200)}); if(!ok) return;
+    try{ zPushOlay({rol:['ogrenci','veli'], sinif}, {baslik:'📝 Haftalık 5 Soru · '+q.ders, govde:'Bu haftanın 5 sorusu hazır! Çöz, yıldız kazan ⭐', etiket:'q'+q.id}); }catch(e){}
+    setSorular([zBosSoru(),zBosSoru(),zBosSoru(),zBosSoru(),zBosSoru()]); setKonu(''); toast('📝 '+sinif+' sınıfına 5 soru gönderildi','green'); };
+  const sil=async(id)=>{ if(!window.confirm('Bu soru seti silinsin mi?')) return; await okulYaz(db,'k12_quiz',{liste:liste.filter(x=>x.id!==id)}); };
+  const benim=liste.filter(x=>zAyniKisi(x.ogretmen||'',(user&&user.name)||'') || zHaftaninYonetim(user)).slice(0,20);
+  const inp='w-full p-3 rounded-xl border-2 border-slate-200 bg-white text-[15px] outline-none focus:border-indigo-400';
+  return (<div className="space-y-4">
+    <div className="bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-2xl p-4"><p className="text-[17px] font-black">📝 Haftalık 5 Soru</p><p className="text-[12.5px] opacity-90">Haftanın en önemli bilgilerinden 5 soru · öğrenci çözer, doğru başına +2 yıldız · veli sonucu görür</p></div>
+    <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-2">
+      <div className="grid grid-cols-2 gap-2"><select value={sinif} onChange={e=>setSinif(e.target.value)} className={inp}><option value="">Sınıf seçin</option>{siniflar.map(s=><option key={s}>{s}</option>)}</select><input value={ders} onChange={e=>setDers(e.target.value)} placeholder="Ders (ör. Fen)" className={inp} /></div>
+      <textarea value={konu} onChange={e=>setKonu(e.target.value)} rows="2" placeholder="Bu hafta işlenen konular (ör. Güneş Sistemi, gezegenler)" className={inp}></textarea>
+      <button onClick={aiHazirla} disabled={yuk} className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-black py-3 rounded-xl text-[15px]">{yuk?'⏳ Hazırlanıyor…':'✨ Yapay zekâ 5 soruyu hazırlasın'}</button>
+      {sorular.map((q,i)=>(<div key={i} className="border border-slate-200 rounded-xl p-3 bg-slate-50"><p className="text-[12px] font-black text-indigo-700 mb-1">Soru {i+1}</p>
+        <textarea value={q.s} onChange={e=>guncelle(i,x=>({...x,s:e.target.value}))} rows="2" placeholder="Soru metni" className={inp}></textarea>
+        {q.secenek.map((o,k)=>(<div key={k} className="flex items-center gap-2 mt-1.5"><button type="button" onClick={()=>guncelle(i,x=>({...x,dogru:k}))} className={'w-9 h-9 shrink-0 rounded-full font-black text-[14px] border-2 '+(q.dogru===k?'bg-emerald-500 text-white border-emerald-500':'bg-white text-slate-500 border-slate-300')}>{'ABCD'[k]}</button><input value={o} onChange={e=>guncelle(i,x=>({...x,secenek:x.secenek.map((y,z)=>z===k?e.target.value:y)}))} placeholder={'Seçenek '+'ABCD'[k]+(q.dogru===k?' (doğru)':'')} className={inp} /></div>))}
+      </div>))}
+      <p className="text-[11.5px] text-slate-500">Doğru cevabın harfine dokunarak işaretleyin (yeşil olan doğru).</p>
+      <button onClick={yayinla} className="w-full bg-indigo-600 text-white font-black py-3.5 rounded-xl text-[16px]">🚀 Sınıfa gönder</button>
+    </div>
+    {benim.length>0 && <div className="bg-white border border-slate-200 rounded-2xl p-4"><p className="text-[15px] font-black text-slate-800 mb-2">📊 Gönderdiğim sorular ve sonuçlar</p>
+      <div className="space-y-2">{benim.map(q=>{ const c=(q.hafta===hk?(cd&&cd[q.id]):null)||{}; const l=Object.keys(c).map(k=>c[k]).filter(x=>x&&typeof x==='object'); const ort=l.length?(l.reduce((a,x)=>a+(x.dogru||0),0)/l.length).toFixed(1):'-'; const snfSay=(ogrenciler||[]).filter(o=>o.sinif===q.sinif).length;
+        return (<div key={q.id} className="border border-slate-200 rounded-xl p-3"><div className="flex items-center gap-2"><button onClick={()=>setAcikQ(acikQ===q.id?'':q.id)} className="flex-1 text-left"><p className="text-[14px] font-black text-slate-800">{q.sinif} · {q.ders}</p><p className="text-[12px] text-slate-500">{q.hafta===hk?('✅ '+l.length+'/'+snfSay+' çözdü · ortalama '+ort+'/5'):'Geçen haftalardan'}</p></button><button onClick={()=>sil(q.id)} className="text-rose-500 text-[12px] font-black px-2">🗑️</button></div>
+          {acikQ===q.id && <div className="mt-2 space-y-1">{l.length? l.sort((a,b)=>(b.dogru||0)-(a.dogru||0)).map((x,j)=>(<p key={j} className="text-[13px] text-slate-700">{x.ad}: <b>{x.dogru}/5</b></p>)) : <p className="text-[12.5px] text-slate-400">Henüz çözen yok</p>}</div>}</div>); })}</div></div>}
+  </div>);
+};
+const ZHaftaSoruOgrenci = ({ db, ben, ogrenciler }) => {
+  const qd=useOkulDoc(db,'k12_quiz'); const hk=zHaftaKey(); const cd=useOkulDoc(db,'k12_quizcevap_'+hk);
+  const l=((qd&&qd.liste)||[]).filter(q=>q&&ben&&q.sinif===ben.sinif&&q.hafta===hk);
+  const [coz,setCoz]=useState(null); const [i,setI]=useState(0); const [cev,setCev]=useState([]); const [bitti,setBitti]=useState(null);
+  if(!ben || !l.length) return null;
+  const sonuc=(q)=>cd&&cd[q.id]&&cd[q.id][ben.id];
+  const sec=async(k)=>{ const c=cev.concat([k]); setCev(c); if(c.length<coz.sorular.length){ setI(i+1); return; }
+    const dogru=c.filter((x,j)=>x===coz.sorular[j].dogru).length; setBitti({dogru}); const v={}; v[coz.id]={}; v[coz.id][ben.id]={ad:ben.ad, dogru, cevap:c, ts:Date.now()}; await okulYaz(db,'k12_quizcevap_'+hk,v);
+    if(dogru>0){ try{ await okulYaz(db,'k12_ogrenciler',{liste:(ogrenciler||[]).map(x=>x.id===ben.id?zYildizEkle(x,dogru*2,'📝 Haftalık 5 Soru ('+coz.ders+') '+dogru+'/5','','quiz'):x)}); }catch(e){} }
+    try{ window.ZKUTLA&&dogru>=4&&window.ZKUTLA(); }catch(e){} };
+  if(coz){ const q=coz.sorular[i];
+    return (<div className="bg-white border-2 border-indigo-200 rounded-3xl p-4 shadow-sm mt-4">
+      <p className="text-[13px] font-black text-indigo-700">📝 {coz.ders} · {bitti?'Sonuç':('Soru '+(i+1)+'/'+coz.sorular.length)}</p>
+      {!bitti ? <><p className="text-[18px] font-black text-slate-800 my-3 leading-snug">{q.s}</p><div className="space-y-2">{q.secenek.map((o,k)=>(<button key={k} onClick={()=>sec(k)} className="w-full text-left p-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50 text-[16px] font-bold text-slate-800 active:bg-indigo-100"><b className="text-indigo-600 mr-2">{'ABCD'[k]})</b>{o}</button>))}</div></>
+      : <div className="text-center py-3"><p className="text-[40px]">{bitti.dogru>=4?'🏆':bitti.dogru>=2?'👏':'💪'}</p><p className="text-[22px] font-black text-slate-800">{bitti.dogru}/5 doğru</p><p className="text-[14px] text-emerald-700 font-bold">+{bitti.dogru*2} yıldız ⭐</p>
+        <div className="text-left mt-3 space-y-1">{coz.sorular.map((s,j)=>(<p key={j} className="text-[13px] text-slate-600">{cev[j]===s.dogru?'✅':'❌'} {s.s} <b className="text-emerald-700">→ {s.secenek[s.dogru]}</b></p>))}</div>
+        <button onClick={()=>{ setCoz(null); setBitti(null); }} className="mt-3 bg-indigo-600 text-white font-black px-6 py-3 rounded-xl">Tamam</button></div>}
+    </div>); }
+  return (<div className="bg-white border-2 border-indigo-200 rounded-3xl p-4 shadow-sm mt-4"><p className="text-[18px] font-black text-indigo-800">📝 Haftalık 5 Soru</p><p className="text-[12.5px] text-slate-500 mb-2">Bu haftanın en önemli bilgileri · doğru başına +2 yıldız</p>
+    <div className="space-y-2">{l.map(q=>{ const s=sonuc(q); return (<div key={q.id} className="flex items-center gap-3 bg-indigo-50 rounded-2xl p-3"><div className="flex-1"><p className="text-[15px] font-black text-slate-800">{q.ders}</p><p className="text-[12px] text-slate-500">{q.ogretmen}</p></div>{s ? <span className="font-black text-emerald-700 text-[15px]">✅ {s.dogru}/5</span> : <button onClick={()=>{ setCoz(q); setI(0); setCev([]); setBitti(null); }} className="bg-indigo-600 text-white font-black px-4 py-2.5 rounded-xl text-[14px]">Çöz ▶</button>}</div>); })}</div></div>);
+};
+const ZHaftaSoruVeli = ({ db, cocuk }) => {
+  const qd=useOkulDoc(db,'k12_quiz'); const hk=zHaftaKey(); const cd=useOkulDoc(db,'k12_quizcevap_'+hk);
+  const l=((qd&&qd.liste)||[]).filter(q=>q&&cocuk&&q.sinif===cocuk.sinif&&q.hafta===hk); if(!cocuk||!l.length) return null;
+  return (<div className="bg-white border-2 border-indigo-200 rounded-3xl p-4 shadow-sm mt-4"><p className="text-[17px] font-black text-indigo-800">📝 Haftalık 5 Soru</p><p className="text-[12.5px] text-slate-500 mb-2">{String(cocuk.ad||'').split(' ')[0]} bu hafta öğrendiklerini pekiştiriyor</p>
+    <div className="space-y-1.5">{l.map(q=>{ const s=cd&&cd[q.id]&&cd[q.id][cocuk.id]; return (<div key={q.id} className="flex items-center gap-2 bg-indigo-50 rounded-xl px-3 py-2.5"><span className="flex-1 text-[14px] font-bold text-slate-700">{q.ders} <span className="text-slate-400 text-[12px]">· {q.ogretmen}</span></span>{s?<span className="font-black text-emerald-700">{s.dogru}/5</span>:<span className="text-[12.5px] font-bold text-amber-600">henüz çözmedi</span>}</div>); })}</div></div>);
+};
+
+/* 📚 Kitap Köşesi: okuduğun kitap · en sevdiğin cümle · kimlere önerirsin */
+const ZKitapKosesi = ({ db, ben, sinif, rol, user, ogrId }) => {
+  const kd=useOkulDoc(db,'k12_kitap'); const liste=((kd&&kd.liste)||[]).filter(Boolean);
+  const [kitap,setKitap]=useState(''); const [yazar,setYazar]=useState(''); const [puan,setPuan]=useState(5); const [alinti,setAlinti]=useState(''); const [oneri,setOneri]=useState(''); const [form,setForm]=useState(false); const [tumu,setTumu]=useState(false);
+  const snf=(ben&&ben.sinif)||sinif||''; const yetkili=rol==='ogretmen'||(typeof window!=='undefined'&&window.ZIRVE_admin===true);
+  const gor=liste.filter(x=>tumu||!snf||x.sinif===snf).slice(0,40);
+  const paylas=async()=>{ if(!ben) return; if(kitap.trim().length<2) return alert('Kitabın adını yazın.'); if(!alinti.trim()&&!oneri.trim()) return alert('En sevdiğin cümleyi ya da önerini yaz.');
+    const k={id:yeniId(), ogrId:ben.id, ad:ben.ad, sinif:ben.sinif, kitap:kitap.trim().slice(0,80), yazar:yazar.trim().slice(0,60), puan, alinti:alinti.trim().slice(0,240), oneri:oneri.trim().slice(0,200), ts:Date.now()};
+    const ok=await okulYaz(db,'k12_kitap',{liste:[k].concat(liste).slice(0,300)}); if(ok){ setKitap(''); setYazar(''); setAlinti(''); setOneri(''); setPuan(5); setForm(false); toast('📚 Paylaşıldı — sınıf arkadaşların görecek!','green'); } };
+  const sil=async(id)=>{ if(!window.confirm('Bu paylaşım silinsin mi?')) return; await okulYaz(db,'k12_kitap',{liste:liste.filter(x=>x.id!==id)}); };
+  const inp='w-full p-3 rounded-xl border-2 border-amber-200 bg-white text-[15px] outline-none focus:border-amber-500';
+  return (<div className="bg-white border-2 border-amber-200 rounded-3xl p-4 shadow-sm mt-4">
+    <div className="flex items-center gap-3"><span className="text-3xl">📚</span><div className="flex-1"><p className="text-[18px] font-black text-amber-800">Kitap Köşesi</p><p className="text-[12.5px] text-slate-500">Okuduğun kitap · en sevdiğin cümle · kimlere önerirsin</p></div></div>
+    {rol==='ogrenci' && ben && (!form ? <button onClick={()=>setForm(true)} className="w-full mt-3 bg-amber-500 text-white font-black py-3 rounded-xl text-[15px]">✍️ Okuduğum kitabı paylaş</button> :
+      <div className="mt-3 space-y-2 bg-amber-50 rounded-2xl p-3">
+        <input value={kitap} onChange={e=>setKitap(e.target.value)} placeholder="📖 Kitabın adı" className={inp} /><input value={yazar} onChange={e=>setYazar(e.target.value)} placeholder="✒️ Yazarı (biliyorsan)" className={inp} />
+        <div className="flex items-center gap-1"><span className="text-[13px] font-bold text-slate-600 mr-1">Puanın:</span>{[1,2,3,4,5].map(n=>(<button key={n} type="button" onClick={()=>setPuan(n)} className="text-[26px]">{n<=puan?'⭐':'☆'}</button>))}</div>
+        <textarea value={alinti} onChange={e=>setAlinti(e.target.value)} rows="2" placeholder="💬 Kitaptan en sevdiğin cümle" className={inp}></textarea>
+        <textarea value={oneri} onChange={e=>setOneri(e.target.value)} rows="2" placeholder="👍 Kimlere önerirsin? (ör. macera seviyorsan bu kitabı mutlaka oku!)" className={inp}></textarea>
+        <div className="grid grid-cols-2 gap-2"><button onClick={paylas} className="bg-amber-500 text-white font-black py-3 rounded-xl">📤 Paylaş</button><button onClick={()=>setForm(false)} className="bg-slate-200 text-slate-700 font-black py-3 rounded-xl">Vazgeç</button></div>
+        <p className="text-[11px] text-slate-500">Paylaşımın sınıf arkadaşlarına, öğretmenlerine ve velilere görünür.</p>
+      </div>)}
+    <div className="flex gap-2 mt-3"><button onClick={()=>setTumu(false)} className={'flex-1 py-2 rounded-xl text-[13px] font-black '+(!tumu?'bg-amber-500 text-white':'bg-slate-100 text-slate-600')}>{snf?('🏫 '+snf):'Sınıfım'}</button><button onClick={()=>setTumu(true)} className={'flex-1 py-2 rounded-xl text-[13px] font-black '+(tumu?'bg-amber-500 text-white':'bg-slate-100 text-slate-600')}>🌍 Tüm okul</button></div>
+    <div className="mt-3 space-y-2">{gor.length? gor.map(x=>(<div key={x.id} className={'rounded-2xl p-3 border '+((ogrId&&x.ogrId===ogrId)||(ben&&x.ogrId===ben.id)?'bg-amber-50 border-amber-300':'bg-slate-50 border-slate-200')}>
+      <div className="flex items-start gap-2"><div className="flex-1 min-w-0"><p className="text-[15px] font-black text-slate-800">📖 {x.kitap}{x.yazar?<span className="text-slate-500 font-bold text-[13px]"> · {x.yazar}</span>:null}</p><p className="text-[12px] text-slate-500">{String(x.ad||'').split(' ')[0]} ({x.sinif}) · {'⭐'.repeat(Math.max(1,Math.min(5,x.puan||5)))}</p></div>{(yetkili||(ben&&x.ogrId===ben.id)) && <button onClick={()=>sil(x.id)} className="text-slate-400 text-[13px] px-1">✕</button>}</div>
+      {x.alinti && <p className="text-[14.5px] italic text-slate-700 mt-1.5 border-l-4 border-amber-300 pl-2">“{x.alinti}”</p>}
+      {x.oneri && <p className="text-[13.5px] text-emerald-800 mt-1.5">👍 {x.oneri}</p>}
+    </div>)) : <p className="text-[13px] text-slate-400 text-center py-3">Henüz paylaşım yok — ilk paylaşan sen ol! 📚</p>}</div>
+  </div>);
+};
+
+const LOCAL_SURUM = 61;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
@@ -9389,6 +9558,7 @@ const OzetAktar = ({ db, user }) => {
     let _vidOk=false; if(video){ const _vid=await zVideoGonder(db, video, setYd); if(_vid){ _vidOk=true; yeni.forEach(y=>{ y.videoId=_vid; }); } }
     let _dosOk=true; if(dosyalar.length){ const _ds=await zDosyaGonder(db, dosyalar, setYd); _dosOk=_ds.length===dosyalar.length; if(_ds.length) yeni.forEach(y=>{ y.dosyalar=_ds; }); }
     if(gorsel || _vidOk || (yeni[0]&&yeni[0].dosyalar)){ yeni.forEach(y=>{ const _mb=zMedyaBitisHesap(medyaSure, y.bitis); if(_mb>0) y.medyaBitis=_mb; }); }
+    yeni.forEach(y=>{ y._b=1; });
     const ok=await okulYaz(db,"k12_pano",{liste:yeni.concat(pano)});
     if(ok) zPushOzetler(db, yeni, siniflar);
     if(ok){ toast('🚀 '+yeni.length+' sınıfa gönderildi — veliler ve öğrenciler Sınıf Panosu\'nda görüyor.','green'); setParcalar([]); setHam(''); setSecili({}); setBilgi(''); setGorsel(''); setLinkler([{url:'',ad:''}]); if(!video||_vidOk) setVideo(null); if(_dosOk) setDosyalar([]); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
