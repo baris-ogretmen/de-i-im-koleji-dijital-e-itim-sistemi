@@ -3557,7 +3557,7 @@ const OgrenciMerkezi = ({ db, user }) => {
       <ZSekme ad="ben"><Katla id="ob-lig" baslik="Sınıf Ligi" ikon="🏆" renk="from-amber-500 to-orange-500"><div className="bg-white border-4 border-amber-200 rounded-[2rem] p-5 shadow-lg"><SinifLigi db={db} /></div></Katla></ZSekme>
 
       <ZSekme ad="odev"><Katla id="ob-program" baslik="Ders Programım" ikon="📚" renk="from-sky-500 to-cyan-600" alt="Bugünün dersleri renkli"><DersProgrami db={db} duzenlenebilir={false} sinif={sinifim} /></Katla></ZSekme>
-      <ZSekme ad="bugun"><HaftaninOgrencisi db={db} duzenlenebilir={false} ogrenciler={ogrenciler} sinif={sinifim} /></ZSekme>
+      <ZSekme ad="bugun"><HaftaninOgrencisi db={db} duzenlenebilir={false} ogrenciler={ogrenciler} sinif={sinifim} /><ZOgretmenSecimleri db={db} sinif={sinifim} ogrId={ben&&ben.id} /></ZSekme>
       <ZSekme ad="bugun"><SinifPanosu db={db} duzenlenebilir={false} sinif={sinifim} /></ZSekme>
       <ZSekme ad="ben"><Katla id="ob-kulup" baslik="Kulüp & Etkinlikler" ikon="🎭" renk="from-pink-500 to-rose-500"><KulupEtkinlik db={db} duzenlenebilir={false} /></Katla></ZSekme>
       <ZSekme ad="ogren"><Katla id="ob-kitapkurdu" baslik="Kitap Kurdu Türkiye Yolculuğu" ikon="🗺️" renk="from-emerald-500 to-teal-600"><KitapKurduHaritasi ogrenciler={ogrenciler} /></Katla></ZSekme>
@@ -3774,6 +3774,7 @@ const VeliMerkezi = ({ db, user }) => {
           </ZSekme>
           <ZSekme ad="bugun">
           <HaftaninOgrencisi db={db} duzenlenebilir={false} ogrenciler={ogrenciler} sinif={cocuk.sinif} />
+          <ZOgretmenSecimleri db={db} sinif={cocuk.sinif} ogrId={cocuk.id} />
           </ZSekme>
           <ZSekme ad="okul">
           <Katla id="vb-kulup" baslik="Kulüp & Etkinlikler" ikon="🎭" renk="from-pink-500 to-rose-500"><KulupEtkinlik db={db} duzenlenebilir={false} /></Katla>
@@ -6391,7 +6392,7 @@ const DegerlendirmeMerkezi = ({ db, ogrenciler, user }) => {
 /* ============================================================================
    HAFTANIN ÖĞRENCİSİ · ORTAK KARAR SİSTEMİ (v31)
    · Derse giren tüm öğretmenler her sınıf için aday önerir (gerekçesiyle)
-   · Nihai kararı SINIF ÖĞRETMENİ verir (sınıf öğretmeni atanmamışsa yönetim)
+   · v58: EŞİT SÖZ HAKKI — en çok öğretmenin önerdiği öğrenci seçilir; öneri veren her öğretmen kesinleştirebilir, eşitlikte yönetim belirler
    · Okulun Haftanın Öğrencisi: sınıf yıldızları arasından tüm öğretmenler oylar, yönetim kesinleştirir
    k12_haftanin: liste[] (kesinleşenler) · sinifOgretmenleri{} · oy_<hafta>{sinif:{ogretmen:oy}} · okuloy_<hafta>{} · okulun{}
    ============================================================================ */
@@ -6427,7 +6428,7 @@ const HaftaninKararRozeti = ({ db, r, kisiler, acik }) => {
         <div className="flex -space-x-2">{verenler.slice(0,7).map((a,i)=>(<span key={a+i} title={a}><Avatar db={db} p={zProfilBul(kisiler,'teacher',a,'')} ad={a} boyut={26} /></span>))}</div>
         <span className="ml-2 text-[11px] font-bold text-white/95">{verenler.length} öğretmen önerdi</span>
       </div>}
-      {k && k.onaylayan && <p className="text-[11px] font-bold mt-1 text-white/95">✔ {k.onayRol==='Sınıf Öğretmeni'?'Sınıf öğretmeni':'Okul yönetimi'} <b>{k.onaylayan}</b> onayıyla kesinleşti</p>}
+      {k && k.onaylayan && <p className="text-[11px] font-bold mt-1 text-white/95">✔ {(k.oySayisi||0)>0?(k.oySayisi+' öğretmenin ortak kararıyla kesinleşti'):'Öğretmenlerin ortak kararıyla kesinleşti'}</p>}
     </div>
   );
 };
@@ -6448,7 +6449,7 @@ const HaftaninOyHatirlat = ({ db, user, ogrenciler, onAc }) => {
       <span className="text-3xl">🗳️</span>
       <span className="flex-1 min-w-0">
         <span className="block font-black text-[14px] leading-tight">Haftanın Öğrencisi kim olsun? ({zHaftaEtiket()})</span>
-        <span className="block text-[11px] opacity-95">{bekleyenOy.length>0 ? (bekleyenOy.length+' sınıf için henüz önerin yok · ') : ''}{kararBekleyen.length>0 ? ('Sınıf öğretmeni olarak kararınızı bekleyen: '+kararBekleyen.join(', ')) : 'Öğretmen görüşleriyle ortak karar'}</span>
+        <span className="block text-[11px] opacity-95">{bekleyenOy.length>0 ? (bekleyenOy.length+' sınıf için henüz önerin yok · ') : ''}{'Öğretmenlerin eşit söz hakkıyla ortak karar'}</span>
       </span>
       <span className="font-black text-[12px] bg-white/25 px-3 py-1 rounded-full whitespace-nowrap">Öner ›</span>
     </button>
@@ -6467,7 +6468,10 @@ const HaftaninSinifKutusu = ({ db, d, user, sinif, ogrenciler, ogretmenler, kisi
   const sOgr=(d.sinifOgretmenleri||{})[sk]||'';
   const yonetim=zHaftaninYonetim(user);
   const benSinifOgr=!!sOgr && zAyniKisi(sOgr,user&&user.name);
-  const kararYetkisi=benSinifOgr || yonetim;
+  const _benOneren=!!(user&&user.name) && Object.keys(oyMap||{}).some(k=>{ const o=oyMap[k]; return o && zAyniKisi(o.ogretmen||'',user.name); });
+  const _enCok=(adaylar[0]&&adaylar[0].oylar.length)||0; const _tekLider=adaylar.length>0 && !(adaylar[1] && adaylar[1].oylar.length===_enCok);
+  const kararYetkisi=yonetim || _benOneren;
+  const adayKararli=(a,i)=> yonetim || (_benOneren && i===0 && _tekLider);
   const sinifOgr=(ogrenciler||[]).filter(o=>o.sinif===sinif);
   const [acik,setAcik]=useState(false);
   const [ogrId,setOgrId]=useState(''); const [neden,setNeden]=useState('');
@@ -6478,7 +6482,7 @@ const HaftaninSinifKutusu = ({ db, d, user, sinif, ogrenciler, ogretmenler, kisi
     if(!user||!user.name) return alert('Öğretmen adı bulunamadı.');
     const v={}; v[sk]={}; v[sk][benK]={ogretmen:user.name, ogrenciId:o.id, ogrenciAd:o.ad, sinif, neden:String(neden).trim().slice(0,160), ts:Date.now()};
     const w={}; w['oy_'+hk]=v;
-    const ok=await okulYaz(db,"k12_haftanin",w); if(ok) toast('🗳️ Öneriniz kaydedildi — sınıf öğretmeni görecek.','green');
+    const ok=await okulYaz(db,"k12_haftanin",w); if(ok) toast('🗳️ Öneriniz kaydedildi — tüm öğretmenler görecek.','green');
   };
   const oyGeriAl=async()=>{
     if(!benimOy) return; if(!window.confirm('Bu sınıf için önerinizi geri almak istiyor musunuz?')) return;
@@ -6487,6 +6491,20 @@ const HaftaninSinifKutusu = ({ db, d, user, sinif, ogrenciler, ogretmenler, kisi
          else { const v={}; v[sk]={}; v[sk][benK]=null; const w={}; w['oy_'+hk]=v; await okulYaz(db,"k12_haftanin",w); }
          setOgrId(''); setNeden(''); toast('Öneri geri alındı.','green'); }catch(e){ alert('Geri alınamadı: '+(e.message||e)); }
   };
+  /* v59 🌟 Öğretmenin kendi seçimi: her öğretmen bu sınıfta kendi "haftanın öğrencisi"ni doğrudan seçebilir */
+  const _sec=((d['secim_'+hk]||{})[sk])||{}; const secimler=Object.keys(_sec).map(k=>_sec[k]).filter(x=>x&&x.ogrenciId).sort((a,b)=>(a.ts||0)-(b.ts||0));
+  const benimSecim=_sec[benK]&&_sec[benK].ogrenciId?_sec[benK]:null;
+  const dogrudanSec=async()=>{
+    const o=sinifOgr.find(x=>x.id===ogrId); if(!o) return alert('Önce öğrenci seçin.'); if(!user||!user.name) return alert('Öğretmen adı bulunamadı.');
+    if(!window.confirm('🌟 '+o.ad+' — '+user.name+' olarak bu haftanın öğrencim olsun mu?\n\nVeli ve öğrenci bunu görecek, öğrenciye +20 yıldız verilecek.')) return;
+    const v={}; v[sk]={}; v[sk][benK]={ogretmen:user.name, ogrenciId:o.id, ogrenciAd:o.ad, sinif, neden:String(neden).trim().slice(0,160), ts:Date.now()}; const w={}; w['secim_'+hk]=v;
+    const ok=await okulYaz(db,"k12_haftanin",w); if(!ok) return;
+    if(!(benimSecim && benimSecim.ogrenciId===o.id)){ try{ await okulYaz(db,"k12_ogrenciler",{liste:(ogrenciler||[]).map(x=>x.id===o.id?zYildizEkle(x,20,'🌟 '+user.name+' öğretmenin haftanın öğrencisi'+(neden.trim()?(' — '+neden.trim().slice(0,80)):''),user.name,'ogretmensecim'):x)}); }catch(e){} }
+    try{ zPushOlay({rol:['veli','ogrenci'], ogrId:o.id}, {baslik:'🌟 Haftanın öğrencisi: '+o.ad, govde:user.name+' öğretmen bu hafta '+o.ad+'’ı seçti'+(neden.trim()?(' — '+neden.trim()):'')+' 👏', etiket:'s'+hk+sk+benK}); }catch(e){}
+    toast('🌟 '+o.ad+' bu haftanın öğrenciniz oldu! +20 yıldız','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){}
+  };
+  const secimKaldir=async()=>{ if(!benimSecim) return; if(!window.confirm('Bu haftaki seçiminiz kaldırılsın mı?')) return; const {doc,setDoc,deleteField}=window.FirebaseSDK;
+    try{ const v={}; v[sk]={}; v[sk][benK]=deleteField?deleteField():null; const w={}; w['secim_'+hk]=v; await setDoc(doc(db,"maas_config","k12_haftanin"),w,{merge:true}); toast('Seçim kaldırıldı.','green'); }catch(e){ alert('Kaldırılamadı: '+(e.message||e)); } };
   const sinifOgrAta=async(ad)=>{ const v={}; v[sk]=ad||''; const ok=await okulYaz(db,"k12_haftanin",{sinifOgretmenleri:v}); if(ok) toast(ad?('👩‍🏫 '+sinif+' sınıf öğretmeni: '+ad):'Sınıf öğretmeni kaldırıldı','green'); };
   const adayAc=(a)=>{ setSecAday(a); setGerekce(zOrtakGerekce(a)); };
   const aiGerekce=async()=>{
@@ -6500,11 +6518,11 @@ const HaftaninSinifKutusu = ({ db, d, user, sinif, ogrenciler, ogretmenler, kisi
     setAiYuk(false);
   };
   const kesinlestir=async()=>{
-    if(!secAday) return; if(!kararYetkisi) return alert('Nihai kararı sınıf öğretmeni verir.');
+    if(!secAday) return; if(!kararYetkisi) return alert('Kesinleştirmek için önce bu sınıf için önerinizi gönderin.');
     const o=(ogrenciler||[]).find(x=>x.id===secAday.ogrenciId); if(!o) return alert('Öğrenci listede bulunamadı.');
     const not=String(gerekce).trim().slice(0,300);
     const girdi={sinif, ogrenciId:o.id, ogrenciAd:o.ad, not, ts:Date.now(), hafta:hk, yildizVerildi:true,
-      karar:{onaylayan:user.name, onayRol:benSinifOgr?'Sınıf Öğretmeni':'Yönetim', oyVerenler:secAday.oylar.map(x=>x.ogretmen).filter(Boolean), oySayisi:secAday.oylar.length}};
+      karar:{onaylayan:user.name, onayRol:yonetim?'Yönetim':'Öğretmenler kurulu', oyVerenler:secAday.oylar.map(x=>x.ogretmen).filter(Boolean), oySayisi:secAday.oylar.length}};
     const ok=await okulYaz(db,"k12_haftanin",{liste:liste.filter(r=>r.sinif!==sinif).concat([girdi])});
     if(ok){ if(!zHaftaninVerildi(o)){ await okulYaz(db,"k12_ogrenciler",{liste:(ogrenciler||[]).map(x=>x.id===o.id?zYildizEkle(x,50,'⭐ Haftanın Öğrencisi (öğretmenler kurulu kararı)'+(not?(' — '+not.slice(0,80)):''),'','haftanin'):x)}); }
       setSecAday(null); toast('⭐ '+o.ad+' — '+sinif+' Haftanın Öğrencisi olarak kesinleşti! +50 yıldız','green'); try{window.ZKUTLA&&window.ZKUTLA();}catch(e){} }
@@ -6521,18 +6539,18 @@ const HaftaninSinifKutusu = ({ db, d, user, sinif, ogrenciler, ogretmenler, kisi
         <span className="text-xl">{buHaftaKesin?'⭐':'🗳️'}</span>
         <span className="flex-1 min-w-0">
           <span className="block font-black text-[14px] leading-tight">{sinif}</span>
-          <span className="block text-[11px] opacity-95 truncate">{buHaftaKesin?('✅ Kesinleşti: '+kayit.ogrenciAd):(adaylar.length?(Object.keys(oyMap).length+' öğretmen önerdi · '+adaylar.length+' aday'):'Henüz öneri yok')}{sOgr?(' · Sınıf öğr.: '+sOgr):' · Sınıf öğretmeni atanmadı'}</span>
+          <span className="block text-[11px] opacity-95 truncate">{buHaftaKesin?('✅ Kesinleşti: '+kayit.ogrenciAd):(adaylar.length?(Object.keys(oyMap).length+' öğretmen önerdi · '+adaylar.length+' aday'):'Henüz öneri yok')}</span>
         </span>
         {benimOy && <span className="text-[10px] font-black bg-white/25 px-2 py-0.5 rounded-full whitespace-nowrap">✓ Önerdim</span>}
         <span className="font-black text-[12px] bg-white/25 px-2.5 py-1 rounded-full">{acik?'▲':'▼'}</span>
       </button>
       {acik && <div className="p-3 space-y-3">
-        <div className="flex flex-wrap items-center gap-2 bg-slate-50 rounded-xl px-3 py-2">
-          <span className="text-[12px] font-black text-slate-700">👩‍🏫 Sınıf öğretmeni:</span>
+        {yonetim && <div className="flex flex-wrap items-center gap-2 bg-slate-50 rounded-xl px-3 py-2">
+          <span className="text-[12px] font-black text-slate-700">👩‍🏫 Sınıf öğretmeni (bilgi):</span>
           {sOgr ? <span className="inline-flex items-center gap-1.5 text-[12px] font-black text-indigo-700"><Avatar db={db} p={zProfilBul(kisiler,'teacher',sOgr,'')} ad={sOgr} boyut={22} />{sOgr}</span> : <span className="text-[12px] font-bold text-rose-500">atanmadı</span>}
           {yonetim ? <select value={sOgr} onChange={e=>sinifOgrAta(e.target.value)} className="ml-auto px-2 py-1 rounded-lg border border-slate-200 text-[12px] font-bold outline-none"><option value="">— seç —</option>{ogretmenler.map(a=><option key={a} value={a}>{a}</option>)}{sOgr && ogretmenler.indexOf(sOgr)<0 && <option value={sOgr}>{sOgr}</option>}</select>
             : (!sOgr && user && user.name ? <button onClick={()=>{ if(window.confirm(sinif+' sınıfının sınıf öğretmeni siz misiniz?')) sinifOgrAta(user.name); }} className="ml-auto text-[11px] font-black bg-indigo-600 text-white px-2.5 py-1 rounded-lg">Ben bu sınıfın öğretmeniyim</button> : null)}
-        </div>
+        </div>}
 
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
           <p className="text-[12px] font-black text-amber-800 mb-2">🗳️ Benim önerim {benimOy?'(değiştirebilirsiniz)':''}</p>
@@ -6542,7 +6560,14 @@ const HaftaninSinifKutusu = ({ db, d, user, sinif, ogrenciler, ogretmenler, kisi
             <button onClick={oyVer} className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black py-2 rounded-lg text-sm">{benimOy?'🔄 Önerimi Güncelle':'🗳️ Önerimi Gönder'}</button>
             {benimOy && <button onClick={oyGeriAl} className="bg-white border border-slate-200 text-slate-500 font-black px-3 rounded-lg text-[12px]">↩ Geri al</button>}
           </div>
+          <button onClick={dogrudanSec} className="w-full mt-2 bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white font-black py-2.5 rounded-lg text-sm">🌟 {benimSecim?'Benim seçimimi değiştir':'Doğrudan seç: benim haftanın öğrencim olsun'}</button>
+          <p className="text-[10.5px] text-amber-700 mt-1">🗳️ Öneri = ortak karara katılır · 🌟 Doğrudan seçim = sizin kendi haftanın öğrenciniz (veli ve öğrenci görür, +20 yıldız)</p>
         </div>
+
+        {secimler.length>0 && <div className="bg-fuchsia-50 border border-fuchsia-200 rounded-xl p-3">
+          <p className="text-[12px] font-black text-fuchsia-800 mb-1.5">🌟 Öğretmenlerin bu haftaki seçimleri</p>
+          <div className="space-y-1.5">{secimler.map((x,j)=>(<div key={j} className="flex items-center gap-2 bg-white rounded-lg px-2.5 py-2"><Avatar db={db} p={zOgrFotoIzinli(zProfilBul(kisiler,'student',x.ogrenciAd,sinif))} ad={x.ogrenciAd} boyut={28} /><div className="flex-1 min-w-0"><p className="text-[13px] font-black text-slate-800 truncate">{x.ogrenciAd}</p><p className="text-[11px] text-slate-500 truncate"><b className="text-fuchsia-700">{x.ogretmen}</b>{x.neden?(' · '+x.neden):''}</p></div>{zAyniKisi(x.ogretmen||'',(user&&user.name)||'') && <button onClick={secimKaldir} className="shrink-0 text-[11px] font-black text-slate-400 px-1.5">✕</button>}</div>))}</div>
+        </div>}
 
         <div>
           <p className="text-[12px] font-black text-slate-700 mb-1.5">📊 Öğretmen önerileri {adaylar.length?('('+Object.keys(oyMap).length+' öğretmen)'):''}</p>
@@ -6552,17 +6577,17 @@ const HaftaninSinifKutusu = ({ db, d, user, sinif, ogrenciler, ogretmenler, kisi
               <div className="flex items-center gap-2">
                 <Avatar db={db} p={zOgrFotoIzinli(zProfilBul(kisiler,'student',a.ogrenciAd,sinif))} ad={a.ogrenciAd} boyut={32} />
                 <div className="flex-1 min-w-0"><p className="font-black text-[13px] text-slate-800 truncate">{i===0?'🥇 ':''}{a.ogrenciAd}</p><p className="text-[11px] font-bold text-orange-600">{a.oylar.length} öğretmen önerdi</p></div>
-                {kararYetkisi && <button onClick={()=>adayAc(a)} className="shrink-0 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-[11px] px-3 py-1.5 rounded-lg">✅ Karar ver</button>}
+                {adayKararli(a,i) && <button onClick={()=>adayAc(a)} className="shrink-0 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-[11px] px-3 py-1.5 rounded-lg">✅ Karar ver</button>}
               </div>
               <div className="flex flex-wrap gap-1 mt-1.5">{a.oylar.map((o,j)=>(<span key={j} className="text-[10.5px] bg-white border border-slate-200 rounded-full px-2 py-0.5 text-slate-600"><b className="text-indigo-600">{o.ogretmen}</b>{o.neden?(': '+o.neden):''}</span>))}</div>
             </div>
           ))}</div>}
-          {!kararYetkisi && <p className="text-[11px] text-slate-500 mt-2">🔒 Nihai kararı <b>{sOgr||'sınıf öğretmeni'}</b> verir; sizin öneriniz karara dahil edilir.</p>}
+          <p className="text-[11px] text-slate-500 mt-2">🤝 <b>Ortak karar:</b> her öğretmenin sözü eşittir. En çok öğretmenin önerdiği öğrenci seçilir; öneri veren her öğretmen kesinleştirebilir. Eşitlik olursa yönetim belirler.</p>
         </div>
 
         {secAday && kararYetkisi && <div className="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-3">
           <p className="text-[13px] font-black text-emerald-800">✅ {secAday.ogrenciAd} — {sinif} Haftanın Öğrencisi olsun</p>
-          <p className="text-[11px] text-emerald-700 mb-2">{secAday.oylar.length} öğretmenin önerisiyle · onaylayan: {user&&user.name} ({benSinifOgr?'Sınıf Öğretmeni':'Yönetim'})</p>
+          <p className="text-[11px] text-emerald-700 mb-2">{secAday.oylar.length} öğretmenin ortak önerisiyle · kesinleştiren: {user&&user.name}</p>
           <label className="block text-[11px] font-black text-slate-600 mb-1">Kartta görünecek ortak gerekçe</label>
           <textarea value={gerekce} onChange={e=>setGerekce(e.target.value.slice(0,300))} rows="3" className="w-full px-3 py-2 rounded-lg border border-emerald-200 text-sm outline-none resize-y"></textarea>
           <div className="flex flex-wrap gap-2 mt-2">
@@ -6625,6 +6650,19 @@ const HaftaninOkulOylama = ({ db, d, user, ogrenciler, kisiler }) => {
   );
 };
 
+/* v59 🌟 Veli/öğrenci: sınıfın bu haftaki öğretmen seçimleri */
+const ZOgretmenSecimleri = ({ db, sinif, ogrId }) => {
+  const d=useOkulDoc(db,'k12_haftanin'); const hk=zHaftaKey(); const sk=zAnahtar(sinif||'');
+  const m=((d&&d['secim_'+hk])||{})[sk]||{}; const l=Object.keys(m).map(k=>m[k]).filter(x=>x&&x.ogrenciAd).sort((a,b)=>(a.ts||0)-(b.ts||0));
+  if(!sinif || !l.length) return null;
+  const benim=l.filter(x=>ogrId && x.ogrenciId===ogrId);
+  return (<div className="bg-white border-2 border-fuchsia-200 rounded-3xl p-4 shadow-sm mt-4">
+    <p className="text-[17px] font-black text-fuchsia-800">🌟 {sinif} · Bu Haftanın Öğrencileri</p>
+    <p className="text-[12px] text-slate-500 mb-2">Öğretmenlerimizin bu hafta seçtikleri</p>
+    {benim.length>0 && <div className="bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white rounded-2xl p-3 mb-2 text-center"><p className="text-[22px]">🎉🌟🎉</p><p className="text-[15px] font-black">Tebrikler {String(benim[0].ogrenciAd).split(' ')[0]}!</p><p className="text-[12.5px] opacity-95">{benim.map(x=>x.ogretmen).join(', ')} öğretmenin bu haftanın öğrencisi seçildin 👏</p></div>}
+    <div className="space-y-1.5">{l.map((x,j)=>(<div key={j} className="flex items-center gap-2 bg-fuchsia-50 rounded-xl px-3 py-2"><span className="text-xl">🌟</span><div className="flex-1 min-w-0"><p className="text-[14px] font-black text-slate-800 truncate">{x.ogrenciAd}</p><p className="text-[11.5px] text-slate-500 truncate">{x.ogretmen} öğretmenin seçimi{x.neden?(' · '+x.neden):''}</p></div></div>))}</div>
+  </div>);
+};
 const HaftaninOgrencisi = ({ db, duzenlenebilir, ogrenciler, sinif, user }) => {
   const doc = useOkulDoc(db, "k12_haftanin"); const liste = (doc && doc.liste) || [];
   const _hp = useOkulDoc(db,"k12_profil"); const _hk=(_hp&&_hp.kisiler)||{};
@@ -6654,8 +6692,8 @@ const HaftaninOgrencisi = ({ db, duzenlenebilir, ogrenciler, sinif, user }) => {
           <p className="font-black text-[16px]">🤝 Haftanın Öğrencisi · Ortak Karar</p>
           <p className="text-[12px] opacity-95 mt-0.5">{zHaftaEtiket()} haftası</p>
           <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-            <div className="bg-white/15 rounded-xl p-2"><div className="text-xl">🗳️</div><div className="text-[10.5px] font-black leading-tight mt-0.5">Derse giren tüm öğretmenler aday önerir</div></div>
-            <div className="bg-white/15 rounded-xl p-2"><div className="text-xl">👩‍🏫</div><div className="text-[10.5px] font-black leading-tight mt-0.5">Sınıf öğretmeni nihai kararı verir</div></div>
+            <div className="bg-white/15 rounded-xl p-2"><div className="text-xl">🌟</div><div className="text-[10.5px] font-black leading-tight mt-0.5">Her öğretmen kendi haftanın öğrencisini seçebilir</div></div>
+            <div className="bg-white/15 rounded-xl p-2"><div className="text-xl">🤝</div><div className="text-[10.5px] font-black leading-tight mt-0.5">En çok önerilen seçilir · herkesin sözü eşit</div></div>
             <div className="bg-white/15 rounded-xl p-2"><div className="text-xl">🏆</div><div className="text-[10.5px] font-black leading-tight mt-0.5">Okulun yıldızını tüm öğretmenler oylar</div></div>
           </div>
         </div>
@@ -7458,7 +7496,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 57;
+const LOCAL_SURUM = 59;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
