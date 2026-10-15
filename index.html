@@ -7458,7 +7458,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 56;
+const LOCAL_SURUM = 57;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
@@ -14633,6 +14633,9 @@ notes.map(n => (
 })();
 </script>
 <script>
+/* v57 🔔 Uygulama açılınca/öne gelince: simgedeki kırmızı sayıyı ve bildirim merkezindeki okunmuş bildirimleri temizle */
+(function(){ function temizle(){ try{ if(document.visibilityState!=='visible') return; if(navigator.clearAppBadge) navigator.clearAppBadge().catch(function(){}); if(navigator.serviceWorker && navigator.serviceWorker.getRegistration){ navigator.serviceWorker.getRegistration().then(function(r){ if(r && r.getNotifications) r.getNotifications().then(function(l){ (l||[]).forEach(function(n){ try{ n.close(); }catch(e){} }); }); }).catch(function(){}); } }catch(e){} }
+  try{ temizle(); setTimeout(temizle,1500); document.addEventListener('visibilitychange',temizle); window.addEventListener('focus',temizle); window.addEventListener('pageshow',temizle); }catch(e){} })();
 /* v52 🔐 ANAHTAR KASASI: kasa adresi varsa yapay zekâ istekleri anahtarsız olarak kasaya gider; kasa cevap vermezse eski yol (yedek) çalışır */
 (function(){ try{ var u0=localStorage.getItem('zkasa_url'); if(u0 && !window.ZKASA_URL) window.ZKASA_URL=u0; }catch(e){}
   var onceki=window.fetch; if(!onceki) return; var ham=window.ZIRVE_ORIG_FETCH||onceki;
