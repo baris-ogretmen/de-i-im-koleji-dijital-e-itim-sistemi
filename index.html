@@ -6429,6 +6429,7 @@ function zOrtakGerekce(aday){
 
 /* Kartın altındaki "ortak karar" rozeti — öneren öğretmenlerin fotoğrafları + sınıf öğretmeni onayı */
 const HaftaninKararRozeti = ({ db, r, kisiler, acik }) => {
+  return null; /* v62: Barış Bey isteği — "ortak karar / N öğretmen önerdi" satırları kartta gösterilmez */
   const k=(r&&r.karar)||null;
   const verenler=(k&&k.oyVerenler)||[];
   return (
@@ -7455,6 +7456,9 @@ const AiDurum = ({ db, user, rol }) => {
   };
   const kopyala = async () => { if(!tani) return; let t='DEĞİŞİM KOLEJİ — AI TANI\n'+new Date().toLocaleString('tr-TR')+'\n'; tani.forEach(x=>{ t+=(x.ok?'[OK] ':'[SORUN] ')+x.ad+': '+x.mesaj+'\n'; }); try{ await navigator.clipboard.writeText(t); setKopyalandi(true); setTimeout(()=>setKopyalandi(false),2500); }catch(e){ alert(t); } };
   const iyi=durum==='ok'||durum==='hazir'; const kotu=durum==='hata'||durum==='yok'||durum==='kota';
+  useEffect(()=>{ try{ window.__zAiDurum=durum; window.dispatchEvent(new Event('zai-degisti')); }catch(e){} },[durum]);
+  useEffect(()=>{ const f=()=>{ test(); }; window.addEventListener('zai-test',f); return ()=>window.removeEventListener('zai-test',f); });
+  if(!kotu && !taniAcik && durum!=='test') return null; /* v62: sorun yoksa kart görünmez — yeşil "Bağlı" rozeti profilde */
   const renk=iyi?'from-emerald-500 to-teal-600':kotu?'from-rose-500 to-red-600':'from-slate-500 to-slate-600';
   const ikon=iyi?'✅':kotu?'⚠️':'⏳';
   return (
@@ -7665,7 +7669,22 @@ const ZKitapKosesi = ({ db, ben, sinif, rol, user, ogrId }) => {
   </div>);
 };
 
-const LOCAL_SURUM = 61;
+
+/* v62 — Profil kartında küçük durum rozetleri: 🟢 Yapay zekâ bağlı · 🔔 Bildirim açık (sorun varsa kırmızı/turuncu, dokununca düzeltmeyi dener) */
+const ZDurumRozetleri = () => {
+  const [ai,setAi]=useState(()=>{ try{ return window.__zAiDurum||'kontrol'; }catch(e){ return 'kontrol'; } });
+  const [bil,setBil]=useState(()=>{ try{ return zBildirimDurum(); }catch(e){ return 'yok'; } });
+  useEffect(()=>{ const f=()=>{ try{ setAi(window.__zAiDurum||'kontrol'); }catch(e){} }; const g=()=>{ try{ setBil(zBildirimDurum()); }catch(e){} };
+    window.addEventListener('zai-degisti',f); window.addEventListener('zbil-degisti',g); const iv=setInterval(()=>{ f(); g(); },5000);
+    return ()=>{ window.removeEventListener('zai-degisti',f); window.removeEventListener('zbil-degisti',g); clearInterval(iv); }; },[]);
+  const aiIyi=ai==='ok'||ai==='hazir'; const aiKotu=ai==='hata'||ai==='yok'||ai==='kota';
+  const p='text-[11px] font-black px-2.5 py-1 rounded-full whitespace-nowrap border';
+  return (<div className="flex flex-wrap justify-end gap-1">
+    <button onClick={()=>{ if(!aiIyi){ try{ window.dispatchEvent(new Event('zai-test')); }catch(e){} } }} className={p+' '+(aiIyi?'bg-emerald-50 text-emerald-700 border-emerald-200':aiKotu?'bg-rose-50 text-rose-700 border-rose-200':'bg-slate-50 text-slate-500 border-slate-200')}>{aiIyi?'🟢 Yapay zekâ bağlı':aiKotu?'🔴 Yapay zekâ bağlı değil · dokun':(ai==='test'?'⏳ Deneniyor…':'⏳ Yapay zekâ')}</button>
+    {bil!=='yok' && <button onClick={async()=>{ if(bil==='granted') return; if(bil==='denied'){ alert('Bildirim izni kapalı. Telefon Ayarları → Bildirimler bölümünden bu uygulamaya izin verin.'); return; } try{ await zBildirimIzin(); }catch(e){} setBil(zBildirimDurum()); }} className={p+' '+(bil==='granted'?'bg-emerald-50 text-emerald-700 border-emerald-200':'bg-amber-50 text-amber-700 border-amber-200')}>{bil==='granted'?'🔔 Bildirim açık':'🔕 Bildirim kapalı · aç'}</button>}
+  </div>);
+};
+const LOCAL_SURUM = 62;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
@@ -9102,7 +9121,7 @@ const ProfilKarti = ({ db, user, rol }) => {
         <div className="px-4 pb-4 -mt-9">
           <div className="flex items-end justify-between gap-3">
             <Avatar db={db} p={p} ad={ad} boyut={68} />
-            <button onClick={ac} className="bg-indigo-600 text-white font-black text-[12px] px-4 py-2 rounded-xl shadow whitespace-nowrap">✏️ Profili düzenle</button>
+            <div className="flex flex-col items-end gap-1.5"><ZDurumRozetleri /><button onClick={ac} className="bg-indigo-600 text-white font-black text-[12px] px-4 py-2 rounded-xl shadow whitespace-nowrap">✏️ Profili düzenle</button></div>
           </div>
           <p className="mt-2 text-[18px] font-black leading-tight bg-gradient-to-r from-indigo-600 via-fuchsia-600 to-orange-500 bg-clip-text text-transparent">{ad}</p>
           <div className="flex flex-wrap gap-1.5 mt-1">
