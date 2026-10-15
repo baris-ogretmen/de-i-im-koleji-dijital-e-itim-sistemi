@@ -5021,7 +5021,7 @@ const MesajOgretmen = ({ db, user, mesajlar, ogrenciler }) => {
   const acik = seciliId && grup[seciliId];
   const thread = acik ? grup[seciliId].list.slice().sort((a,b)=>a.ts-b.ts) : [];
   const ac = async (id) => { setSeciliId(id); if(window.ZIRVE_admin===true) return; /* yönetim okuyunca öğretmenin 'okunmadı' bildirimi kaybolmasın */ const ids=new Set(((grup[id]&&grup[id].list)||[]).filter(m=>(m.gonderen==='veli'||m.gonderen==='ogrenci')&&!m.okOgretmen).map(m=>m.id)); if(!ids.size) return; const yeni=(mesajlar||[]).map(m=> ids.has(m.id) ? {...m, okOgretmen:true} : m); await okulYaz(db,"k12_mesajlar",{liste:yeni}); };
-  const gonder = async (ek) => { const _ses=ek&&ek.ses; if((!metin.trim()&&!_ses)||!acik) return; if(_onizleme && !window.confirm('👁️ Yönetici önizlemesindesiniz. Bu mesaj '+_onizleme+' adına veliye gidecek. Gönderilsin mi?')) return; const g=grup[seciliId]; const sahipAd = (_yonetici && g.sahip) ? g.sahip : _benAdi; const yeni=[...(mesajlar||[]), {id:yeniId(), ts:Date.now(), ogrenciId:g.ogrenciId, ogrenciAd:g.ad, sinif:g.sinif, gonderen:'ogretmen', ad:_benAdi, ogretmen:sahipAd, metin:(metin.trim()||'🎤 Sesli mesaj'), okOgretmen:true, okVeli:false, ...(g.kanal==='ogrenci'?{kanal:'ogrenci'}:{}), ...(_ses?{ses:_ses}:{})}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ const _m=yeni[yeni.length-1]; zPushGonder(db,['k12_push_s_'+zSinifSlug(g.sinif)],e=>e.ogrId===g.ogrenciId && (g.kanal==='ogrenci'?e.rol==='ogrenci':e.rol==='veli'),{baslik:'💬 '+(_m.ad||'Öğretmen')+' öğretmenden mesaj', govde:_ses?'🎤 Sesli mesaj':_m.metin, etiket:'m'+_m.id}); } if(ok){ setMetin(''); toast(g.kanal==='ogrenci'?'Cevap gönderildi, öğrenciye iletildi.':'Cevap gönderildi, veliye iletildi.','green'); } };
+  const gonder = async (ek) => { const _ses=ek&&ek.ses; if((!metin.trim()&&!_ses)||!acik) return; if(_onizleme && !window.confirm('👁️ Yönetici önizlemesindesiniz. Bu mesaj '+_onizleme+' adına veliye gidecek. Gönderilsin mi?')) return; const g=grup[seciliId]; const sahipAd = (_yonetici && g.sahip) ? g.sahip : _benAdi; const yeni=[...(mesajlar||[]), {id:yeniId(), ts:Date.now(), ogrenciId:g.ogrenciId, ogrenciAd:g.ad, sinif:g.sinif, gonderen:'ogretmen', ad:_benAdi, ogretmen:sahipAd, metin:(metin.trim()||'🎤 Sesli mesaj'), okOgretmen:true, okVeli:false, ...(g.kanal==='ogrenci'?{kanal:'ogrenci'}:{}), ...(_ses?{ses:_ses}:{})}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ const _m=yeni[yeni.length-1]; zPushOlay({rol:[g.kanal==='ogrenci'?'ogrenci':'veli'], ogrId:g.ogrenciId},{baslik:'💬 '+(_m.ad||'Öğretmen')+' öğretmenden mesaj', govde:_ses?'🎤 Sesli mesaj':_m.metin, etiket:'m'+_m.id}); } if(ok){ setMetin(''); toast(g.kanal==='ogrenci'?'Cevap gönderildi, öğrenciye iletildi.':'Cevap gönderildi, veliye iletildi.','green'); } };
   const mesajSil = async (id) => { if(!window.confirm('Bu mesaj silinsin mi?')) return; await okulYaz(db,"k12_mesajlar",{liste:(mesajlar||[]).filter(x=>x.id!==id)}); };
   const sohbetTemizle = async () => { if(!window.confirm('Bu veliyle olan (yalnızca SİZİN) tüm yazışma geçmişi silinsin mi?')) return; const ids=new Set(thread.map(m=>m.id)); await okulYaz(db,"k12_mesajlar",{liste:(mesajlar||[]).filter(x=>!ids.has(x.id))}); setSeciliId(''); };
   const [duzenleId, setDuzenleId] = useState(''); const [duzenleMetin, setDuzenleMetin] = useState('');
@@ -7458,7 +7458,7 @@ const CanliDurum = ({ db }) => {
     </div>
   );
 };
-const LOCAL_SURUM = 55;
+const LOCAL_SURUM = 56;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
@@ -8393,7 +8393,18 @@ async function zPushKaydet(db, rol, ogr, ad, zorla){ try{ if(!db||!zKasaUrl()||w
   const belge = rol==='ogretmen' ? 'k12_push_ogretmen' : ('k12_push_s_'+zSinifSlug(ogr&&ogr.sinif)); const k=zKisaHash(s.endpoint);
   const isaret='zpush_'+belge+'_'+k+'_'+((ogr&&ogr.id)||zNorm(ad||'')); try{ if(!zorla && Number(localStorage.getItem(isaret)||0)>Date.now()-864e5) return true; }catch(e){}
   const e={s:{endpoint:s.endpoint,keys:{p256dh:s.keys.p256dh,auth:s.keys.auth}}, rol:rol, ts:Date.now()}; if(ogr&&ogr.id) e.ogrId=ogr.id; if(ogr&&ogr.sube) e.sube=ogr.sube; if(ogr&&ogr.sinif) e.sinif=ogr.sinif; if(ad) e.ad=String(ad).slice(0,60);
-  const {doc,setDoc}=window.FirebaseSDK; await setDoc(doc(db,'maas_config',belge),{[k]:e},{merge:true}); try{ localStorage.setItem(isaret,String(Date.now())); localStorage.setItem('zpush_aktif','1'); }catch(x){} return true; }catch(e){ return false; } }
+  let fsOk=false; try{ const {doc,setDoc}=window.FirebaseSDK; await setDoc(doc(db,'maas_config',belge),{[k]:e},{merge:true}); fsOk=true; }catch(x){}
+  const kvOk=await zPushDefter(s, rol, ogr, ad, zorla);
+  if(fsOk||kvOk){ try{ localStorage.setItem(isaret,String(Date.now())); localStorage.setItem('zpush_aktif','1'); }catch(x){} } return fsOk||kvOk; }catch(e){ return false; } }
+/* v56 📮 Kasa abone defteri (asıl yol): cihaz kasaya kaydolur; gönderen sadece "olay" bildirir, kasa dağıtır */
+async function zPushDefter(s, rol, ogr, ad, zorla){ try{ const url=zKasaUrl(); if(!url||!s||!s.endpoint) return false; const isaret='zpush2_'+zKisaHash(s.endpoint)+'_'+rol+'_'+((ogr&&ogr.id)||zNorm(ad||''))+'_'+((ogr&&ogr.sinif)||'')+'_'+((ogr&&ogr.sube)||'');
+  try{ if(!zorla && Number(localStorage.getItem(isaret)||0)>Date.now()-7*864e5) return true; }catch(e){}
+  const r=await fetch(url+'/abone',{method:'POST',headers:{'Content-Type':'text/plain'},keepalive:true,body:JSON.stringify({s:{endpoint:s.endpoint,keys:{p256dh:s.keys.p256dh,auth:s.keys.auth}}, rol:rol, ogrId:(ogr&&ogr.id)||'', sinif:(ogr&&ogr.sinif)||'', sube:(ogr&&ogr.sube)||'', ad:ad||''})});
+  if(!r.ok) return false; try{ localStorage.setItem(isaret,String(Date.now())); }catch(e){} return true; }catch(e){ return false; } }
+/* Olay gönder: sendBeacon → uygulama hemen kapansa bile ulaşır */
+function zPushOlay(hedef, veri){ try{ const url=zKasaUrl(); if(!url) return false; const govde=JSON.stringify({hedef:hedef, veri:{baslik:veri.baslik, govde:String(veri.govde||'').slice(0,280), url:location.href.split('#')[0].split('?')[0], etiket:veri.etiket||''}});
+  let ok=false; try{ if(navigator.sendBeacon) ok=navigator.sendBeacon(url+'/olay', new Blob([govde],{type:'text/plain'})); }catch(e){}
+  if(!ok){ try{ fetch(url+'/olay',{method:'POST',headers:{'Content-Type':'text/plain'},body:govde,keepalive:true}).catch(()=>{}); ok=true; }catch(e){} } return ok; }catch(e){ return false; } }
 /* Hedeflere bildirim gönder (kasa sunucusu üzerinden) — sessiz, hata uygulamayı etkilemez */
 async function zPushGonder(db, belgeler, filtre, veri){ try{ const url=zKasaUrl(); if(!url||!db||!window.FirebaseSDK) return {neden:'Kasa adresi yok'}; const oku=zVidOku(db); const abon=[], yer={};
   for(const b of belgeler){ const v=(await oku(b))||{}; Object.keys(v).forEach(k=>{ const e=v[k]; if(!e||typeof e!=='object'||!e.s||!e.s.endpoint) return; if(filtre(e)){ abon.push(e.s); yer[e.s.endpoint]=[b,k]; } }); }
@@ -8450,14 +8461,14 @@ const ZKasaKarti = ({ db, globalConfig, setGlobalConfig }) => {
   </div>);
 };
 const zPushOgrFiltre=(k)=>(e)=>(e.rol==='veli'||e.rol==='ogrenci') && (k.tur==='birey' ? e.ogrId===k.ogrenciId : zSubeUyar(k,{sube:e.sube}));
-function zPushOdevler(db, kayitlar){ try{ (kayitlar||[]).forEach(k=>{ zPushGonder(db, ['k12_push_s_'+zSinifSlug(k.sinif)], zPushOgrFiltre(k), {baslik:(k.bilgi?'📢 Yeni hatırlatma':'📝 Yeni ödev')+(k.ders?(' · '+k.ders):''), govde:k.detay||k.konu||'', etiket:'o'+k.id}); }); }catch(e){} }
-function zPushOzetler(db, yeni, siniflar){ try{ (yeni||[]).forEach(p=>{ zPushGonder(db, zPushSinifBelgeleri(p.sinif, siniflar), e=>(e.rol==='veli'||e.rol==='ogrenci') && zSubeUyar(p,{sube:e.sube}), {baslik:'📰 Yeni özet · '+(p.ogretmen||'Öğretmen'), govde:String(p.metin||'').split('\n').filter(x=>x.trim()).slice(0,2).join(' · '), etiket:'p'+p.id}); }); }catch(e){} }
-function zPushOgretmene(db, ogretmenAd, baslik, govde, etiket){ try{ if(!ogretmenAd) return; zPushGonder(db, ['k12_push_ogretmen'], e=>e.rol==='ogretmen' && zAyniKisi(e.ad||'', ogretmenAd), {baslik, govde, etiket}); }catch(e){} }
+function zPushOdevler(db, kayitlar){ try{ (kayitlar||[]).forEach(k=>{ zPushOlay(k.tur==='birey'?{rol:['veli','ogrenci'], ogrId:k.ogrenciId}:{rol:['veli','ogrenci'], sinif:k.sinif, ...(k.sube?{sube:k.sube}:{})}, {baslik:(k.bilgi?'📢 Yeni hatırlatma':'📝 Yeni ödev')+(k.ders?(' · '+k.ders):''), govde:k.detay||k.konu||'', etiket:'o'+k.id}); }); }catch(e){} }
+function zPushOzetler(db, yeni, siniflar){ try{ (yeni||[]).forEach(p=>{ zPushOlay({rol:['veli','ogrenci'], sinif:(p.sinif==='TÜM OKUL'?'*':p.sinif), ...(p.sube?{sube:p.sube}:{})}, {baslik:'📰 Yeni özet · '+(p.ogretmen||'Öğretmen'), govde:String(p.metin||'').split('\n').filter(x=>x.trim()).slice(0,2).join(' · '), etiket:'p'+p.id}); }); }catch(e){} }
+function zPushOgretmene(db, ogretmenAd, baslik, govde, etiket){ try{ if(!ogretmenAd) return; zPushOlay({rol:['ogretmen'], ogretmen:ogretmenAd}, {baslik, govde, etiket}); }catch(e){} }
 /* v54 📢 Duyuru hedefleri: kime gider? */
 const ZDUYURU_HEDEF={vo:'👨‍👩‍👧 Veli + 🧒 Öğrenci', v:'👨‍👩‍👧 Sadece veliler', h:'🌍 Herkes (öğretmenler dahil)', t:'👩‍🏫 Sadece öğretmenler'};
 function zDuyuruGorur(d, rol){ const h=(d&&d.hedef)||'vo'; if(rol==='ogretmen') return h==='h'||h==='t'; if(rol==='veli') return h!=='t'; if(rol==='ogrenci') return h==='vo'||h==='h'; return true; }
 function zPushDuyuru(db, d){ try{ const h=d.hedef||'vo'; const belgeler=[]; if(h!=='t') zPushSinifBelgeleri(d.sinif==='hepsi'?'TÜM OKUL':d.sinif, OKUL_SINIFLAR).forEach(b=>belgeler.push(b)); if(h==='h'||h==='t') belgeler.push('k12_push_ogretmen');
-  zPushGonder(db, belgeler, e=>zDuyuruGorur(d, e.rol) && !(e.rol==='ogretmen' && zAyniKisi(e.ad||'', d.ekleyen||'')), {baslik:'📢 Duyuru · '+(d.ekleyen||'Değişim Koleji'), govde:d.metin, etiket:'d'+d.id}); }catch(e){} }
+  const roller=['veli','ogrenci','ogretmen'].filter(r=>zDuyuruGorur(d,r)); zPushOlay({rol:roller, sinif:(d.sinif==='hepsi'?'*':d.sinif), tumOgretmen:(h==='h'||h==='t'), haric:d.ekleyen||''}, {baslik:'📢 Duyuru · '+(d.ekleyen||'Değişim Koleji'), govde:d.metin, etiket:'d'+d.id}); }catch(e){} }
 /* Veli: duyurular kartı */
 const ZDuyuruKart = ({ db, ogr, rol }) => {
   const dd=useOkulDoc(db,'k12_duyuru'); const l=((dd&&dd.liste)||[]).filter(d=>d && (d.sinif==='hepsi'||(ogr&&d.sinif===ogr.sinif)) && zDuyuruGorur(d,rol) && (Date.now()-(d.tarih||0))<30*864e5).slice(0,5);
@@ -8472,13 +8483,12 @@ const ZYoneticiDuyuru = ({ db, user }) => { const dd=useOkulDoc(db,'k12_duyuru')
 /* v55 🔔 Bildirim durumu: kim kayıtlı, bu cihaz kayıtlı mı, gerçek yoldan test */
 const ZBildirimDurum = ({ db, benAd }) => {
   const [d,setD]=useState(null); const [yuk,setYuk]=useState(''); const [ad,setAd]=useState(benAd||''); const [sonuc,setSonuc]=useState('');
-  const yukle=async()=>{ setYuk('yukle'); try{ const oku=zVidOku(db); const og=(await oku('k12_push_ogretmen'))||{}; const s=await zPushAbonelik(); const benK=s&&s.endpoint?zKisaHash(s.endpoint):'';
-    const ogr={}; Object.keys(og).forEach(k=>{ const e=og[k]; if(!e||!e.s) return; const n=e.ad||'?'; ogr[n]=(ogr[n]||0)+1; });
-    const sinif=[]; let toplamV=0, toplamO=0; for(const sn of OKUL_SINIFLAR){ const v=(await oku('k12_push_s_'+zSinifSlug(sn)))||{}; let vv=0,oo=0; Object.keys(v).forEach(k=>{ const e=v[k]; if(!e||!e.s) return; if(e.rol==='veli') vv++; else if(e.rol==='ogrenci') oo++; }); if(vv||oo) sinif.push([sn,vv,oo]); toplamV+=vv; toplamO+=oo; }
-    setD({izin:zBildirimDurum(), ana:zKurulu(), abone:!!s, benOgretmen:!!(benK&&og[benK]), benAdKayit:(benK&&og[benK]&&og[benK].ad)||'', ogr, sinif, toplamV, toplamO, kasa:!!zKasaUrl()}); }catch(e){ setD({hata:String(e.message||e)}); } setYuk(''); };
+  const yukle=async()=>{ setYuk('yukle'); try{ const s=await zPushAbonelik(); const url=zKasaUrl(); let j={}; if(url){ const r=await fetch(url+'/abone/durum',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({endpoint:s&&s.endpoint||''})}); j=await r.json().catch(()=>({})); }
+    const benO=(j.ben||[]).find(x=>x.rol==='ogretmen'); const sinif=Object.keys(j.sinif||{}).map(k=>[k,j.sinif[k][0],j.sinif[k][1]]);
+    setD({izin:zBildirimDurum(), ana:zKurulu(), abone:!!s, benOgretmen:!!benO, benAdKayit:(benO&&benO.ad)||'', ogr:j.ogretmen||{}, sinif, toplamV:j.veli||0, toplamO:j.ogrenci||0, kasa:!!url, hata:(j.hata==='Bulunamadı'?'Kasa kodu eski: yeni worker.js dosyasını Cloudflare\'e yapıştırıp Deploy edin.':j.hata)}); }catch(e){ setD({hata:String(e.message||e)}); } setYuk(''); };
   useEffect(()=>{ yukle(); },[]);
   const kaydet=async()=>{ if(!ad.trim()) return alert('Öğretmen adınızı yazın (öğrencilerin mesaj atarken seçtiği ad).'); setYuk('kaydet'); if(zBildirimDurum()!=='granted'){ const r=await zBildirimIzin(); if(r!=='granted'){ setYuk(''); return; } } const ok=await zPushKaydet(db,'ogretmen',null,ad.trim(),true); setYuk(''); if(ok){ toast('✅ Bu cihaz "'+ad.trim()+'" adına bildirime kaydedildi','green'); yukle(); } else alert(zIosMu()&&!zKurulu()?'iPhone’da uygulamayı Ana Ekran simgesinden açıp tekrar deneyin.':'Bu cihaz kaydedilemedi (bildirim izni / sw.js / kasa adresi).'); };
-  const dene=async()=>{ if(!ad.trim()) return; setYuk('dene'); setSonuc(''); const j=await zPushGonder(db,['k12_push_ogretmen'],e=>e.rol==='ogretmen'&&zAyniKisi(e.ad||'',ad.trim()),{baslik:'💬 🧒 Deneme Öğrenci · Test',govde:'Bu, öğrenciden mesaj gelmiş gibi gerçek yoldan gönderilen deneme bildirimidir.',etiket:'tst'+Date.now()}); setYuk(''); setSonuc(j&&j.gonderilen?('✅ '+j.gonderilen+' cihaza gönderildi — uygulamayı kapatıp birkaç saniye bekleyin.'):('⛔ Gönderilemedi: '+((j&&j.neden)||'bilinmiyor'))); };
+  const dene=async()=>{ if(!ad.trim()) return; setYuk('dene'); setSonuc(''); let j={}; try{ const r=await fetch(zKasaUrl()+'/olay',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({hedef:{rol:['ogretmen'],ogretmen:ad.trim()},veri:{baslik:'💬 🧒 Deneme Öğrenci · Test',govde:'Bu, öğrenciden mesaj gelmiş gibi gerçek yoldan gönderilen deneme bildirimidir.',url:location.href.split('#')[0].split('?')[0],etiket:'tst'+Date.now()}})}); j=await r.json().catch(()=>({})); if(!j.toplam) j.neden=j.hata||'Bu adla kayıtlı öğretmen cihazı yok — önce "Bu cihazı kaydet" (1 dk içinde listeye düşer)'; }catch(e){ j={neden:String(e.message||e)}; } setYuk(''); setSonuc(j&&j.gonderilen?('✅ '+j.gonderilen+' cihaza gönderildi — uygulamayı kapatıp birkaç saniye bekleyin.'):('⛔ Gönderilemedi: '+((j&&j.neden)||'bilinmiyor'))); };
   const sat=(ok,yazi)=>(<p className={`text-[14px] font-bold ${ok?'text-emerald-700':'text-rose-600'}`}>{ok?'✅':'⛔'} {yazi}</p>);
   return (<div>
     {!d ? <p className="text-[13px] text-slate-500">⏳ Kontrol ediliyor…</p> : d.hata ? <p className="text-rose-600 text-[13px]">{d.hata}</p> : <div className="space-y-1">
@@ -8500,7 +8510,7 @@ const ZBildirimDurum = ({ db, benAd }) => {
     </div>
     <button onClick={yukle} disabled={!!yuk} className="w-full mt-2 bg-slate-100 text-slate-700 font-black text-[13px] py-2.5 rounded-xl">{yuk==='yukle'?'⏳':'🔄 Yenile'}</button>
     {sonuc && <p className="mt-2 text-[13px] font-bold text-slate-700 bg-slate-50 border rounded-xl p-2.5">{sonuc}</p>}
-    <p className="text-[11px] text-slate-400 mt-2">Not: Bildirimi GÖNDEREN kişinin uygulaması da güncel (Sürüm 52+) olmalı. Eski sürümdeki telefonlar artık kendiliğinden güncellenir.</p>
+    <p className="text-[11px] text-slate-400 mt-2">Not: Bildirimler artık kasa üzerinden dağıtılıyor; gönderen uygulama hemen kapansa bile ulaşır. Eski sürümdeki telefonlar açıldıklarında kendiliğinden güncellenir.</p>
   </div>);
 };
 /* 👁️ Görüldü: veli/öğrenci kartı ekranda görünce (1 sn) kaydedilir — ayda bir belge */
