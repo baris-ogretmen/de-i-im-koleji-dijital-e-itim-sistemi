@@ -3838,7 +3838,7 @@ const VeliMerkezi = ({ db, user }) => {
                         {o.tur==='birey' ? <span className="text-[10px] bg-violet-500 text-white font-black px-2 py-0.5 rounded-full">ÖZEL</span> : <span className="text-[10px] bg-rose-500 text-white font-black px-2 py-0.5 rounded-full">SINIF</span>}
                         <span className="text-xs font-black text-slate-600">{o.ders}{o.konu?` · ${o.konu}`:''}</span>
                     {o.ekleyen && <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full"><i className="fa-solid fa-user-pen mr-1"></i>{o.ekleyen}</span>}
-                        <span className={`text-[10px] font-black ml-auto ${yapildi?'text-emerald-600':(o.bilgi?'text-sky-600':'text-orange-500')}`}>{o.bilgi?(yapildi?'👍 Çocuğunuz okudu':'📢 Bilgilendirme'):(yapildi?'✅ Yapıldı':'⏳ Bekliyor')}</span>
+                        <span className={`text-[10px] font-black ml-auto ${yapildi?'text-emerald-600':(o.bilgi?'text-sky-600':'text-orange-500')}`}>{o.bilgi?(yapildi?'👍 Çocuğunuz okudu':'📢 Bilgilendirme'):(yapildi?'✅ Yapıldı':((o.bitis>0&&o.bitis<Date.now())?'⌛ Teslim süresi geçti':'⏳ Bekliyor'))}</span>
                       </div>
                       <p className="text-slate-700 text-sm whitespace-pre-wrap">{o.detay}</p>
                       <ZEkler db={db} o={o} />
@@ -5032,8 +5032,8 @@ const MesajOgretmen = ({ db, user, mesajlar, ogrenciler }) => {
   const acik = seciliId && grup[seciliId];
   const thread = acik ? grup[seciliId].list.slice().sort((a,b)=>a.ts-b.ts) : [];
   const ac = async (id) => { setSeciliId(id); if(window.ZIRVE_admin===true) return; /* yönetim okuyunca öğretmenin 'okunmadı' bildirimi kaybolmasın */ const ids=new Set(((grup[id]&&grup[id].list)||[]).filter(m=>(m.gonderen==='veli'||m.gonderen==='ogrenci')&&!m.okOgretmen).map(m=>m.id)); if(!ids.size) return; const yeni=(mesajlar||[]).map(m=> ids.has(m.id) ? {...m, okOgretmen:true} : m); await okulYaz(db,"k12_mesajlar",{liste:yeni}); };
-  const gonder = async (ek) => { const _ses=ek&&ek.ses; if((!metin.trim()&&!_ses)||!acik) return; if(_onizleme && !window.confirm('👁️ Yönetici önizlemesindesiniz. Bu mesaj '+_onizleme+' adına veliye gidecek. Gönderilsin mi?')) return; const g=grup[seciliId]; const sahipAd = (_yonetici && g.sahip) ? g.sahip : _benAdi; const yeni=[...(mesajlar||[]), {id:yeniId(), ts:Date.now(), ogrenciId:g.ogrenciId, ogrenciAd:g.ad, sinif:g.sinif, gonderen:'ogretmen', ad:_benAdi, ogretmen:sahipAd, metin:(metin.trim()||'🎤 Sesli mesaj'), okOgretmen:true, okVeli:false, _b:1, ...(g.kanal==='ogrenci'?{kanal:'ogrenci'}:{}), ...(_ses?{ses:_ses}:{})}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ const _m=yeni[yeni.length-1]; zPushOlay({rol:[g.kanal==='ogrenci'?'ogrenci':'veli'], ogrId:g.ogrenciId},{baslik:'💬 '+(_m.ad||'Öğretmen')+' öğretmenden mesaj', govde:_ses?'🎤 Sesli mesaj':_m.metin, etiket:'m'+_m.id}); } if(ok){ setMetin(''); toast(g.kanal==='ogrenci'?'Cevap gönderildi, öğrenciye iletildi.':'Cevap gönderildi, veliye iletildi.','green'); } };
-  const mesajSil = async (id) => { if(!window.confirm('Bu mesaj silinsin mi?')) return; await okulYaz(db,"k12_mesajlar",{liste:(mesajlar||[]).filter(x=>x.id!==id)}); };
+  const gonder = async (ek) => { const _ses=ek&&ek.ses; const _ek=ek&&ek.dosya; if((!metin.trim()&&!_ses&&!_ek)||!acik) return; if(_onizleme && !window.confirm('👁️ Yönetici önizlemesindesiniz. Bu mesaj '+_onizleme+' adına veliye gidecek. Gönderilsin mi?')) return; const g=grup[seciliId]; const sahipAd = (_yonetici && g.sahip) ? g.sahip : _benAdi; const yeni=[...(mesajlar||[]), {id:yeniId(), ts:Date.now(), ogrenciId:g.ogrenciId, ogrenciAd:g.ad, sinif:g.sinif, gonderen:'ogretmen', ad:_benAdi, ogretmen:sahipAd, metin:(metin.trim()||(_ek?zMesajEkEtiket(_ek):'🎤 Sesli mesaj')), okOgretmen:true, okVeli:false, _b:1, ...(g.kanal==='ogrenci'?{kanal:'ogrenci'}:{}), ...(_ses?{ses:_ses}:{}), ...(_ek?{ek:_ek}:{})}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ const _m=yeni[yeni.length-1]; zPushOlay({rol:[g.kanal==='ogrenci'?'ogrenci':'veli'], ogrId:g.ogrenciId},{baslik:'💬 '+(_m.ad||'Öğretmen')+' öğretmenden mesaj', govde:_ses?'🎤 Sesli mesaj':((_ek&&metin.trim())?(zMesajEkEtiket(_ek)+' · '+_m.metin):_m.metin), etiket:'m'+_m.id}); } if(ok){ setMetin(''); toast(g.kanal==='ogrenci'?'Cevap gönderildi, öğrenciye iletildi.':'Cevap gönderildi, veliye iletildi.','green'); } };
+  const mesajSil = async (id) => { if(!window.confirm('Bu mesaj silinsin mi?')) return; const _sm=(mesajlar||[]).find(x=>x.id===id); const ok=await okulYaz(db,"k12_mesajlar",{liste:(mesajlar||[]).filter(x=>x.id!==id)}); if(ok) zMesajEkSil(db,_sm); };
   const sohbetTemizle = async () => { if(!window.confirm('Bu veliyle olan (yalnızca SİZİN) tüm yazışma geçmişi silinsin mi?')) return; const ids=new Set(thread.map(m=>m.id)); await okulYaz(db,"k12_mesajlar",{liste:(mesajlar||[]).filter(x=>!ids.has(x.id))}); setSeciliId(''); };
   const [duzenleId, setDuzenleId] = useState(''); const [duzenleMetin, setDuzenleMetin] = useState('');
   const mesajGuncelle = async () => { if(!duzenleMetin.trim())return; await okulYaz(db,"k12_mesajlar",{liste:(mesajlar||[]).map(x=>x.id===duzenleId?{...x,metin:duzenleMetin.trim(),duzenlendi:true}:x)}); setDuzenleId(''); setDuzenleMetin(''); };
@@ -5059,15 +5059,17 @@ const MesajOgretmen = ({ db, user, mesajlar, ogrenciler }) => {
                 <div className="text-[10px] opacity-70 mb-0.5">{m.ad}</div>
                 {duzenleId===m.id ? <span className="flex gap-1 items-center flex-wrap"><input value={duzenleMetin} onChange={e=>setDuzenleMetin(e.target.value)} className="text-black rounded px-1 py-0.5 text-[12px] flex-1 min-w-[90px]" /><button onClick={mesajGuncelle} className="font-black">✓</button><button onClick={()=>setDuzenleId('')}>✕</button></span> : <>{m.metin}{m.duzenlendi && <span className="text-[9px] opacity-60"> (düzenlendi)</span>}</>}
                 {m.ses && <ZSesOynat db={db} ses={m.ses} />}
+                {m.ek && <ZMesajEkGoster db={db} ek={m.ek} />}
                 {m.gonderen==='ogretmen' && <div className="text-[9.5px] text-right opacity-80 mt-0.5">{m.okVeli?('✓✓ '+(m.kanal==='ogrenci'?'Öğrenci':'Veli')+' gördü'):'✓ Gönderildi'}</div>}
               </div>
             </div>
           ))}
         </div>
-        <div className="flex gap-2">
-          <input value={metin} onChange={e=>setMetin(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')gonder();}} placeholder="Cevap yaz…" className="flex-1 px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none" />
+        <div className="space-y-2">
+          <input value={metin} onChange={e=>setMetin(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')gonder();}} placeholder="Cevap yaz…" className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-[15px] outline-none" />
+          <div className="flex gap-2"><ZMesajEk db={db} onHazir={(dosya)=>gonder({dosya})} />
           <ZSesKaydet db={db} onHazir={(ses)=>gonder({ses})} />
-          <button onClick={()=>gonder()} className="bg-indigo-600 text-white font-black px-4 rounded-lg text-sm">Gönder</button>
+          <button onClick={()=>gonder()} className="bg-indigo-600 text-white font-black px-4 py-2.5 rounded-lg text-[15px] flex-1">Gönder ➤</button></div>
         </div>
       </div>
     );
@@ -5139,8 +5141,8 @@ const MesajVeli = ({ db, cocuk, user, ogrMod }) => {
   if(!cocuk) return null;
   const thread = tumu.filter(m=> secili==='__genel__' ? !sahip[m.id] : (sahip[m.id] && zAyniKisi(sahip[m.id], secili))).sort((a,b)=>a.ts-b.ts);
   const okunmayan = (ad)=> tumu.filter(m=>m.gonderen==='ogretmen' && !m.okVeli && zAyniKisi(sahip[m.id]||'',ad)).length;
-  const gonder = async (ek) => { const _ses=ek&&ek.ses; if(!metin.trim() && !_ses) return; if(!secili || secili==='__genel__') return alert('Önce hangi öğretmene yazdığınızı seçin.'); const yeni=[...mesajlar, {id:yeniId(), ts:Date.now(), ogrenciId:cocuk.id, ogrenciAd:cocuk.ad, sinif:cocuk.sinif, gonderen:BEN, ad:ogrMod?(cocuk.ad||'Öğrenci'):((user&&user.name)||'Veli'), ogretmen:secili, metin:(metin.trim()||'🎤 Sesli mesaj'), okOgretmen:false, okVeli:true, _b:1, ...(ogrMod?{kanal:'ogrenci'}:{}), ...(_ses?{ses:_ses}:{})}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ const _m=yeni[yeni.length-1]; zPushOgretmene(db, secili, '💬 '+(ogrMod?'🧒 ':'👨‍👩‍👧 ')+(_m.ad||'')+' · '+(_m.ogrenciAd||''), _ses?'🎤 Sesli mesaj':_m.metin, 'm'+_m.id); } if(ok){ setMetin(''); setOgrt(secili); toast('✉️ Mesajınız '+secili+' öğretmene iletildi.','green'); } };
-  const mesajSil = async (id) => { if(!window.confirm('Bu mesaj geri alınsın (silinsin) mi?')) return; await okulYaz(db,"k12_mesajlar",{liste:mesajlar.filter(x=>x.id!==id)}); };
+  const gonder = async (ek) => { const _ses=ek&&ek.ses; const _ek=ek&&ek.dosya; if(!metin.trim() && !_ses && !_ek) return; if(!secili || secili==='__genel__') return alert('Önce hangi öğretmene yazdığınızı seçin.'); const yeni=[...mesajlar, {id:yeniId(), ts:Date.now(), ogrenciId:cocuk.id, ogrenciAd:cocuk.ad, sinif:cocuk.sinif, gonderen:BEN, ad:ogrMod?(cocuk.ad||'Öğrenci'):((user&&user.name)||'Veli'), ogretmen:secili, metin:(metin.trim()||(_ek?zMesajEkEtiket(_ek):'🎤 Sesli mesaj')), okOgretmen:false, okVeli:true, _b:1, ...(ogrMod?{kanal:'ogrenci'}:{}), ...(_ses?{ses:_ses}:{}), ...(_ek?{ek:_ek}:{})}]; const ok=await okulYaz(db,"k12_mesajlar",{liste:yeni}); if(ok){ const _m=yeni[yeni.length-1]; zPushOgretmene(db, secili, '💬 '+(ogrMod?'🧒 ':'👨‍👩‍👧 ')+(_m.ad||'')+' · '+(_m.ogrenciAd||''), _ses?'🎤 Sesli mesaj':((_ek&&metin.trim())?(zMesajEkEtiket(_ek)+' · '+_m.metin):_m.metin), 'm'+_m.id); } if(ok){ setMetin(''); setOgrt(secili); toast('✉️ Mesajınız '+secili+' öğretmene iletildi.','green'); } };
+  const mesajSil = async (id) => { if(!window.confirm('Bu mesaj geri alınsın (silinsin) mi?')) return; const _sm=mesajlar.find(x=>x.id===id); const ok=await okulYaz(db,"k12_mesajlar",{liste:mesajlar.filter(x=>x.id!==id)}); if(ok) zMesajEkSil(db,_sm); };
   const sohbetTemizle = async () => { if(!window.confirm('Bu öğretmenle olan yazışma geçmişi silinsin mi?')) return; const ids=new Set(thread.map(m=>m.id)); await okulYaz(db,"k12_mesajlar",{liste:mesajlar.filter(x=>!ids.has(x.id))}); };
   const mesajGuncelle = async () => { if(!duzenleMetin.trim())return; await okulYaz(db,"k12_mesajlar",{liste:mesajlar.map(x=>x.id===duzenleId?{...x,metin:duzenleMetin.trim(),duzenlendi:true}:x)}); setDuzenleId(''); setDuzenleMetin(''); };
   return (
@@ -5173,15 +5175,18 @@ const MesajVeli = ({ db, cocuk, user, ogrMod }) => {
               <div className="text-[10px] opacity-70 mb-0.5">{m.gonderen===BEN?(ogrMod?'Sen':'Siz'):m.ad}</div>
               {duzenleId===m.id ? <span className="flex gap-1 items-center flex-wrap"><input value={duzenleMetin} onChange={e=>setDuzenleMetin(e.target.value)} className="text-black rounded px-1 py-0.5 text-[12px] flex-1 min-w-[90px]" /><button onClick={mesajGuncelle} className="font-black">✓</button><button onClick={()=>{setDuzenleId('');setDuzenleMetin('');}} className="font-black">✕</button></span> : <span className="whitespace-pre-wrap">{m.metin}{m.duzenlendi && <span className="text-[9px] opacity-70"> (düzenlendi)</span>}</span>}
               {m.ses && <ZSesOynat db={db} ses={m.ses} />}
+              {m.ek && <ZMesajEkGoster db={db} ek={m.ek} />}
               {m.gonderen===BEN && <div className="text-[9.5px] text-right opacity-80 mt-0.5">{m.okOgretmen?'✓✓ Görüldü':'✓ Gönderildi'}</div>}
             </div>
           </div>
         ))}
       </div>
-      {secili!=='__genel__' && <div className="flex gap-2">
-        <input value={metin} onChange={e=>setMetin(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')gonder();}} placeholder={secili?(secili+(ogrMod?' öğretmenime yaz…':' öğretmene mesaj yaz…')):'Önce öğretmen seçin'} className="flex-1 px-3 py-2.5 rounded-lg border border-gray-200 text-sm outline-none" />
+      {secili!=='__genel__' && <div className="space-y-2">
+        <input value={metin} onChange={e=>setMetin(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')gonder();}} placeholder={secili?(secili+(ogrMod?' öğretmenime yaz…':' öğretmene mesaj yaz…')):'Önce öğretmen seçin'} className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-[15px] outline-none" />
+        <div className="flex gap-2">
+        <ZMesajEk db={db} onHazir={(dosya)=>gonder({dosya})} />
         <ZSesKaydet db={db} onHazir={(ses)=>gonder({ses})} />
-        <button onClick={()=>gonder()} className="bg-sky-600 text-white font-black px-4 rounded-lg text-sm">Gönder</button>
+        <button onClick={()=>gonder()} className="bg-sky-600 text-white font-black px-4 py-2.5 rounded-lg text-[15px] flex-1">Gönder ➤</button></div>
       </div>}
       {!ogrMod && cocukYazisma.length>0 && <div className="mt-3 border-t border-slate-100 pt-2">
         <button onClick={()=>setCocukAcik(!cocukAcik)} className="w-full flex items-center justify-between text-left text-[12px] font-black text-amber-700 bg-amber-50 rounded-xl px-3 py-2"><span>🧒 {cocuk.ad} öğretmenlerine yazdı ({cocukYazisma.length} mesaj · salt okunur)</span><span>{cocukAcik?'▲':'▼'}</span></button>
@@ -6012,13 +6017,26 @@ const ServisTakip = ({ db, duzenlenebilir }) => {
   return <div className="bg-white border-4 border-teal-200 rounded-[2rem] p-5 shadow-lg mt-6"><h3 className="text-lg font-black text-teal-800 mb-3 flex items-center"><i className="fa-solid fa-van-shuttle text-teal-500 mr-2"></i>Servis Bilgileri</h3>{body}</div>;
 };
 
+/* v63: data: adresleri telefonda (iPhone/Chrome) yeni sekmede AÇILMAZ — blob adresine çevrilip öyle açılır */
+function zDataBlobUrl(data){ try{ const str=String(data); const i=str.indexOf(','); const mime=(str.slice(0,i).match(/data:([^;]+)/)||[])[1]||'application/octet-stream'; const bin=atob(str.slice(i+1)); const u=new Uint8Array(bin.length); for(let j=0;j<bin.length;j++) u[j]=bin.charCodeAt(j); return URL.createObjectURL(new Blob([u],{type:mime})); }catch(e){ return data; } }
+const ZTamEkran = ({ src, onKapat, indirAd }) => (<div className="fixed inset-0 z-[99996] bg-black/90 flex flex-col items-center justify-center p-3" onClick={onKapat}>
+  <img src={src} alt="" className="max-w-full max-h-[80vh] rounded-2xl shadow-2xl" onClick={e=>e.stopPropagation()} />
+  <div className="flex gap-2 mt-3" onClick={e=>e.stopPropagation()}>{indirAd && <a href={src} download={indirAd} className="bg-white text-slate-800 font-black text-[15px] px-5 py-3 rounded-2xl">⬇️ İndir</a>}<button type="button" onClick={onKapat} className="bg-white/20 text-white font-black text-[15px] px-5 py-3 rounded-2xl">✕ Kapat</button></div>
+</div>);
 const OdevResim = ({ db, odevId, tur }) => {
   const doc = useOkulDoc(db, "k12_res_"+odevId);
+  const [buyuk,setBuyuk]=useState(false); const [pdfUrl,setPdfUrl]=useState('');
+  useEffect(()=>()=>{ try{ if(pdfUrl && pdfUrl.indexOf('blob:')===0) URL.revokeObjectURL(pdfUrl); }catch(e){} },[pdfUrl]);
+  if(doc && doc.silindi) return <p className="mt-2 text-[12px] font-bold text-amber-800 bg-amber-50 rounded-xl px-3 py-2">📎 Bu ekin süresi dolduğu için kaldırıldı.</p>;
   const data = doc && doc.data; if(!data) return null;
   const t = tur || doc.tur;
-  if(t==='video') return <video src={data} controls className="rounded-xl max-h-72 border border-slate-200 mt-2 w-full"></video>;
-  if(t==='pdf') return <a href={data} download={"odev-"+odevId+".pdf"} className="inline-flex items-center gap-1 mt-2 bg-rose-50 border border-rose-200 text-rose-700 font-bold px-3 py-1.5 rounded-lg text-[13px]"><i className="fa-solid fa-file-pdf"></i> Öğretmenin eklediği PDF'i aç</a>;
-  return <a href={data} target="_blank" rel="noopener noreferrer" className="block mt-2"><img src={data} className="rounded-xl max-h-72 border border-slate-200" alt="ödev görseli" /></a>;
+  if(t==='video') return <video src={data} controls playsInline className="rounded-xl max-h-72 border border-slate-200 mt-2 w-full"></video>;
+  if(t==='pdf'){ const url=()=>{ const u=pdfUrl||zDataBlobUrl(data); if(!pdfUrl) setPdfUrl(u); return u; };
+    const ac=()=>{ const u=url(); const w=window.open(u,'_blank'); if(!w) location.href=u; };
+    const indir=()=>{ const a=document.createElement('a'); a.href=url(); a.download="odev-"+odevId+".pdf"; document.body.appendChild(a); a.click(); a.remove(); };
+    return (<div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={ac} className="flex items-center justify-center gap-1.5 bg-rose-600 text-white font-black px-3 py-3 rounded-xl text-[14px]"><i className="fa-solid fa-file-pdf"></i> PDF'i aç</button><button type="button" onClick={indir} className="flex items-center justify-center gap-1.5 bg-slate-800 text-white font-black px-3 py-3 rounded-xl text-[14px]">⬇️ İndir</button></div>); }
+  return (<><button type="button" onClick={()=>setBuyuk(true)} className="block mt-2 text-left"><img src={data} className="rounded-xl max-h-72 border border-slate-200" alt="ödev görseli" /><span className="block text-[11px] font-bold text-slate-400 mt-0.5">🔍 Büyütmek için dokunun</span></button>
+    {buyuk && <ZTamEkran src={data} indirAd={"odev-"+odevId+".jpg"} onKapat={()=>setBuyuk(false)} />}</>);
 };
 
 const EGITICI_KAYNAKLAR = {
@@ -7684,7 +7702,85 @@ const ZDurumRozetleri = () => {
     {bil!=='yok' && <button onClick={async()=>{ if(bil==='granted') return; if(bil==='denied'){ alert('Bildirim izni kapalı. Telefon Ayarları → Bildirimler bölümünden bu uygulamaya izin verin.'); return; } try{ await zBildirimIzin(); }catch(e){} setBil(zBildirimDurum()); }} className={p+' '+(bil==='granted'?'bg-emerald-50 text-emerald-700 border-emerald-200':'bg-amber-50 text-amber-700 border-amber-200')}>{bil==='granted'?'🔔 Bildirim açık':'🔕 Bildirim kapalı · aç'}</button>}
   </div>);
 };
-const LOCAL_SURUM = 62;
+
+/* ============================================================================
+   v63 — 📎 MESAJDA FOTOĞRAF · VİDEO · DOSYA (öğretmen ⇄ veli ⇄ öğrenci)
+   Ek, sesli mesajla aynı parçalı depoya yazılır (k12_pvideo_*); mesaja yalnız kimliği eklenir.
+   Fotoğraf küçültülür (1600 px), video gerekirse 480p'ye küçültülür (en fazla 3 dk), dosya 20 MB'a kadar.
+   Mesaj eki 90 gün sonra öğretmen cihazında sessizce boşaltılır (yazı kalır, kota dolmaz).
+   ============================================================================ */
+const ZMESAJ_VID_SN=180, ZMESAJ_EK_GUN=90;
+function zMesajEkEtiket(ek){ if(!ek) return ''; return ek.tur==='foto'?'📷 Fotoğraf':ek.tur==='video'?'🎬 Video':('📎 '+(ek.ad||'Dosya')); }
+function zFotoKucult(file, max, q){ max=max||1600; q=q||0.82; return new Promise(function(ok,no){ try{ var u=URL.createObjectURL(file); var img=new Image(); img.onload=function(){ try{ var s=Math.min(1,max/Math.max(img.width||1,img.height||1)); var c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.width*s)); c.height=Math.max(1,Math.round(img.height*s)); c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(u); c.toBlob(function(b){ b?ok(b):no(new Error('Fotoğraf hazırlanamadı')); },'image/jpeg',q); }catch(e){ no(e); } }; img.onerror=function(){ try{ URL.revokeObjectURL(u); }catch(e){} no(new Error('Fotoğraf açılamadı')); }; img.src=u; }catch(e){ no(e); } }); }
+async function zMesajEkSil(db, m){ try{ if(m && m.ek && m.ek.id) await zVideoBosalt(zVidOku(db), zVidYaz(db), m.ek.id); }catch(e){} }
+async function zMesajEkTemizle(db){ try{ if(!db||!window.FirebaseSDK) return; let yap={}; try{ yap=JSON.parse(localStorage.getItem('zmesajek_temiz')||'{}')||{}; }catch(e){}
+  const md=await zVidOku(db)('k12_mesajlar'); const l=((md&&md.liste)||[]).filter(m=>m&&m.ek&&m.ek.id&&(m.ts||0)<Date.now()-ZMESAJ_EK_GUN*86400000&&!yap[m.ek.id]);
+  for(const m of l.slice(0,20)){ await zVideoBosalt(zVidOku(db), zVidYaz(db), m.ek.id); yap[m.ek.id]=Date.now(); }
+  const ks=Object.keys(yap); if(ks.length>800) ks.sort((a,b)=>yap[a]-yap[b]).slice(0,ks.length-800).forEach(k=>{ delete yap[k]; });
+  try{ localStorage.setItem('zmesajek_temiz',JSON.stringify(yap)); }catch(e){} }catch(e){} }
+const ZMesajEk = ({ db, onHazir }) => {
+  const [acik,setAcik]=useState(false); const [yuk,setYuk]=useState(-1); const [asama,setAsama]=useState(''); const [vid,setVid]=useState(null);
+  const fRef=useRef(null), kRef=useRef(null), vRef=useRef(null), dRef=useRef(null);
+  const yukle=async(blob, bilgi)=>{ setAsama('yukle'); setYuk(0);
+    try{ const id=await zVideoYaz({blob:blob, mime:bilgi.mime, sure:bilgi.sure||0, ad:bilgi.ad||''}, zVidYaz(db), p=>setYuk(p)); const dg=await zVideoDogrula(zVidOku(db),id); if(!dg.ok) throw new Error('eksik');
+      await onHazir({id:id, tur:bilgi.tur, mime:bilgi.mime, ad:String(bilgi.ad||'').slice(0,80), boyut:blob.size||0, ...(bilgi.sure?{sure:Math.round(bilgi.sure)}:{})}); }
+    catch(e){ alert(((e&&e.message)&&e.message!=='eksik'?e.message+'\n\n':'')+'Gönderilemedi. İnternet bağlantısını kontrol edip tekrar deneyin.'); }
+    setYuk(-1); setAsama(''); setVid(null); };
+  const foto=async(f)=>{ setAcik(false); if(!f) return; let b=null; try{ b=await zFotoKucult(f); }catch(e){ b=null; }
+    if(b) return yukle(b,{tur:'foto', mime:'image/jpeg', ad:(f.name||'foto').replace(/\.[^.]+$/,'')+'.jpg'});
+    if(f.size>ZDOSYA_MAX) return alert('Fotoğraf çok büyük ('+zMbYaz(f.size)+').'); return yukle(f,{tur:'dosya', mime:f.type||'image/jpeg', ad:f.name||'foto'}); };
+  const video=async(f)=>{ setAcik(false); if(!f) return; let h=null; try{ h=await zVideoAc(f); }catch(e){ return alert((e&&e.message)||'Video açılamadı.'); }
+    if(h.sure>ZMESAJ_VID_SN+2){ try{ URL.revokeObjectURL(h.url); }catch(e){} return alert('Video en fazla '+Math.round(ZMESAJ_VID_SN/60)+' dakika olabilir (seçilen: '+zSureYaz(h.sure)+'). Daha uzun videolar için YouTube bağlantısı gönderebilirsiniz.'); }
+    if(zVideoDogrudanMi(h)){ try{ URL.revokeObjectURL(h.url); }catch(e){} return yukle(f,{tur:'video', mime:f.type||'video/mp4', sure:h.sure, ad:f.name||'video'}); }
+    setVid(h); };
+  const hazirla=async()=>{ const h=vid; if(!h) return; setAsama('hazirla'); setYuk(0); let r=null;
+    try{ r=await zVideoKucult(h, p=>setYuk(p)); }catch(e){ setYuk(-1); setAsama(''); setVid(null);
+      if(h.file && h.file.size<=ZDOSYA_MAX) { if(window.confirm(((e&&e.message)||'Video küçültülemedi.')+'\n\nVideo olduğu gibi ('+zMbYaz(h.file.size)+') gönderilsin mi?')) return yukle(h.file,{tur:'video', mime:h.file.type||'video/mp4', sure:h.sure, ad:h.file.name||'video'}); return; }
+      return alert((e&&e.message)||'Video hazırlanamadı.'); }
+    return yukle(r.blob,{tur:'video', mime:r.mime, sure:r.sure||h.sure, ad:(h.file&&h.file.name)||'video'}); };
+  const dosya=async(f)=>{ setAcik(false); if(!f) return; if(f.size>ZDOSYA_MAX) return alert('Dosya çok büyük ('+zMbYaz(f.size)+'). En fazla 20 MB olabilir.'); return yukle(f,{tur:/^image\//.test(f.type||'')?'foto':'dosya', mime:f.type||'application/octet-stream', ad:f.name||'dosya'}); };
+  const sec=(ref)=>{ try{ if(ref.current){ ref.current.value=''; ref.current.click(); } }catch(e){} };
+  if(asama) return <span className="shrink-0 text-[12px] font-black text-slate-500 px-2 self-center whitespace-nowrap">{asama==='hazirla'?'🎬 hazırlanıyor':'⏳ gönderiliyor'} %{Math.max(0,yuk)}</span>;
+  return (<>
+    <button type="button" onClick={()=>setAcik(true)} title="Fotoğraf, video ya da dosya gönder" aria-label="Ek gönder" className="shrink-0 bg-white border-2 border-slate-200 text-[18px] px-3 rounded-lg active:scale-95">📎</button>
+    <input ref={fRef} type="file" accept="image/*" className="hidden" onChange={e=>foto(e.target.files&&e.target.files[0])} />
+    <input ref={kRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e=>foto(e.target.files&&e.target.files[0])} />
+    <input ref={vRef} type="file" accept="video/*" className="hidden" onChange={e=>video(e.target.files&&e.target.files[0])} />
+    <input ref={dRef} type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip,.mp3,.m4a,.wav,application/pdf,audio/*,image/*" className="hidden" onChange={e=>dosya(e.target.files&&e.target.files[0])} />
+    {acik && <div className="fixed inset-0 z-[99990] bg-black/40 flex items-end justify-center" onClick={()=>setAcik(false)}>
+      <div className="bg-white w-full max-w-md rounded-t-[2rem] p-4 pb-8 space-y-2" onClick={e=>e.stopPropagation()}>
+        <p className="text-center text-[15px] font-black text-slate-700 mb-1">Ne göndermek istersiniz?</p>
+        <button type="button" onClick={()=>sec(kRef)} className="w-full flex items-center gap-3 bg-sky-50 border-2 border-sky-200 rounded-2xl px-4 py-3.5 text-left"><span className="text-3xl">📸</span><span className="font-black text-[16px] text-slate-800">Fotoğraf çek</span></button>
+        <button type="button" onClick={()=>sec(fRef)} className="w-full flex items-center gap-3 bg-emerald-50 border-2 border-emerald-200 rounded-2xl px-4 py-3.5 text-left"><span className="text-3xl">🖼️</span><span className="font-black text-[16px] text-slate-800">Galeriden fotoğraf</span></button>
+        <button type="button" onClick={()=>sec(vRef)} className="w-full flex items-center gap-3 bg-violet-50 border-2 border-violet-200 rounded-2xl px-4 py-3.5 text-left"><span className="text-3xl">🎬</span><span className="flex-1"><span className="block font-black text-[16px] text-slate-800">Video</span><span className="block text-[12px] text-slate-500">en fazla 3 dakika</span></span></button>
+        <button type="button" onClick={()=>sec(dRef)} className="w-full flex items-center gap-3 bg-amber-50 border-2 border-amber-200 rounded-2xl px-4 py-3.5 text-left"><span className="text-3xl">📄</span><span className="flex-1"><span className="block font-black text-[16px] text-slate-800">Dosya (PDF, Word…)</span><span className="block text-[12px] text-slate-500">en fazla 20 MB</span></span></button>
+        <button type="button" onClick={()=>setAcik(false)} className="w-full bg-slate-100 text-slate-600 font-black text-[15px] py-3 rounded-2xl">Vazgeç</button>
+        <p className="text-[11px] text-slate-400 text-center">🎤 Sesli mesaj için yandaki mikrofon düğmesini kullanın.</p>
+      </div></div>}
+    {vid && <div className="fixed inset-0 z-[99990] bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-sm rounded-[2rem] p-5 text-center">
+        <p className="text-[40px]">🎬</p><p className="text-[17px] font-black text-slate-800">Video gönderime hazırlanacak</p>
+        <p className="text-[13px] text-slate-500 mt-1 leading-snug">Süre {zSureYaz(vid.sure)} · {zMbYaz(vid.file&&vid.file.size)}. Her telefonda oynasın diye küçültülür; bu, video süresi kadar sürer. <b>Bu sırada ekranı kapatmayın.</b></p>
+        <button type="button" onClick={hazirla} className="w-full mt-4 bg-violet-600 text-white font-black text-[16px] py-3.5 rounded-2xl">▶️ Hazırla ve gönder</button>
+        <button type="button" onClick={()=>{ try{ URL.revokeObjectURL(vid.url); }catch(e){} setVid(null); }} className="w-full mt-2 bg-slate-100 text-slate-600 font-black text-[15px] py-3 rounded-2xl">Vazgeç</button>
+      </div></div>}
+  </>);
+};
+const ZMesajEkGoster = ({ db, ek }) => {
+  const [url,setUrl]=useState(''); const [y,setY]=useState(-1); const [hata,setHata]=useState(''); const [buyuk,setBuyuk]=useState(false);
+  const al=async()=>{ setHata(''); setY(0); try{ setUrl(await zVideoBirlestir(zVidOku(db), ek.id, p=>setY(p))); }catch(e){ setHata('Açılamadı (süresi dolmuş olabilir).'); } setY(-1); };
+  useEffect(()=>{ if(ek && ek.id && ek.tur==='foto' && !url) al(); },[ek&&ek.id]);
+  useEffect(()=>()=>{ try{ if(url) URL.revokeObjectURL(url); }catch(e){} },[url]);
+  if(!ek || !ek.id) return null;
+  if(ek.tur==='dosya') return <div className="text-slate-800"><ZDosya db={db} d={{id:ek.id, ad:ek.ad, mime:ek.mime, boyut:ek.boyut}} /></div>;
+  if(hata) return <p className="text-[11px] font-bold opacity-80 mt-1">⚠️ {hata}</p>;
+  if(ek.tur==='foto') return (<div className="mt-1.5">{url ? <button type="button" onClick={()=>setBuyuk(true)} className="block"><img src={url} alt="" className="rounded-xl max-h-56 max-w-full bg-black/10" /></button> : <div className="w-44 h-32 rounded-xl bg-black/10 flex items-center justify-center text-[12px] font-black opacity-80">📷 yükleniyor…</div>}
+    {buyuk && url && <ZTamEkran src={url} indirAd={ek.ad||'foto.jpg'} onKapat={()=>setBuyuk(false)} />}</div>);
+  if(url) return <video src={url} controls autoPlay playsInline className="mt-1.5 w-64 max-w-full max-h-[60vh] rounded-xl bg-black"></video>;
+  return <button type="button" onClick={al} disabled={y>=0} className="mt-1.5 flex items-center gap-2 bg-black/10 rounded-full pl-1 pr-3 py-1 font-black text-[12px]"><span className="w-8 h-8 rounded-full bg-white/90 text-slate-800 flex items-center justify-center">{y>=0?'⏳':'▶️'}</span>{y>=0?('Video yükleniyor %'+y):('🎬 Video'+(ek.sure?(' · '+zSureYaz(ek.sure)):''))}</button>;
+};
+
+const LOCAL_SURUM = 63;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
@@ -8343,7 +8439,7 @@ async function zMedyaTemizle(db){ try{ if(!db||!window.FirebaseSDK) return; cons
   const ks=Object.keys(yap); if(ks.length>800) ks.sort((a,b)=>yap[a]-yap[b]).slice(0,ks.length-800).forEach(k=>{ delete yap[k]; });
   try{ localStorage.setItem('zmedya_temiz',JSON.stringify(yap)); }catch(e){}
 }catch(e){} }
-const ZMedyaBekci = ({ db }) => { useEffect(()=>{ if(!db) return; const t=setTimeout(()=>{ zMedyaTemizle(db); },20000); return ()=>clearTimeout(t); },[db]); return null; };
+const ZMedyaBekci = ({ db }) => { useEffect(()=>{ if(!db) return; const t=setTimeout(()=>{ zMedyaTemizle(db); setTimeout(()=>{ try{ zMesajEkTemizle(db); }catch(e){} },15000); },20000); return ()=>clearTimeout(t); },[db]); return null; };
 /* Yükleme durumu kartı: kaç parça yüklendi, kaç kaldı, sağlıklı gitti mi */
 const ZYuklemeKutu = ({ d, onKapat }) => {
   useEffect(()=>{ if(d && d.asama==='tamam'){ const t=setTimeout(()=>{ try{ onKapat&&onKapat(); }catch(e){} },9000); return ()=>clearTimeout(t); } },[d&&d.asama]);
@@ -8436,7 +8532,9 @@ const ZDosya = ({ db, d }) => {
 /* Bir kaydın bütün ekleri tek yerde (veli · öğrenci · hatırlatma) */
 const ZEkler = ({ db, o }) => {
   if(!o) return null; const aktif=zMedyaAktif(o); const ln=(o.linkler||[]).filter(x=>x&&x.url);
+  const _ekVar=!!(o.resimVar || o.videoId || (o.dosyalar&&o.dosyalar.length));
   return (<>
+    {!aktif && _ekVar && <p className="mt-2 text-[12.5px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 leading-snug">📎 Bu gönderinin eki (fotoğraf / video / dosya) süresi dolduğu için kaldırıldı. Yazılı açıklama yukarıda duruyor; eke ihtiyacınız varsa öğretmeninize mesajla sorabilirsiniz.</p>}
     {o.link && <a href={o.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 mt-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black px-3 py-2.5 rounded-xl text-[13.5px] shadow-sm"><span>🔗</span><span className="flex-1 min-w-0 truncate">{(typeof zLinkBilgi==='function'?zLinkBilgi(o.link).etk:'Bağlantıyı aç')}</span><span className="bg-white text-slate-800 rounded-full px-2.5 py-0.5 text-[11.5px]">Aç ›</span></a>}
     {ln.length>0 && <div className="mt-2"><OzetLinkler linkler={ln} /></div>}
     {aktif && o.resimVar && <OdevResim db={db} odevId={o.id} tur={o.resimTur} />}
