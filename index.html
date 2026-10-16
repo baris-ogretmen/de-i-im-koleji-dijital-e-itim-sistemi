@@ -7834,7 +7834,7 @@ const ZAlmaOgretmen = ({ db, user }) => {
   const gk='k12_alma_'+zBugunKod(); const ad=useOkulDoc(db,gk); const hd=useOkulDoc(db,'k12_haftanin'); const ka=useOkulDoc(db,'k12_kapi_ayar');
   const ben=(user&&user.name)||''; const gorevli=((ka&&ka.gorevliler)||[]).some(n=>zAyniKisi(n,ben)); const yonetici=(typeof zHaftaninYonetim==='function')&&zHaftaninYonetim(user);
   const l=Object.keys(ad||{}).map(id=>({id,...(ad[id]||{})})).filter(x=>x&&typeof x==='object'&&x.durum&&['yolda','kapida','hazir'].indexOf(x.durum)>=0&&(Date.now()-(x.ts||0))<4*3600e3)
-    .filter(x=>gorevli||yonetici||zAyniKisi(zSinifOgretmeni(hd,x.sinif),ben)).sort((a,b)=>(a.durum==='kapida'?0:1)-(b.durum==='kapida'?0:1)||(a.ts||0)-(b.ts||0));
+    .filter(x=>{ const so=zSinifOgretmeni(hd,x.sinif); return gorevli||yonetici||(so?zAyniKisi(so,ben):true); }) /* v65: sınıf öğretmeni atanmamış sınıfta bildirim tüm öğretmenlere gittiği için liste de herkese görünür */.sort((a,b)=>(a.durum==='kapida'?0:1)-(b.durum==='kapida'?0:1)||(a.ts||0)-(b.ts||0));
   if(!l.length) return null;
   const isle=async(x,durum)=>{ const v={}; v[x.id]={...x, durum, ...(durum==='teslim'?{tts:Date.now(), teslimEden:ben}:{hts:Date.now()})}; delete v[x.id].id; const ok=await okulYaz(db,gk,v);
     if(ok){ try{ zPushOlay({rol:['veli'], ogrId:x.id},{baslik:durum==='teslim'?('✅ '+zIlkAd(x.ad)+' teslim edildi'):('👍 '+zIlkAd(x.ad)+' hazırlanıyor'), govde:durum==='teslim'?('İyi akşamlar 🌸 · '+ben):('Öğretmen haber aldı, birazdan kapıda. · '+ben), etiket:'al'+x.id+zBugunKod()}); }catch(e){} } };
@@ -8045,7 +8045,7 @@ const ZGorulmeHatirlat = ({ kayit, hedefler, baslik, govde }) => {
   return <button disabled={bekle} onClick={()=>{ if(!window.confirm(hedefler.length+' veliye tekrar bildirim gönderilsin mi?')) return; try{ zPushOlay({rol:['veli'], ogrIdler:hedefler.map(o=>o.id), sinif:(kayit.sinif==='TÜM OKUL'||kayit.sinif==='hepsi')?'*':kayit.sinif}, {baslik, govde:String(govde||'').slice(0,200), etiket:'g'+kayit.id}); }catch(e){} const t=Date.now(); try{ localStorage.setItem(lk,String(t)); }catch(e){} setSon(t); toast('🔔 '+hedefler.length+' veliye hatırlatma bildirimi gitti.','green'); }} className="w-full mt-1.5 bg-amber-500 text-white font-black text-[12.5px] py-2 rounded-xl disabled:opacity-50">{bekle?'✅ Hatırlatma gönderildi (30 dk sonra tekrar)':('🔔 Görmeyen '+hedefler.length+' veliye tekrar bildirim gönder')}</button>;
 };
 
-const LOCAL_SURUM = 64;
+const LOCAL_SURUM = 65;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
