@@ -174,15 +174,36 @@ html.zarac-gizli:not(.zg-ayar):not(.zarac-admin) #zu-ayar { display:none !import
 </head>
 <body>
 <script>
-  window.addEventListener('error', function(event) {
-    document.body.innerHTML = '<div style="padding:40px; background:#fff3cd; border:5px solid #dc3545; color:#212529; font-family:sans-serif; margin:20px; border-radius:15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index:999999; position:relative;">' +
-      '<h1 style="color:#dc3545; font-size:30px; font-weight:900; margin-top:0;">🚨 BEYAZ EKRAN KALKANI DEVREDE 🚨</h1>' +
-      '<p style="font-size:18px;">Barış Hocam, kodda bir yazım hatası var ve sistem çökmek üzereyken kalkan devreye girdi. Hata tam olarak şu:</p>' +
-      '<div style="background:#212529; color:#00ff00; padding:15px; border-radius:8px; font-family:monospace; margin:15px 0;">' + event.message + '</div>' +
-      '<p style="font-size:16px; font-weight:bold;">Hatalı Satır Numarası: ' + event.lineno + '</p>' +
-      '<p style="font-size:14px; color:#6c757d; margin-top:10px;">Lütfen yukarıdaki yeşil yazılı hata mesajını ve satır numarasını bana gönder, anında o satırı düzeltelim ve bitsin bu iş.</p>' +
-      '</div>';
-  });
+/* v66 🛡️ AKILLI KALKAN — eski kalkan her küçük hatada (ör. "Script error.") bütün uygulamayı silip kırmızı ekran gösteriyordu.
+   Artık: uygulama açıldıysa hataya dokunmaz (kayda alır); yalnız uygulama HİÇ açılamazsa sade bir kurtarma ekranı gösterir ve bir kez kendiliğinden yeniden dener. */
+(function(){
+  var hatalar=[]; window.__zHatalar=hatalar; var ekran=null;
+  function dolu(){ var r=document.getElementById('root'); return !!(r && r.children && r.children.length); }
+  function kapat(){ if(ekran){ try{ ekran.remove(); }catch(e){} ekran=null; } }
+  function temizleYenile(){ try{ if(window.caches&&caches.keys) caches.keys().then(function(k){ k.forEach(function(x){ caches.delete(x); }); }); }catch(e){} try{ sessionStorage.removeItem('zkurtar'); }catch(e){} setTimeout(function(){ location.replace(location.pathname+'?t='+Date.now()+location.hash); },300); }
+  function goster(neden){ if(dolu()||ekran) return;
+    var otomatik=false; try{ if(!sessionStorage.getItem('zkurtar') && hatalar.length){ sessionStorage.setItem('zkurtar','1'); otomatik=true; } }catch(e){}
+    ekran=document.createElement('div'); ekran.id='zkurtar';
+    ekran.style.cssText='position:fixed;inset:0;z-index:2147483000;background:linear-gradient(160deg,#eef2ff,#fdf2f8);display:flex;align-items:center;justify-content:center;padding:20px;font-family:system-ui,-apple-system,sans-serif';
+    ekran.innerHTML='<div style="background:#fff;border-radius:24px;padding:26px 22px;max-width:380px;width:100%;text-align:center;box-shadow:0 20px 50px rgba(79,70,229,.18)">'
+      +'<div style="font-size:52px">'+(otomatik?'🔄':'😊')+'</div><h2 style="margin:6px 0 4px;font-size:21px;color:#312e81">'+(otomatik?'Uygulama yeniden açılıyor…':'Uygulama açılırken takıldı')+'</h2>'
+      +'<p style="color:#64748b;font-size:15px;margin:0 0 16px">'+(otomatik?'Birkaç saniye içinde hazır olacak.':'İnternet yavaş olabilir. Aşağıdaki düğmeyle tekrar deneyin.')+'</p>'
+      +'<button id="zk1" style="width:100%;background:#4f46e5;color:#fff;border:0;border-radius:16px;padding:15px;font-size:17px;font-weight:800;margin-bottom:8px">🔄 Yenile</button>'
+      +'<button id="zk2" style="width:100%;background:#f1f5f9;color:#334155;border:0;border-radius:16px;padding:13px;font-size:15px;font-weight:800">🧹 Temizle ve yenile</button>'
+      +'<details style="margin-top:12px;text-align:left;color:#94a3b8;font-size:11px"><summary>Teknik bilgi</summary>'+(neden||'')+'<br>'+hatalar.slice(-3).map(function(h){ return String(h.m).replace(/</g,'')+' ('+h.l+')'; }).join('<br>')+'</details></div>';
+    document.body.appendChild(ekran);
+    document.getElementById('zk1').onclick=function(){ location.reload(); }; document.getElementById('zk2').onclick=temizleYenile;
+    if(otomatik) setTimeout(function(){ if(!dolu()) location.reload(); },1800);
+  }
+  window.addEventListener('error', function(e){ try{ if(e && e.target && e.target!==window && e.target.tagName){ if(e.target.tagName==='SCRIPT' && !dolu()){ hatalar.push({m:'yüklenemedi: '+String(e.target.src||'').slice(0,80), l:0, t:Date.now()}); setTimeout(function(){ if(!dolu()) goster('Bir dosya yüklenemedi (internet zayıf olabilir)'); },15000); } return; } /* resim/dosya yüklenemedi: önemsiz; betik yüklenemezse ve uygulama açılmadıysa bir kez yeniden dener */
+    hatalar.push({m:(e&&e.message)||'hata', l:(e&&e.lineno)||0, t:Date.now()}); if(hatalar.length>20) hatalar.shift();
+    try{ if(dolu() && window.zHataKaydet && !/^Script error/i.test(String(e.message||''))) window.zHataKaydet(e.error||e.message, 'genel · satır '+(e.lineno||0)); }catch(x){}
+    if(!dolu()) setTimeout(function(){ if(!dolu()) goster('Açılış sırasında hata'); },20000);
+  }catch(x){} }, true);
+  window.addEventListener('unhandledrejection', function(e){ try{ hatalar.push({m:'promise: '+String((e&&e.reason&&(e.reason.message||e.reason))||''), l:0, t:Date.now()}); }catch(x){} });
+  setInterval(function(){ if(dolu()){ kapat(); try{ sessionStorage.removeItem('zkurtar'); }catch(e){} } }, 1500);
+  window.addEventListener('load', function(){ setTimeout(function(){ if(!dolu()) goster('Uygulama 25 sn içinde açılmadı'); },25000); });
+})();
 </script>
 <div id="root"></div>
 
@@ -2616,6 +2637,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
   const okunmamisMesaj = mesajlar.filter(function(m){return (m.gonderen==='veli'||m.gonderen==='ogrenci') && !m.okOgretmen && (zTamYetki() || zAyniKisi(_msSahip[m.id], user&&user.name));}).length;
 
   const [sekme, setSekme] = useState(()=>{ try{ if(location.hash==='#ozetaktar' && zBarisMi(user)) return 'ozetaktar'; }catch(e){} return 'ogrenci'; });
+  useEffect(()=>{ const f=(e)=>{ try{ if(e&&e.detail) setSekme(e.detail); }catch(x){} }; window.addEventListener('zsekme-ac',f); return ()=>window.removeEventListener('zsekme-ac',f); },[]);
   useEffect(()=>{ if(db) zOtoTemizle(db); },[db]);
   const _hoDoc = useOkulDoc(db, "k12_haftanin");
   useEffect(()=>{ (async()=>{ try{
@@ -2656,6 +2678,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
     { k:'velikarne', ad:'Veli Karnesi PDF', ikon:'fa-file-pdf', grup:'deger' },
     { k:'veli',    ad:'Veli İletişim', ikon:'fa-comments', grup:'iletisim' },
     { k:'mesaj',   ad:'Mesajlar', ikon:'fa-inbox', grup:'iletisim' },
+    { k:'gonderdiklerim', ad:'📤 Gönderdiklerim', ikon:'fa-paper-plane', grup:'iletisim' },
     { k:'randevu', ad:'Randevu',    ikon:'fa-calendar-check', grup:'iletisim' },
     { k:'anket',   ad:'Veli Anketi', ikon:'fa-square-poll-vertical', grup:'iletisim' },
     { k:'pano',    ad:'Sınıf Panosu', ikon:'fa-thumbtack', grup:'iletisim' },
@@ -2749,13 +2772,18 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         <ZSubeBekci db={db} />
         <ZBildirimBekci db={db} rol="ogretmen" ad={user&&user.name} />
         <AiDurum db={db} user={user} rol="teacher" />
+        <ZBolumKalkani ad="ust-serit" sessiz={true}>
+        {!yukleniyor && <ZOgretmenOzet db={db} user={user} odevler={odevler} teslimler={teslimler} okunmamis={okunmamisMesaj} setSekme={setSekme} />}
         {!yukleniyor && sekme!=='haftanin' && <HaftaninOyHatirlat db={db} user={user} ogrenciler={ogrenciler} onAc={()=>setSekme('haftanin')} />}
         {!yukleniyor && <ZAlmaOgretmen db={db} user={user} />}
         {!yukleniyor && sekme!=='haftarapor' && <ZHaftaRaporHatirlat db={db} user={user} onAc={()=>setSekme('haftarapor')} />}
+        </ZBolumKalkani>
+        <ZBolumKalkani key={'sk-'+sekme} ad={'öğretmen: '+sekme}>
         {yukleniyor && <div className="text-center text-slate-400 py-8"><i className="fa-solid fa-spinner fa-spin text-2xl mb-2"></i><p className="text-sm font-bold">Veritabanı yükleniyor…</p></div>}
         {!yukleniyor && sekme==='ogrenci' && <OgretmenDashboard db={db} ogrenciler={ogrenciler} odevler={odevler} teslimler={teslimler} mesajlar={zTamYetki()?mesajlar:mesajlar.filter(m=>zAyniKisi(_msSahip[m.id], user&&user.name))} />}
         {!yukleniyor && sekme==='ogrenci' && <OgrenciYonetim db={db} ogrenciler={ogrenciler} teslimler={teslimler} />}
         {!yukleniyor && sekme==='odev'    && <OdevAta db={db} user={user} ogrenciler={ogrenciler} odevler={odevler} apiKey={apiKey} modelName={modelName} />}
+        {!yukleniyor && sekme==='teslim'  && <ZTeslimAkisi db={db} odevler={zTamYetki()?odevler:odevler.filter(o=>zAyniKisi(o.ekleyen,user&&user.name))} teslimler={teslimler} ogrenciler={ogrenciler} />}
         {!yukleniyor && sekme==='teslim'  && <TeslimTakip db={db} odevler={zTamYetki()?odevler:odevler.filter(o=>zAyniKisi(o.ekleyen,user&&user.name))} teslimler={teslimler} ogrenciler={ogrenciler} />}
         {!yukleniyor && sekme==='dna'     && <DnaYonetim db={db} ogrenciler={ogrenciler} apiKey={apiKey} modelName={modelName} />}
         {!yukleniyor && sekme==='rozet'   && <RozetSiralama db={db} ogrenciler={ogrenciler} />}
@@ -2806,6 +2834,8 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='yemek'   && <YemekListesi db={db} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='servis'  && <ServisTakip db={db} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='duyuru'  && <DuyuruYonetim db={db} user={user} duyurular={duyurular} />}
+        {!yukleniyor && sekme==='gonderdiklerim' && <ZGonderdiklerim db={db} user={user} ogrenciler={ogrenciler} />}
+        </ZBolumKalkani>
       </div>
       <ZAltMenu ogeler={ALT_OGE} aktif={ALT_OGE.some(x=>x.k===sekme)?sekme:'__tum'} onSec={altSec} />
       {tumAcik && <ZTumAraclar aktif={sekme} sekmeler={sekmeler.filter(x=>x.k!=='ozetaktar'||zBarisMi(user))} gruplar={gruplar} onKapat={()=>setTumAcik(false)} onSec={(k)=>{ setTumAcik(false); setSekme(k); merkezeGit(); }} />}
@@ -3132,6 +3162,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
         {yonetici && <button onClick={()=>setHepsiniGor(!hepsiniGor)} className="text-[10px] font-black px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-700">{hepsiniGor?'👤 Sadece benimkiler':'🛡️ Tümünü gör (yönetici)'}</button>}
       </div>
       <p className="text-[10px] text-slate-400 mb-2">🔒 Her öğretmen yalnızca kendi gönderdiklerini görür.</p>
+      <button onClick={()=>{ try{ window.dispatchEvent(new CustomEvent('zsekme-ac',{detail:'gonderdiklerim'})); }catch(e){} }} className="w-full mb-2 bg-indigo-50 border-2 border-indigo-200 text-indigo-700 font-black text-[13px] py-2.5 rounded-xl">📤 Tüm gönderdiklerim — özetler, Ders Programım, duyurular · kim gördü</button>
       {gecmis.length===0 ? <p className="text-center text-slate-400 py-4 text-sm">Henüz ödev atanmadı.</p> : (
         <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
           {gecmis.map(o=> (duzenle && duzenle.id===o.id) ? (
@@ -3616,7 +3647,7 @@ const OgrenciMerkezi = ({ db, user }) => {
                   </div>
                   <p className="text-slate-800 font-medium whitespace-pre-wrap leading-relaxed text-sm">{o.detay}</p>
                   <div className="mt-1"><AIBtn metin={o.detay} kucuk={true} /></div>
-                  <ZEkler db={db} o={o} />
+                  <ZEkler db={db} o={o} kim={{ogr:ben, rol:'ogrenci'}} />
                   <ZGor db={db} kayit={o} ogr={ben} rol="ogrenci" />
                   {ben && !yapildi && o.bilgi && <button onClick={()=>okudum(o)} className="mt-3 w-full bg-sky-500 hover:bg-sky-600 text-white font-black py-2.5 rounded-xl text-sm">👍 Okudum</button>}
                   {ben && !yapildi && !o.bilgi && (() => {
@@ -3850,7 +3881,7 @@ const VeliMerkezi = ({ db, user }) => {
                         <span className={`text-[10px] font-black ml-auto ${yapildi?'text-emerald-600':(o.bilgi?'text-sky-600':'text-orange-500')}`}>{o.bilgi?(yapildi?'👍 Çocuğunuz okudu':'📢 Bilgilendirme'):(yapildi?'✅ Yapıldı':((o.sonTeslim && o.sonTeslim<zYerelTarih())?'⌛ Teslim süresi geçti':(o.sonTeslim?('⏳ Son gün: '+o.sonTeslim.split('-').reverse().slice(0,2).join('.')):'⏳ Bekliyor')))}</span>
                       </div>
                       <p className="text-slate-700 text-sm whitespace-pre-wrap">{o.detay}</p>
-                      <ZEkler db={db} o={o} />
+                      <ZEkler db={db} o={o} kim={{ogr:cocuk, rol:'veli'}} />
                       <ZGor db={db} kayit={o} ogr={cocuk} rol="veli" />
                     </div>
                   );
@@ -5076,6 +5107,7 @@ const MesajOgretmen = ({ db, user, mesajlar, ogrenciler }) => {
           ))}
         </div>
         <div className="space-y-2">
+          <ZHizliCevap setMetin={setMetin} />
           <input value={metin} onChange={e=>setMetin(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')gonder();}} placeholder="Cevap yaz…" className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-[15px] outline-none" />
           <div className="flex gap-2"><ZMesajEk db={db} onHazir={(dosya)=>gonder({dosya})} />
           <ZSesKaydet db={db} onHazir={(ses)=>gonder({ses})} />
@@ -7218,9 +7250,9 @@ const OgretmenDashboard = ({ db, ogrenciler, odevler, teslimler, mesajlar }) => 
 };
 
 const TeslimResim = ({ db, teslimId }) => {
-  const doc = useOkulDoc(db, "k12_tres_"+teslimId);
+  const doc = useOkulDoc(db, "k12_tres_"+teslimId); const [buyuk,setBuyuk]=useState(false);
   const data = doc && doc.data; if(!data) return null;
-  return <a href={data} target="_blank" rel="noopener noreferrer" className="inline-block mt-1"><img src={data} className="rounded-lg max-h-56 border border-emerald-200" alt="teslim fotoğrafı" /></a>;
+  return <><button type="button" onClick={()=>setBuyuk(true)} className="inline-block mt-1"><img src={data} className="rounded-lg max-h-56 border border-emerald-200" alt="teslim fotoğrafı" /></button>{buyuk && <ZTamEkran src={data} indirAd={'teslim-'+teslimId+'.jpg'} onKapat={()=>setBuyuk(false)} />}</>;
 };
 
 
@@ -8045,7 +8077,145 @@ const ZGorulmeHatirlat = ({ kayit, hedefler, baslik, govde }) => {
   return <button disabled={bekle} onClick={()=>{ if(!window.confirm(hedefler.length+' veliye tekrar bildirim gönderilsin mi?')) return; try{ zPushOlay({rol:['veli'], ogrIdler:hedefler.map(o=>o.id), sinif:(kayit.sinif==='TÜM OKUL'||kayit.sinif==='hepsi')?'*':kayit.sinif}, {baslik, govde:String(govde||'').slice(0,200), etiket:'g'+kayit.id}); }catch(e){} const t=Date.now(); try{ localStorage.setItem(lk,String(t)); }catch(e){} setSon(t); toast('🔔 '+hedefler.length+' veliye hatırlatma bildirimi gitti.','green'); }} className="w-full mt-1.5 bg-amber-500 text-white font-black text-[12.5px] py-2 rounded-xl disabled:opacity-50">{bekle?'✅ Hatırlatma gönderildi (30 dk sonra tekrar)':('🔔 Görmeyen '+hedefler.length+' veliye tekrar bildirim gönder')}</button>;
 };
 
-const LOCAL_SURUM = 65;
+
+/* ============================================================================
+   v66 — 🛡️ KALKAN + 📤 GÖNDERDİKLERİM MERKEZİ + 📥 TESLİM AKIŞI + 👁️ NET GÖRÜLDÜ
+   ============================================================================ */
+/* 🩺 Hata kaydı: telefonda bir bölüm bozulursa Yönetim'de görünsün (cihaz başına oturumda en fazla 5 kayıt) */
+let _zHataSay=0;
+function zHataKaydet(hata, yer){ try{ if(_zHataSay>=5) return; const db=window.__zDb; if(!db||!window.FirebaseSDK) return; _zHataSay++; const {doc,setDoc}=window.FirebaseSDK;
+  const ua=navigator.userAgent||''; const cihaz=(/iPhone|iPad/.test(ua)?('iPhone/iPad iOS '+((ua.match(/OS (\d+[_\d]*)/)||[])[1]||'').replace(/_/g,'.')):/Android/.test(ua)?('Android '+((ua.match(/Android ([\d.]+)/)||[])[1]||'')):'Bilgisayar')+(/CriOS|Chrome/.test(ua)?' · Chrome':/Safari/.test(ua)?' · Safari':'');
+  const id='h'+Date.now().toString(36)+Math.random().toString(36).slice(2,5); const v={}; v[id]={ts:Date.now(), mesaj:String((hata&&(hata.message||hata))||'bilinmiyor').slice(0,300), yer:String(yer||'').slice(0,80), kim:String(window.__zKim||'').slice(0,60), cihaz, surum:(typeof LOCAL_SURUM!=='undefined'?LOCAL_SURUM:'')};
+  setDoc(doc(db,'maas_config','k12_hata'),v,{merge:true}).catch(()=>{}); }catch(e){} }
+window.zHataKaydet=zHataKaydet;
+/* 🛡️ Bölüm kalkanı: bir kart/bölüm bozulsa bile uygulamanın geri kalanı çalışmaya devam eder */
+class ZBolumKalkani extends React.Component {
+  constructor(p){ super(p); this.state={hata:null, deneme:0}; }
+  static getDerivedStateFromError(e){ return {hata:e}; }
+  componentDidCatch(e){ zHataKaydet(e, 'bölüm: '+(this.props.ad||'')); if(this.state.deneme<1) setTimeout(()=>this.setState(s=>({hata:null, deneme:s.deneme+1})),400); }
+  render(){ if(!this.state.hata) return this.props.children;
+    if(this.props.sessiz) return null;
+    return (<div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-3 my-2 text-center"><p className="text-[14px] font-black text-amber-800">😕 Bu bölüm şu an açılamadı</p><p className="text-[12px] text-amber-700">Uygulamanın geri kalanı çalışıyor.</p><button onClick={()=>this.setState({hata:null})} className="mt-2 bg-amber-500 text-white font-black text-[13px] px-4 py-2 rounded-xl">🔄 Tekrar dene</button></div>); }
+}
+const ZHataKayitlari = ({ db }) => {
+  const d=useOkulDoc(db,'k12_hata'); const l=Object.keys(d||{}).map(k=>({id:k,...(d[k]||{})})).filter(x=>x&&x.ts).sort((a,b)=>b.ts-a.ts).slice(0,40);
+  const temizle=async()=>{ if(!window.confirm('Hata kayıtları temizlensin mi?')) return; try{ const {doc,setDoc}=window.FirebaseSDK; await setDoc(doc(db,'maas_config','k12_hata'),{temizlendi:Date.now()}); toast('🧹 Temizlendi.','green'); }catch(e){} };
+  return (<div>{!l.length ? <p className="text-[13px] font-bold text-emerald-700">✅ Kayıtlı hata yok — herkeste sorunsuz çalışıyor.</p> : <>
+    <p className="text-[12px] text-slate-500 mb-2">Telefonlarda bir bölüm açılamazsa buraya düşer; uygulama yine de çalışmaya devam eder. Bana ekran görüntüsünü atarsanız düzeltirim.</p>
+    <div className="space-y-1.5 max-h-72 overflow-auto">{l.map(x=>(<div key={x.id} className="bg-slate-50 rounded-xl px-3 py-2 text-[12px]"><p className="font-black text-slate-700">{new Date(x.ts).toLocaleString('tr-TR')} · v{x.surum} · {x.cihaz}</p><p className="text-rose-600 font-bold break-words">{x.mesaj}</p><p className="text-slate-400">{x.yer}{x.kim?(' · '+x.kim):''}</p></div>))}</div>
+    <button onClick={temizle} className="mt-2 w-full bg-slate-200 text-slate-700 font-black text-[13px] py-2.5 rounded-xl">🧹 Kayıtları temizle</button></>}</div>);
+};
+
+/* 👁️ Açtı / izledi kaydı (video, PDF, dosya) */
+async function zAcildiYaz(db,kayit,kim){ try{ if(!db||!kayit||!kayit.id||!kim||!kim.ogr||!kim.ogr.id||window.ZIRVE_admin===true||!window.FirebaseSDK) return; const k='zacti_'+kim.rol+'_'+kim.ogr.id+'_'+kayit.id; try{ if(localStorage.getItem(k)) return; localStorage.setItem(k,'1'); }catch(e){}
+  const {doc,setDoc}=window.FirebaseSDK; const w={}; w[kayit.id]={[(kim.rol==='veli'?'av_':'ao_')+kim.ogr.id]:Date.now()}; await setDoc(doc(db,'maas_config','k12_goruldu_'+zGorAy(kayit)),w,{merge:true}); }catch(e){} }
+
+/* 👁️ Kim gördü — net, büyük, yeşil tikli liste */
+const ZGorulmeListesi = ({ hedef, m, medyaVar, waMesaj }) => {
+  const sirali=hedef.slice().sort((a,b)=>(!!m['v_'+a.id])-(!!m['v_'+b.id])||String(a.ad).localeCompare(String(b.ad),'tr'));
+  const tik=(ts,et)=>ts?<span className="inline-flex items-center gap-1 bg-emerald-500 text-white font-black text-[11px] px-2 py-0.5 rounded-full" title={new Date(ts).toLocaleString('tr-TR')}>✓ {et} <span className="opacity-80 font-bold">{zSaatYaz(ts)}</span></span>:<span className="inline-flex items-center bg-slate-100 text-slate-400 font-bold text-[11px] px-2 py-0.5 rounded-full">— {et}</span>;
+  return (<div className="space-y-1">{sirali.map(o=>(<div key={o.id} className={'flex items-center gap-1.5 flex-wrap rounded-xl px-2 py-1.5 '+(m['v_'+o.id]?'bg-emerald-50':'bg-white')}>
+    <span className="flex-1 min-w-[90px] text-[13px] font-black text-slate-700 truncate">{o.ad}</span>
+    {tik(m['v_'+o.id],'Veli')}{tik(m['o_'+o.id],'Öğrenci')}
+    {medyaVar && (m['av_'+o.id]||m['ao_'+o.id]) && <span className="inline-flex items-center bg-violet-500 text-white font-black text-[11px] px-2 py-0.5 rounded-full">🎬 açtı</span>}
+    {waMesaj && !m['v_'+o.id] && (typeof zTel==='function') && zTel(o.veliTel) && <a href={'https://wa.me/'+zTel(o.veliTel)+'?text='+encodeURIComponent(waMesaj)} target="_blank" rel="noopener noreferrer" className="shrink-0 bg-emerald-500 text-white font-black text-[11px] px-2 py-0.5 rounded-full">📱</a>}
+  </div>))}</div>);
+};
+
+/* 📤 GÖNDERDİKLERİM MERKEZİ — ödev, hatırlatma, özet (Ders Programım dahil), duyuru, 5 soru tek yerde */
+function zGonTur(x){ if(x.__k==='odev') return x.bilgi?{i:'📢',t:'Hatırlatma',r:'bg-sky-100 text-sky-700'}:{i:'📝',t:'Ödev',r:'bg-orange-100 text-orange-700'}; if(x.__k==='duyuru') return {i:'📣',t:'Duyuru',r:'bg-indigo-100 text-indigo-700'}; if(x.__k==='quiz') return {i:'❓',t:'5 Soru',r:'bg-violet-100 text-violet-700'};
+  if(x.robotik||/^dp/.test(String(x.id||''))) return {i:'🎮',t:'Ders Programım',r:'bg-emerald-100 text-emerald-700'}; return {i:'📰',t:'Özet',r:'bg-fuchsia-100 text-fuchsia-700'}; }
+const ZGonKart = ({ db, x, ogrenciler, onSil }) => {
+  const [acik,setAcik]=useState(false); const g=useOkulDoc(db,'k12_goruldu_'+zGorAy({tarih:x.__ts})); const T=zGonTur(x);
+  const kayit={...x, tarih:x.__ts, sinif:(x.sinif==='hepsi'?'TÜM OKUL':x.sinif)};
+  const hedef=x.__k==='quiz'?[]:x.tur==='birey'?(ogrenciler||[]).filter(o=>o.id===x.ogrenciId):(ogrenciler||[]).filter(o=>o&&(kayit.sinif==='TÜM OKUL'||o.sinif===kayit.sinif)&&zSubeUyar(x,o));
+  const m=(g&&g[x.id])||{}; const v=hedef.filter(o=>m['v_'+o.id]).length, s=hedef.filter(o=>m['o_'+o.id]).length; const yuzde=hedef.length?Math.round(v/hedef.length*100):0;
+  const baslik=(x.kart&&x.kart.baslik)||(x.__k==='odev'?((x.ders||'')+(x.konu?(' · '+x.konu):'')):x.__k==='quiz'?((x.ders||'')+' · 5 soru'):String(x.metin||'').split('\n')[0]);
+  const medyaVar=!!(x.videoId||x.resimVar||(x.dosyalar&&x.dosyalar.length));
+  return (<div className="bg-white border border-slate-200 rounded-2xl p-3">
+    <div className="flex items-start gap-2"><span className={'shrink-0 text-[11px] font-black px-2 py-1 rounded-full '+T.r}>{T.i} {T.t}</span>
+      <div className="flex-1 min-w-0"><p className="text-[14px] font-black text-slate-800 truncate">{baslik||'—'}</p><p className="text-[11.5px] text-slate-500">{x.tur==='birey'?('👤 '+(x.ogrenciAd||'')):('👥 '+(x.sinif==='hepsi'?'Tüm okul':x.sinif))}{x.sube?(' '+x.sube):''} · {new Date(x.__ts).toLocaleString('tr-TR',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}{(x.bitis>0&&x.bitis<Date.now())?' · ⌛ süresi doldu':''}</p></div>
+      {onSil && <button onClick={()=>onSil(x)} className="shrink-0 text-slate-300 hover:text-rose-500 px-1 text-[15px]" title="Sil">🗑️</button>}</div>
+    {hedef.length>0 && <button onClick={()=>setAcik(!acik)} className="w-full mt-2 text-left">
+      <div className="flex items-center gap-2 text-[12.5px] font-black"><span className={v===hedef.length?'text-emerald-700':'text-slate-700'}>👁️ Veli {v}/{hedef.length}</span><span className="text-slate-500">· Öğrenci {s}/{hedef.length}</span><span className="ml-auto text-indigo-600">{acik?'Gizle ▲':'Kim gördü ▼'}</span></div>
+      <div className="h-2 bg-slate-100 rounded-full overflow-hidden mt-1"><div className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600" style={{width:yuzde+'%'}}></div></div></button>}
+    {acik && <div className="mt-2"><ZGorulmeListesi hedef={hedef} m={m} medyaVar={medyaVar} />
+      <ZGorulmeHatirlat kayit={kayit} hedefler={hedef.filter(o=>!m['v_'+o.id])} baslik={x.__k==='duyuru'?('📢 Okunmamış duyuru · '+(x.ekleyen||'Okul')):('🔔 Hatırlatma · '+(baslik||'').slice(0,60))} govde={x.metin||x.detay||x.konu||''} /></div>}
+  </div>);
+};
+const ZGonderdiklerim = ({ db, user, ogrenciler }) => {
+  const od=useOkulDoc(db,'k12_odevler'), pd=useOkulDoc(db,'k12_pano'), dd=useOkulDoc(db,'k12_duyuru'), qd=useOkulDoc(db,'k12_quiz');
+  const ben=(user&&user.name)||''; const yon=zBarisMi(user)||(typeof zTamYetki==='function'&&zTamYetki()); const [hepsi,setHepsi]=useState(false); const [filtre,setFiltre]=useState('hepsi'); const [sinif,setSinif]=useState(''); const [say,setSay]=useState(20);
+  const benimMi=(ad)=>hepsi||zAyniKisi(ad||'',ben);
+  const tum=[].concat(((od&&od.liste)||[]).filter(x=>x&&benimMi(x.ekleyen)).map(x=>({...x,__k:'odev',__ts:x.tarih||0})),
+    ((pd&&pd.liste)||[]).filter(x=>x&&benimMi(x.ogretmen)).map(x=>({...x,__k:'pano',__ts:x.ts||0})),
+    ((dd&&dd.liste)||[]).filter(x=>x&&benimMi(x.ekleyen)).map(x=>({...x,__k:'duyuru',__ts:x.tarih||0})),
+    ((qd&&qd.liste)||[]).filter(x=>x&&benimMi(x.ogretmen)).map(x=>({...x,__k:'quiz',__ts:x.ts||0})))
+    .filter(x=>filtre==='hepsi'||(filtre==='odev'&&x.__k==='odev')||(filtre==='ozet'&&x.__k==='pano')||(filtre==='dp'&&x.__k==='pano'&&(x.robotik||/^dp/.test(String(x.id))))||(filtre==='duyuru'&&x.__k==='duyuru')||(filtre==='quiz'&&x.__k==='quiz'))
+    .filter(x=>!sinif||x.sinif===sinif).sort((a,b)=>b.__ts-a.__ts);
+  const sil=async(x)=>{ if(!window.confirm('“'+String((x.kart&&x.kart.baslik)||x.konu||x.metin||'').slice(0,50)+'” silinsin mi? (Veli ve öğrenci ekranından da kalkar)')) return;
+    const belge=x.__k==='odev'?'k12_odevler':x.__k==='pano'?'k12_pano':x.__k==='duyuru'?'k12_duyuru':'k12_quiz'; const kaynak=x.__k==='odev'?od:x.__k==='pano'?pd:x.__k==='duyuru'?dd:qd;
+    const ok=await okulYaz(db,belge,{liste:((kaynak&&kaynak.liste)||[]).filter(y=>y&&y.id!==x.id)}); if(ok) toast('🗑️ Silindi.','green'); };
+  const siniflar=zSiniflar(ogrenciler||[]);
+  const ch=(k,t)=><button key={k} onClick={()=>{ setFiltre(k); setSay(20); }} className={'shrink-0 px-3 py-2 rounded-full text-[13px] font-black '+(filtre===k?'bg-indigo-600 text-white':'bg-slate-100 text-slate-600')}>{t}</button>;
+  return (<div className="space-y-3">
+    <div className="bg-gradient-to-br from-indigo-600 to-sky-600 text-white rounded-2xl p-4"><p className="text-[18px] font-black">📤 Gönderdiklerim</p><p className="text-[12.5px] opacity-90">Ödev, hatırlatma, özet, Ders Programım’dan gelenler, duyuru ve 5 soru tek yerde. Her birinde kimin gördüğünü yeşil tiklerle görürsünüz.</p></div>
+    <div className="flex gap-1.5 overflow-x-auto pb-1">{ch('hepsi','Tümü')}{ch('odev','📝 Ödev')}{ch('ozet','📰 Özet')}{ch('dp','🎮 Ders Programım')}{ch('duyuru','📣 Duyuru')}{ch('quiz','❓ 5 Soru')}</div>
+    <div className="flex gap-2"><select value={sinif} onChange={e=>setSinif(e.target.value)} className="flex-1 px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[15px] font-bold"><option value="">Bütün sınıflar</option>{siniflar.map(s=><option key={s}>{s}</option>)}</select>
+      {yon && <button onClick={()=>setHepsi(!hepsi)} className={'px-3 rounded-xl text-[12px] font-black '+(hepsi?'bg-amber-500 text-white':'bg-slate-100 text-slate-600')}>{hepsi?'🛡️ Herkesinki':'👤 Benimkiler'}</button>}</div>
+    {!tum.length ? <p className="text-center text-slate-400 py-6 text-[14px]">Bu seçimde gönderi yok.</p> : <div className="space-y-2">{tum.slice(0,say).map(x=>(<ZGonKart key={x.__k+x.id} db={db} x={x} ogrenciler={ogrenciler} onSil={sil} />))}</div>}
+    {tum.length>say && <button onClick={()=>setSay(say+20)} className="w-full bg-white border border-slate-200 text-indigo-700 font-black text-[14px] py-3 rounded-2xl">▼ Daha fazla ({tum.length-say})</button>}
+  </div>);
+};
+
+/* 📥 TESLİM AKIŞI — gelen teslimler en yeni üstte, "yeni" rozetli, fotoğraflı, tek dokunuşla yıldız */
+function zTeslimSonBakis(){ try{ return Number(localStorage.getItem('zteslim_bakis')||0); }catch(e){ return 0; } }
+const ZTeslimAkisi = ({ db, odevler, teslimler, ogrenciler }) => {
+  const [son]=useState(zTeslimSonBakis); const [acikFoto,setAcikFoto]=useState(''); const [say,setSay]=useState(15); const [verildi,setVerildi]=useState({});
+  useEffect(()=>{ try{ localStorage.setItem('zteslim_bakis',String(Date.now())); window.dispatchEvent(new Event('zteslim-bakis')); }catch(e){} },[]);
+  const om={}; (odevler||[]).forEach(o=>{ if(o) om[o.id]=o; });
+  const l=(teslimler||[]).filter(t=>t&&om[t.odevId]&&t.durum==='yapildi').sort((a,b)=>(b.tarih||0)-(a.tarih||0));
+  const yeni=l.filter(t=>(t.tarih||0)>son).length;
+  const yildiz=async(t)=>{ const ok=await okulYaz(db,'k12_ogrenciler',{liste:(ogrenciler||[]).map(x=>x.id===t.ogrenciId?zYildizEkle(x,5,'✅ Ödev teslimi ('+((om[t.odevId]||{}).ders||'')+')','','teslim'):x)}); if(ok){ setVerildi({...verildi,[t.id]:1}); toast('⭐ +5 yıldız verildi','green'); try{ zPushOlay({rol:['ogrenci','veli'], ogrId:t.ogrenciId},{baslik:'⭐ Ödevine +5 yıldız!', govde:((om[t.odevId]||{}).ders||'Ödev')+' · Aferin 👏', etiket:'ty'+t.id}); }catch(e){} } };
+  if(!l.length) return null;
+  return (<div className="bg-white border-2 border-emerald-200 rounded-2xl p-3 mb-4">
+    <p className="text-[16px] font-black text-emerald-800">📥 Gelen teslimler {yeni>0 && <span className="ml-1 bg-rose-500 text-white text-[11px] font-black px-2 py-0.5 rounded-full">{yeni} yeni</span>}</p>
+    <p className="text-[12px] text-slate-500 mb-2">Öğrencilerin teslim ettikleri, en yenisi üstte. Bildirimle gelen teslimleri burada görürsünüz.</p>
+    <div className="space-y-2">{l.slice(0,say).map(t=>{ const o=om[t.odevId]; const y=(t.tarih||0)>son; return (<div key={t.id} className={'rounded-xl p-2.5 border '+(y?'bg-emerald-50 border-emerald-300':'bg-slate-50 border-slate-200')}>
+      <div className="flex items-start gap-2"><span className="text-xl">{y?'🆕':'✅'}</span><div className="flex-1 min-w-0"><p className="text-[14px] font-black text-slate-800">{t.ogrenciAd} <span className="text-[12px] font-bold text-slate-400">{zOnceKisa(t.tarih)}</span></p><p className="text-[12px] font-bold text-slate-500 truncate">{o.ders}{o.konu?(' · '+o.konu):''} · {o.tur==='birey'?'özel':o.sinif}</p>
+        {t.mesaj && <p className="text-[13.5px] text-slate-700 mt-1 whitespace-pre-wrap">{t.mesaj}</p>}
+        {t.resimVar && (acikFoto===t.id ? <TeslimResim db={db} teslimId={t.id} /> : <button onClick={()=>setAcikFoto(t.id)} className="mt-1 text-[12.5px] font-black text-sky-700">📷 Fotoğrafı gör</button>)}</div>
+        <button disabled={!!verildi[t.id]} onClick={()=>yildiz(t)} className="shrink-0 bg-amber-400 text-amber-950 font-black text-[12px] px-2.5 py-1.5 rounded-lg disabled:opacity-50">{verildi[t.id]?'⭐ verildi':'⭐ +5'}</button></div>
+    </div>); })}</div>
+    {l.length>say && <button onClick={()=>setSay(say+15)} className="w-full mt-2 text-[13px] font-black text-emerald-700 py-2">▼ Daha fazla</button>}
+  </div>);
+};
+
+/* 🏁 Öğretmen "Bugün" şeridi — tek bakışta ne bekliyor */
+const ZOgretmenOzet = ({ db, user, odevler, teslimler, okunmamis, setSekme }) => {
+  const yd=useOkulDoc(db,'k12_yoklama'), rd=useOkulDoc(db,'k12_randevu'); const [son,setSon]=useState(zTeslimSonBakis);
+  useEffect(()=>{ const f=()=>setSon(zTeslimSonBakis()); window.addEventListener('zteslim-bakis',f); return ()=>window.removeEventListener('zteslim-bakis',f); },[]);
+  const ben=(user&&user.name)||''; const benimO={}; (odevler||[]).forEach(o=>{ if(o&&(typeof zTamYetki==='function'&&zTamYetki()||zAyniKisi(o.ekleyen,ben))) benimO[o.id]=1; });
+  const yeniT=(teslimler||[]).filter(t=>t&&benimO[t.odevId]&&t.durum==='yapildi'&&(t.tarih||0)>son).length;
+  const bugun=new Date().toISOString().slice(0,10); const gelmeyen=new Set(((yd&&yd.liste)||[]).filter(r=>r&&r.tarih===bugun&&r.durum==='gelmedi').map(r=>r.ogrenciId)).size;
+  const randevu=((rd&&rd.liste)||[]).filter(r=>r&&r.tarih===zYerelTarih()&&(r.durum==='dolu'||r.durum==='talep')&&zAyniKisi(r.ogretmenAd,ben)).length;
+  const c=(i,t,n,k,renk)=><button key={k} onClick={()=>setSekme(k)} className={'shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-2xl font-black text-[13px] border-2 '+(n>0?renk:'bg-white border-slate-200 text-slate-500')}>{i} {t}{n>0 && <span className="bg-white/80 text-slate-800 rounded-full px-1.5 text-[11px]">{n}</span>}</button>;
+  return (<div className="flex gap-1.5 overflow-x-auto pb-2 mb-1">
+    {c('📥','Yeni teslim',yeniT,'teslim','bg-emerald-50 border-emerald-300 text-emerald-800')}
+    {c('💬','Okunmamış mesaj',okunmamis||0,'mesaj','bg-sky-50 border-sky-300 text-sky-800')}
+    {c('🚫','Bugün gelmeyen',gelmeyen,'yoklama','bg-rose-50 border-rose-300 text-rose-800')}
+    {c('📅','Bugünkü randevu',randevu,'randevu','bg-amber-50 border-amber-300 text-amber-800')}
+    {c('📤','Gönderdiklerim',0,'gonderdiklerim','')}
+  </div>);
+};
+
+/* 💬 Hızlı cevaplar (öğretmen mesajı) */
+const ZHIZLI_CEVAP=['🌸 Teşekkür ederim, iyi günler dilerim.','👍 Bilgi için teşekkürler, takip ediyorum.','📚 Ödevi geç de olsa gönderebilir, sorun değil.','🏫 Yarın okulda konuşalım.','💐 Geçmiş olsun, acil şifalar dilerim.','👏 Bugün çok güzel çalıştı, tebrik ederim.'];
+const ZHizliCevap = ({ setMetin }) => { const [acik,setAcik]=useState(false);
+  return (<div className="mb-2">{!acik ? <button onClick={()=>setAcik(true)} className="text-[12.5px] font-black text-indigo-600">⚡ Hızlı cevaplar</button>
+    : <div className="flex gap-1.5 overflow-x-auto pb-1">{ZHIZLI_CEVAP.map(x=>(<button key={x} onClick={()=>{ setMetin(x); setAcik(false); }} className="shrink-0 bg-indigo-50 border border-indigo-200 text-indigo-800 font-bold text-[12.5px] px-3 py-2 rounded-xl">{x}</button>))}<button onClick={()=>setAcik(false)} className="shrink-0 text-slate-400 font-black px-2">✕</button></div>}</div>); };
+
+const LOCAL_SURUM = 66;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
@@ -8244,7 +8414,7 @@ const HatirlatmaKarti = ({ db, sinif, bilgiler, yapilanIds, onOkudum, veli, ogr 
             </div>
             <p className="text-sm text-slate-700 font-medium whitespace-pre-wrap leading-snug">{o.detay}</p>
             <div className="mt-1"><AIBtn metin={o.detay} kucuk={true} /></div>
-            <ZEkler db={db} o={o} />
+            <ZEkler db={db} o={o} kim={ogr?{ogr, rol:(veli?'veli':'ogrenci')}:null} />
             {ogr && <ZGor db={db} kayit={o} ogr={ogr} rol={veli?'veli':'ogrenci'} />}
             {veli
               ? <p className={`mt-1.5 text-[11px] font-black ${ok?'text-emerald-600':'text-sky-600'}`}>{ok?'👍 Çocuğunuz okudu':'ℹ️ Bilgilendirme'}</p>
@@ -8795,16 +8965,18 @@ const ZDosya = ({ db, d }) => {
   </div>);
 };
 /* Bir kaydın bütün ekleri tek yerde (veli · öğrenci · hatırlatma) */
-const ZEkler = ({ db, o }) => {
+const ZEkler = ({ db, o, kim }) => {
   if(!o) return null; const aktif=zMedyaAktif(o); const ln=(o.linkler||[]).filter(x=>x&&x.url);
   const _ekVar=!!(o.resimVar || o.videoId || (o.dosyalar&&o.dosyalar.length));
   return (<>
     {!aktif && _ekVar && <p className="mt-2 text-[12.5px] font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 leading-snug">📎 Bu gönderinin eki (fotoğraf / video / dosya) süresi dolduğu için kaldırıldı. Yazılı açıklama yukarıda duruyor; eke ihtiyacınız varsa öğretmeninize mesajla sorabilirsiniz.</p>}
     {o.link && <a href={o.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 mt-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black px-3 py-2.5 rounded-xl text-[13.5px] shadow-sm"><span>🔗</span><span className="flex-1 min-w-0 truncate">{(typeof zLinkBilgi==='function'?zLinkBilgi(o.link).etk:'Bağlantıyı aç')}</span><span className="bg-white text-slate-800 rounded-full px-2.5 py-0.5 text-[11.5px]">Aç ›</span></a>}
     {ln.length>0 && <div className="mt-2"><OzetLinkler linkler={ln} /></div>}
+    <div onClickCapture={()=>{ if(kim) zAcildiYaz(db,o,kim); }}>
     {aktif && o.resimVar && <OdevResim db={db} odevId={o.id} tur={o.resimTur} />}
     {aktif && o.videoId && <ZVideo db={db} vid={o.videoId} />}
     {aktif && (o.dosyalar||[]).map(d=><ZDosya key={d.id} db={db} d={d} />)}
+    </div>
   </>);
 };
 /* ============================================================================
@@ -9123,13 +9295,8 @@ const ZGorulmeRapor = ({ db, kayit, ogrenciler }) => {
   const v=hedef.filter(o=>m['v_'+o.id]).length, s=hedef.filter(o=>m['o_'+o.id]).length;
   const mesaj='Merhaba 🌸 '+(kayit.ders?kayit.ders+' dersi için ':'')+'okul uygulamamızda yeni bir '+(kayit.bilgi?'hatırlatma':(kayit.kaynak?'özet':'ödev'))+' var. Müsait olduğunuzda göz atabilir misiniz? 🙏';
   return (<div className="mt-1.5">
-    <button onClick={()=>setAcik(!acik)} className={`inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1 rounded-full border ${v===hedef.length?'bg-emerald-50 border-emerald-200 text-emerald-700':'bg-slate-50 border-slate-200 text-slate-600'}`}>👁️ Veli {v}/{hedef.length} · Öğrenci {s}/{hedef.length} {acik?'▲':'▼'}</button>
-    {acik && <div className="mt-1.5 bg-white border border-slate-200 rounded-xl p-2 max-h-64 overflow-auto space-y-1">{hedef.slice().sort((a,b)=>(!!m['v_'+a.id])-(!!m['v_'+b.id])||String(a.ad).localeCompare(String(b.ad),'tr')).map(o=>{ const vg=m['v_'+o.id], og=m['o_'+o.id]; const tel=(typeof zTel==='function')?zTel(o.veliTel):''; return (
-      <div key={o.id} className="flex items-center gap-2 text-[12px] px-1 py-1"><span className="flex-1 min-w-0 truncate font-bold text-slate-700">{o.ad}</span>
-        <span className={`shrink-0 font-black ${vg?'text-emerald-600':'text-slate-300'}`} title={vg?new Date(vg).toLocaleString('tr-TR'):''}>{vg?'✅ veli':'— veli'}</span>
-        <span className={`shrink-0 font-black ${og?'text-emerald-600':'text-slate-300'}`}>{og?'✅ öğr.':'— öğr.'}</span>
-        {!vg && tel && <a href={'https://wa.me/'+tel+'?text='+encodeURIComponent(mesaj)} target="_blank" rel="noopener noreferrer" className="shrink-0 bg-emerald-500 text-white font-black px-2 py-0.5 rounded-full">📱</a>}
-      </div>); })}
+    <button onClick={()=>setAcik(!acik)} className={`inline-flex items-center gap-1.5 text-[12.5px] font-black px-3 py-1.5 rounded-full border-2 ${v===hedef.length?'bg-emerald-50 border-emerald-300 text-emerald-700':'bg-slate-50 border-slate-200 text-slate-700'}`}>👁️ Veli {v}/{hedef.length} {v===hedef.length?'✅':''} · Öğrenci {s}/{hedef.length} · {acik?'Gizle ▲':'Kim gördü ▼'}</button>
+    {acik && <div className="mt-1.5 bg-white border border-slate-200 rounded-xl p-2 max-h-80 overflow-auto"><ZGorulmeListesi hedef={hedef} m={m} medyaVar={!!(kayit.videoId||kayit.resimVar||(kayit.dosyalar&&kayit.dosyalar.length))} waMesaj={mesaj} />
       <ZGorulmeHatirlat kayit={kayit} hedefler={hedef.filter(o=>!m['v_'+o.id])} baslik={kayit.metin&&!kayit.ders?('📢 Okunmamış duyuru · '+(kayit.ekleyen||'Okul')):('🔔 Hatırlatma · '+(kayit.ders||(kayit.bilgi?'Hatırlatma':'Ödev')))} govde={kayit.metin||kayit.detay||kayit.konu||''} />
       <p className="text-[10px] text-slate-400 px-1 pt-1">Veli ya da öğrenci gönderiyi ekranında gördüğünde ✅ olur. Görmeyen veliye 🔔 ile tekrar bildirim ya da 📱 ile WhatsApp hatırlatması atabilirsiniz.</p>
     </div>}
@@ -9620,7 +9787,7 @@ const ZSekmeli = ({ rol, sekmeler, children, kapali, z }) => {
 const ZSekme = ({ ad, tembel, icerik, children }) => {
   const c=React.useContext(ZSekmeCtx); if(!c) return <>{children}</>;
   const ads=String(ad).split(' '); const aktif=ads.indexOf(c.sekme)>=0; const gor=ads.some(a=>c.gorulen[a]);
-  return <div data-zsekme={ad} data-icerik={icerik||undefined} hidden={!aktif} className={aktif?'zsekme-gir':''}>{(!tembel||gor)?children:null}</div>;
+  return <div data-zsekme={ad} data-icerik={icerik||undefined} hidden={!aktif} className={aktif?'zsekme-gir':''}>{(!tembel||gor)?<ZBolumKalkani ad={ad}>{children}</ZBolumKalkani>:null}</div>;
 };
 const ZVELI_SEKME=[{k:'bugun',ik:'🏠',ad:'Bugün',renk:'from-emerald-500 to-teal-600'},{k:'odev',ik:'📝',ad:'Ödevler',renk:'from-orange-500 to-amber-500'},{k:'mesaj',ik:'💬',ad:'Mesaj',renk:'from-sky-500 to-indigo-600'},{k:'okul',ik:'🏫',ad:'Okul',renk:'from-violet-500 to-fuchsia-600'},{k:'cocuk',ik:'🧒',ad:'Çocuğum',renk:'from-pink-500 to-rose-500'}];
 const ZOGR_SEKME=[{k:'bugun',ik:'🏠',ad:'Bugün',renk:'from-indigo-500 to-blue-600'},{k:'odev',ik:'📝',ad:'Ödevim',renk:'from-orange-500 to-amber-500'},{k:'ogren',ik:'💡',ad:'Öğren',renk:'from-pink-500 to-fuchsia-600'},{k:'mesaj',ik:'💬',ad:'Mesaj',renk:'from-sky-500 to-indigo-600',ac:'ob-mesaj'},{k:'ben',ik:'⭐',ad:'Ben',renk:'from-amber-500 to-orange-500'}];
@@ -10018,6 +10185,7 @@ const [systemRole, setSystemRole] = useState(null);
 const [adminAsli, setAdminAsli] = useState(false);
 useEffect(()=>{ try{ document.documentElement.classList.toggle('zarac-admin', !!adminAsli); }catch(e){} },[adminAsli]);
 const [k12User, setK12User] = useState(null);
+useEffect(()=>{ try{ window.__zKim=String(systemRole||'')+' '+String((k12User&&(k12User.name||k12User.ad))||''); }catch(e){} },[systemRole,k12User]);
 const [screenTimeLeft, setScreenTimeLeft] = useState(0);
 const [showSettings, setShowSettings] = useState(false);
 useEffect(()=>{ const f=()=>setShowSettings(true); window.addEventListener('zayar-ac',f); return ()=>window.removeEventListener('zayar-ac',f); },[]);
@@ -10282,7 +10450,7 @@ const finalConfig = {
 const app = initializeApp(finalConfig);
 const auth = getAuth(app);
 const firestore = getFirestore(app);
-setDb(firestore);
+setDb(firestore); try{ window.__zDb=firestore; }catch(e){}
 
 // ESKİ SİSTEM: E-POSTA VE ŞİFRE İLE GİRİŞ FONKSİYONU
 window.handleEmailLogin = async (email, password) => {
@@ -11924,6 +12092,7 @@ const renderSharedUI = () => (
                                             </div></ZYKart>
                                             <ZYKart ad="ai" baslik="🔐 Anahtar kasası + kapalıyken bildirim" alt="Anahtarlar telefonlara gitmez · uygulama kapalıyken de bildirim"><ZKasaKarti db={db} globalConfig={globalConfig} setGlobalConfig={setGlobalConfig} /></ZYKart>
                                             <ZYKart ad="ai" baslik="🔔 Bildirim durumu" alt="Bu cihaz kayıtlı mı · kim kayıtlı · gerçek yoldan test"><ZBildirimDurum db={db} benAd={(user&&user.name)||''} /></ZYKart>
+                                            <ZYKart ad="ai" baslik="🩺 Hata kayıtları" alt="Bir telefonda bölüm açılamazsa buraya düşer · uygulama çalışmaya devam eder"><ZHataKayitlari db={db} /></ZYKart>
                                             <ZYKart ad="ai" baslik="🔑 Ortak yapay zekâ anahtarları" alt="Herkeste çalışan anahtar havuzu · test · sahipleri"><div>
                                                 <label className="block text-[10px] font-black text-emerald-500 uppercase mb-1 mt-3">🔑 Ortak AI Anahtarları (herkeste çalışır — istediğin kadar, 1000+ anahtar)</label>
                                                 <textarea value={globalConfig?.paylasilanKey||''} onChange={(e)=>setGlobalConfig({...globalConfig, paylasilanKey:e.target.value})} rows="4" placeholder="Her satıra bir anahtar (AIzaSy...). Velilerin/öğretmenlerin gönderdiği anahtarları buraya yapıştır — hepsi havuza eklenir, sistem otomatik dağıtır." className="w-full p-3 rounded-xl border-2 border-white shadow-sm outline-none focus:border-emerald-500 font-mono text-xs transition-all resize-y"></textarea>
@@ -14792,21 +14961,21 @@ notes.map(n => (
 
 // --- HATA YAKALAYICI (BEYAZ EKRAN ÇÖZÜCÜ) ---
         class ErrorBoundary extends React.Component {
-            constructor(props) { super(props); this.state = { hasError: false, error: null, errorInfo: null }; }
-            static getDerivedStateFromError(error) { return { hasError: true }; }
-            componentDidCatch(error, errorInfo) { this.setState({ error: error, errorInfo: errorInfo }); }
+            constructor(props) { super(props); this.state = { hasError: false, error: null, deneme: 0 }; }
+            static getDerivedStateFromError(error) { return { hasError: true, error }; }
+            componentDidCatch(error) { try{ window.zHataKaydet && window.zHataKaydet(error, 'uygulama geneli'); }catch(e){} if(this.state.deneme<1) setTimeout(()=>this.setState(s=>({hasError:false, deneme:s.deneme+1})), 500); }
             render() {
                 if (this.state.hasError) {
                     return (
-                        <div style={{ padding: '40px', backgroundColor: '#fdf8e8', border: '2px solid #d4af37', color: '#2d1445', margin: '40px auto', borderRadius: '20px', fontFamily: 'sans-serif', maxWidth: '800px', boxShadow: '0 10px 30px rgba(0,0,0,0.1)' }}>
-                            <h2 style={{ color: '#d9534f', fontSize: '28px', marginBottom: '15px' }}>🚨 Kozmik Dalgalanma (Kod Hatası) Tespit Edildi! 🚨</h2>
-                            <p style={{ fontSize: '16px', marginBottom: '20px', lineHeight: '1.6' }}>Barış Hocam, kodun içinde ufak bir parantez veya virgül hatası var. Sitenin çökmesini engelledim. Lütfen aşağıdaki hatayı bana gönder:</p>
-                            <details open style={{ whiteSpace: 'pre-wrap', backgroundColor: '#fff', padding: '20px', border: '1px solid #e4ebe5', borderRadius: '15px' }}>
-                                <summary style={{ fontWeight: 'bold', cursor: 'pointer', marginBottom: '15px', color: '#648268' }}>Hata Detayları:</summary>
-                                <strong style={{color: '#d9534f'}}>{this.state.error && this.state.error.toString()}</strong>
-                                <br /><br />
-                                <span style={{fontSize: '12px', color: '#777'}}>{this.state.errorInfo && this.state.errorInfo.componentStack}</span>
-                            </details>
+                        <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px',background:'linear-gradient(160deg,#eef2ff,#fdf2f8)',fontFamily:'system-ui,sans-serif'}}>
+                            <div style={{background:'#fff',borderRadius:'24px',padding:'26px 22px',maxWidth:'380px',width:'100%',textAlign:'center',boxShadow:'0 20px 50px rgba(79,70,229,.18)'}}>
+                                <div style={{fontSize:'52px'}}>😊</div>
+                                <h2 style={{margin:'6px 0 4px',fontSize:'21px',color:'#312e81'}}>Küçük bir aksilik oldu</h2>
+                                <p style={{color:'#64748b',fontSize:'15px',margin:'0 0 16px'}}>Bilgileriniz güvende. Yenilemek çoğu zaman yeterli.</p>
+                                <button onClick={()=>location.reload()} style={{width:'100%',background:'#4f46e5',color:'#fff',border:0,borderRadius:'16px',padding:'15px',fontSize:'17px',fontWeight:800,marginBottom:'8px'}}>🔄 Yenile</button>
+                                <button onClick={()=>this.setState({hasError:false})} style={{width:'100%',background:'#f1f5f9',color:'#334155',border:0,borderRadius:'16px',padding:'13px',fontSize:'15px',fontWeight:800}}>↩️ Kaldığım yerden devam et</button>
+                                <details style={{marginTop:'12px',textAlign:'left',color:'#94a3b8',fontSize:'11px'}}><summary>Teknik bilgi</summary>{String(this.state.error||'')}</details>
+                            </div>
                         </div>
                     );
                 }
