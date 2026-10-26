@@ -3536,7 +3536,9 @@ const OgrenciMerkezi = ({ db, user }) => {
   const _oBekleyen = benimOdevler.filter(o=>!yapilanIds.has(o.id)).length;
   const _oUnutma = benimBilgiler.filter(o=>!yapilanIds.has(o.id)).length;
   const _opDoc = useOkulDoc(db, "k12_pano");
-  const _oOzet = ben ? (((_opDoc&&_opDoc.liste)||[]).filter(p=>p && zOzetMi(p) && (p.sinif===sinifim||p.sinif==='TÜM OKUL') && zSubeUyar(p,ben) && zAktifMi(p) && (Date.now()-(p.ts||0))<3*86400000).length) : 0;
+  const _oOzGor = useZOzetGor(ben&&ben.id);
+  const _oOzYeni = ben ? (((_opDoc&&_opDoc.liste)||[]).filter(p=>p && zOzetMi(p) && (p.sinif===sinifim||p.sinif==='TÜM OKUL') && zSubeUyar(p,ben) && zAktifMi(p) && (Date.now()-(p.ts||0))<3*86400000 && !_oOzGor[p.id])) : [];
+  const _oOzet = _oOzYeni.length;
   useZRozet('odev', _oBekleyen); useZRozet('mesaj', _oOkunmayan);
 
   const okudum = async (odev) => {
@@ -3584,7 +3586,7 @@ const OgrenciMerkezi = ({ db, user }) => {
       {ben && <ZSekme ad="bugun"><ZBildirimKarti rol="ogrenci" /></ZSekme>}
       {ben && <ZSekme ad="bugun"><ZBugunKart baslik={'🌟 Merhaba '+String(ben.ad||'').split(' ')[0]+'!'} alt="Bugün seni neler bekliyor?" renk="from-indigo-500 to-blue-600" ogeler={[
         {ik:'📝',ad:'Ödevlerim',sayi:_oBekleyen,durum:_oBekleyen?(_oBekleyen+' ödev seni bekliyor'):'Hepsi tamam, aferin! ✓',git:()=>zBolumeGit('ob-odevler')},
-        {ik:'📰',ad:'Özetler',sayi:_oOzet,durum:_oOzet?(_oOzet+' yeni özet'):'Dersin özeti burada',git:()=>zBolumeGit('ob-dersozet')},
+        {ik:'📰',ad:'Özetler',sayi:_oOzet,durum:_oOzet?(_oOzet+' yeni özet'):'Dersin özeti burada',git:()=>{ zOzetGorIsaretle(ben&&ben.id, _oOzYeni.map(p=>p.id)); zBolumeGit('ob-dersozet'); }},
         {ik:'🎒',ad:'Unutma!',sayi:_oUnutma,durum:_oUnutma?(_oUnutma+' hatırlatma'):'Hatırlatma yok ✓',git:()=>zBolumeGit('ob-hatirlat')},
         {ik:'💬',ad:'Mesajlarım',sayi:_oOkunmayan,durum:_oOkunmayan?(_oOkunmayan+' yeni mesaj'):'Öğretmenine yaz',git:()=>zBolumeGit('ob-mesaj')},
         {ik:'⭐',ad:'Yıldızlarım',sayi:0,durum:(ben.puan||0)+' yıldız',git:()=>zBolumeGit('ob-lig')}]} /></ZSekme>}
@@ -3641,7 +3643,7 @@ const OgrenciMerkezi = ({ db, user }) => {
 
       <ZSekme ad="bugun odev" icerik="ob-hatirlat"><HatirlatmaKarti db={db} sinif={sinifim} bilgiler={benimBilgiler} yapilanIds={yapilanIds} onOkudum={ben?okudum:null} ogr={ben} /></ZSekme>
       <ZSekme ad="ben">{ben && <YildizNedenleri ogrenci={ben} />}</ZSekme>
-      <ZSekme ad="bugun" icerik="ob-dersozet"><div id="ob-dersozet"><DersOzetleri db={db} sinif={sinifim} ogr={ben} /></div></ZSekme>
+      <ZSekme ad="bugun" icerik="ob-dersozet"><div id="ob-dersozet"><DersOzetleri db={db} sinif={sinifim} ogr={ben} /></div>{ben && <ZOzetGorBekci hedef="ob-dersozet" oid={ben.id} ids={_oOzYeni.map(p=>p.id)} />}</ZSekme>
       <ZSekme ad="mesaj">{ben && <Katla id="ob-mesaj" baslik="Öğretmenime Yaz" ikon="💬" renk="from-sky-500 to-indigo-600" alt="İstediğin öğretmene mesaj gönder"><MesajVeli db={db} cocuk={ben} user={user} ogrMod={true} /></Katla>}</ZSekme>
       <ZSekme ad="ogren"><KaynakKarti db={db} sinif={sinifim} /></ZSekme>
       <ZSekme ad="ogren"><MebKitaplar db={db} user={user} sinif={sinifim} /></ZSekme>
@@ -3758,7 +3760,9 @@ const VeliMerkezi = ({ db, user }) => {
   const _vmDoc = useOkulDoc(db, "k12_mesajlar"); const _vpDoc = useOkulDoc(db, "k12_pano");
   const _vOkunmayan = cocuk ? (((_vmDoc&&_vmDoc.liste)||[]).filter(m=>m && m.ogrenciId===cocuk.id && m.gonderen==='ogretmen' && m.kanal!=='ogrenci' && !m.okVeli).length) : 0;
   const _vBekleyen = cocukOdevler.filter(o=>!cocukYapilanIds.has(o.id)).length;
-  const _vOzet = cocuk ? (((_vpDoc&&_vpDoc.liste)||[]).filter(p=>zOzetMi(p) && (p.sinif===cocuk.sinif||p.sinif==='TÜM OKUL') && zSubeUyar(p,cocuk) && zAktifMi(p) && (Date.now()-(p.ts||0))<3*86400000).length) : 0;
+  const _vOzGor = useZOzetGor(cocuk?('v_'+cocuk.id):'');
+  const _vOzYeni = cocuk ? (((_vpDoc&&_vpDoc.liste)||[]).filter(p=>zOzetMi(p) && (p.sinif===cocuk.sinif||p.sinif==='TÜM OKUL') && zSubeUyar(p,cocuk) && zAktifMi(p) && (Date.now()-(p.ts||0))<3*86400000 && !_vOzGor[p.id])) : [];
+  const _vOzet = _vOzYeni.length;
   useZRozet('odev', _vBekleyen); useZRozet('mesaj', _vOkunmayan);
 
   if(ogrDoc===null) return null;
@@ -3790,7 +3794,7 @@ const VeliMerkezi = ({ db, user }) => {
             {ik:'📝',ad:'Ödevler',sayi:_vBekleyen,durum:_vBekleyen?(_vBekleyen+' bekleyen ödev'):'Bekleyen ödev yok ✓',git:()=>zBolumeGit('vb-odev')},
             {ik:'🎒',ad:'Unutma!',sayi:cocukBilgiler.length,durum:cocukBilgiler.length?(cocukBilgiler.length+' hatırlatma'):'Hatırlatma yok ✓',git:()=>zBolumeGit('vb-hatirlat')},
             {ik:'💬',ad:'Mesajlar',sayi:_vOkunmayan,durum:_vOkunmayan?(_vOkunmayan+' yeni mesaj'):'Yeni mesaj yok',git:()=>zBolumeGit('vb-mesaj')},
-            {ik:'📰',ad:'Özetler',sayi:_vOzet,durum:_vOzet?(_vOzet+' yeni özet'):'Yeni özet yok',git:()=>zBolumeGit('vb-dersozet')}]} /></ZSekme>
+            {ik:'📰',ad:'Özetler',sayi:_vOzet,durum:_vOzet?(_vOzet+' yeni özet'):'Özetler burada',git:()=>{ zOzetGorIsaretle(cocuk?('v_'+cocuk.id):'', _vOzYeni.map(p=>p.id)); zBolumeGit('vb-dersozet'); }}]} /></ZSekme>
           <ZSekme ad="cocuk">
           <SistemDurumu db={db} />
           </ZSekme>
@@ -3798,7 +3802,7 @@ const VeliMerkezi = ({ db, user }) => {
           <div id="vb-hatirlat"><HatirlatmaKarti db={db} sinif={cocuk.sinif} bilgiler={cocukBilgiler} yapilanIds={cocukYapilanIds} veli={true} ogr={cocuk} /></div>
           </ZSekme>
           <ZSekme ad="okul bugun">
-          <div id="vb-dersozet"><DersOzetleri db={db} sinif={cocuk.sinif} ogr={cocuk} rol="veli" /></div>
+          <div id="vb-dersozet"><DersOzetleri db={db} sinif={cocuk.sinif} ogr={cocuk} rol="veli" /></div><ZOzetGorBekci hedef="vb-dersozet" oid={'v_'+cocuk.id} ids={_vOzYeni.map(p=>p.id)} />
           </ZSekme>
           <ZSekme ad="cocuk">
           <YildizNedenleri ogrenci={cocuk} veli={true} />
@@ -5906,6 +5910,18 @@ function zGunAdi(ts){ if(!ts) return 'Tarihsiz'; const d=new Date(ts), b=new Dat
 function zSaat(ts){ if(!ts) return ''; const d=new Date(ts); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 function zGonTurOf(o){ return o.bilgi?'bilgi':(zPaylasimMi(o)?'paylasim':'odev'); }
 const ZGON_TUR={odev:{ad:'📝 ÖDEV',chip:'bg-orange-500 text-white',serit:'border-l-orange-400'},bilgi:{ad:'📢 BİLGİ',chip:'bg-sky-500 text-white',serit:'border-l-sky-400'},paylasim:{ad:'📰 PAYLAŞIM',chip:'bg-indigo-500 text-white',serit:'border-l-indigo-400'}};
+/* v67 · Özet "yeni" rozeti: görülünce söner (bu cihazda hatırlanır) */
+function zOzetGorAl(oid){ try{ return JSON.parse(localStorage.getItem('zozet_gor_'+(oid||''))||'{}')||{}; }catch(e){ return {}; } }
+function zOzetGorIsaretle(oid, ids){ try{ if(!ids||!ids.length) return; const g=zOzetGorAl(oid); let d=false; ids.forEach(i=>{ if(i && !g[i]){ g[i]=Date.now(); d=true; } }); if(!d) return;
+  const sinir=Date.now()-60*86400000; Object.keys(g).forEach(k=>{ if(g[k]<sinir) delete g[k]; }); localStorage.setItem('zozet_gor_'+(oid||''), JSON.stringify(g)); window.dispatchEvent(new Event('zozet-gor')); }catch(e){} }
+function useZOzetGor(oid){ const [, setT]=useState(0); useEffect(()=>{ const f=()=>setT(t=>t+1); window.addEventListener('zozet-gor',f); return ()=>window.removeEventListener('zozet-gor',f); },[]); return zOzetGorAl(oid); }
+/* Özet bölümü ekranda 1,5 sn görünürse yeni özetler "görüldü" sayılır */
+const ZOzetGorBekci = ({ hedef, oid, ids }) => {
+  const anahtar=(ids||[]).join(',');
+  useEffect(()=>{ if(!anahtar) return; let zm=null, ob=null; const el=document.getElementById(hedef); if(!el || typeof IntersectionObserver==='undefined') return;
+    ob=new IntersectionObserver(es=>{ const g=es.some(e=>e.isIntersecting && e.intersectionRatio>0.15); clearTimeout(zm); if(g) zm=setTimeout(()=>zOzetGorIsaretle(oid, ids), 1500); },{threshold:[0,0.15,0.4]});
+    ob.observe(el); return ()=>{ clearTimeout(zm); try{ ob.disconnect(); }catch(e){} }; },[hedef, oid, anahtar]);
+  return null; };
 function zPaylasimDolu(o){ return !!(String(o.link||'').trim()||(o.linkler&&o.linkler.length)||((o.resimVar||o.videoId||(o.dosyalar&&o.dosyalar.length)) && (typeof zMedyaAktif!=='function' || zMedyaAktif(o)))); }
 /* Öğrenci/veli listesi: paylaşım → ödev değil, "Hatırlatmalar & Getirilecekler"de (teslim istemez); eki bitmiş boş paylaşım hiç gösterilmez */
 function zOgrGorunum(l){ return (l||[]).filter(o=>!(zPaylasimMi(o) && !zPaylasimDolu(o))).map(o=>zPaylasimMi(o)?Object.assign({},o,{bilgi:true,paylasim:true}):o); }
