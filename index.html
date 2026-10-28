@@ -2829,6 +2829,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='defter'  && <OgretmenDefteri db={db} duzenlenebilir={true} user={user} apiKey={apiKey} modelName={modelName} />}
         {!yukleniyor && sekme==='kitapharita' && <KitapKurduHaritasi ogrenciler={ogrenciler} />}
         {!yukleniyor && sekme==='sinav'   && <SinavUret apiKey={apiKey} modelName={modelName} />}
+        <ZSistemKim rol="ogretmen" />
         <ZOkulSistemleri rol="ogretmen" />
         <AkademiKart rol="ogretmen" />
         {!yukleniyor && sekme==='ders'    && <ProgramMerkezi db={db} user={user} />}
@@ -3591,6 +3592,7 @@ const OgrenciMerkezi = ({ db, user }) => {
         {ik:'🎒',ad:'Unutma!',sayi:_oUnutma,durum:_oUnutma?(_oUnutma+' hatırlatma'):'Hatırlatma yok ✓',git:()=>zBolumeGit('ob-hatirlat')},
         {ik:'💬',ad:'Mesajlarım',sayi:_oOkunmayan,durum:_oOkunmayan?(_oOkunmayan+' yeni mesaj'):'Öğretmenine yaz',git:()=>zBolumeGit('ob-mesaj')},
         {ik:'⭐',ad:'Yıldızlarım',sayi:0,durum:(ben.puan||0)+' yıldız',git:()=>zBolumeGit('ob-lig')}]} /></ZSekme>}
+      {ben && <ZSistemKim rol="ogrenci" sinif={sinifim} ad={ben.ad} />}
       {ben && <ZSekme ad="bugun ogren"><ZSistemSeridi rol="ogrenci" sinif={sinifim} /></ZSekme>}
       {ben && (<ZSekme ad="bugun">
         <div className="grid grid-cols-3 gap-2 md:gap-4">
@@ -3797,6 +3799,7 @@ const VeliMerkezi = ({ db, user }) => {
             {ik:'🎒',ad:'Unutma!',sayi:cocukBilgiler.length,durum:cocukBilgiler.length?(cocukBilgiler.length+' hatırlatma'):'Hatırlatma yok ✓',git:()=>zBolumeGit('vb-hatirlat')},
             {ik:'💬',ad:'Mesajlar',sayi:_vOkunmayan,durum:_vOkunmayan?(_vOkunmayan+' yeni mesaj'):'Yeni mesaj yok',git:()=>zBolumeGit('vb-mesaj')},
             {ik:'📰',ad:'Özetler',sayi:_vOzet,durum:_vOzet?(_vOzet+' yeni özet'):'Özetler burada',git:()=>{ zOzetGorIsaretle(cocuk?('v_'+cocuk.id):'', _vOzYeni.map(p=>p.id)); zBolumeGit('vb-dersozet'); }}]} /></ZSekme>
+          <ZSistemKim rol="veli" sinif={cocuk.sinif} ad={cocuk.ad} />
           <ZSekme ad="bugun"><ZSistemSeridi rol="veli" sinif={cocuk.sinif} /></ZSekme>
           <ZSekme ad="cocuk">
           <SistemDurumu db={db} />
@@ -8302,7 +8305,7 @@ function zSistemOf(sinif){ return zSinifNo(sinif)===8 ? 'lgs' : 'bg'; }
 
 /* Amblemler — saf SVG (internet gerekmez, her ekranda net) */
 const ZAmblem = ({ tur, boyut, uid }) => {
-  const b=boyut||88, u='za'+(uid||tur)+'_'+tur;
+  const b=boyut||88; const [u]=useState(()=>{ try{ window.__zaSay=(window.__zaSay||0)+1; return 'za'+window.__zaSay+'_'+tur; }catch(e){ return 'za'+Math.random().toString(36).slice(2,8)+'_'+tur; } });
   if(tur==='lgs') return (
     <svg width={b} height={b} viewBox="0 0 120 120" aria-label="LGS Zafer Sistemi amblemi" role="img">
       <defs>
@@ -8396,6 +8399,43 @@ const ZSistemSeridi = ({ rol, sinif }) => {
   </div>);
 };
 /* Akademi bölümünün üstü: role göre doğru sistem(ler) */
+/* v68 · Alt menüde 🎓 Sistem: önce tanıtım, sonra "Gir" */
+function zSistemKimAl(){ try{ return window.__zSistemKim||null; }catch(e){ return null; } }
+const ZSistemKim = ({ rol, sinif, ad }) => { useEffect(()=>{ try{ window.__zSistemKim={rol, sinif:sinif||'', ad:ad||''}; window.dispatchEvent(new Event('zsistem-kim')); }catch(e){} },[rol, sinif, ad]); return null; };
+const ZSistemPenceresi = ({ kim, kapat }) => {
+  const rol=kim.rol, benim=zSistemOf(kim.sinif), diger=benim==='bg'?'lgs':'bg';
+  useEffect(()=>{ const f=e=>{ if(e.key==='Escape') kapat(); }; window.addEventListener('keydown',f); const eski=document.body.style.overflow; document.body.style.overflow='hidden'; return ()=>{ window.removeEventListener('keydown',f); document.body.style.overflow=eski; }; },[]);
+  return (<div className="fixed inset-0 z-[9700] flex items-end sm:items-center justify-center" role="dialog" aria-modal="true">
+    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]" onClick={kapat}></div>
+    <div className="relative w-full sm:max-w-lg max-h-[92vh] overflow-y-auto bg-slate-50 rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl p-4 pb-8 zsekme-gir" style={{paddingBottom:'calc(2rem + env(safe-area-inset-bottom))'}}>
+      <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto mb-3"></div>
+      <div className="flex items-start gap-2 mb-3">
+        <div className="flex-1 min-w-0"><p className="text-[18px] font-black text-slate-800 leading-tight">🎓 Öğrencilerimize Özel Dijital Sistemler</p>
+          <p className="text-[12.5px] font-bold text-slate-500 leading-snug mt-0.5">✨ Barış Öğretmen tarafından Değişim Koleji öğrencileri için hazırlandı{rol==='ogrenci'?' · senin sınıfına uygun sistem aşağıda':' · Anaokulu–7. sınıf: Başarı ve Gelişim · 8. sınıf: LGS Zafer'}</p></div>
+        <button onClick={kapat} className="shrink-0 w-10 h-10 rounded-full bg-white border border-slate-200 text-slate-600 font-black text-[18px]" aria-label="Kapat">✕</button>
+      </div>
+      <div className="space-y-3">
+        {rol==='ogretmen'
+          ? [<ZSistemKarti key="bg" tur="bg" rol="ogretmen" />, <ZSistemKarti key="lgs" tur="lgs" rol="ogretmen" />]
+          : [<ZSistemKarti key="b" tur={benim} rol={rol} ad={kim.ad} cocugun={true} />, rol==='veli' ? <ZSistemKarti key="d" tur={diger} rol="veli" /> : null]}
+      </div>
+      <button onClick={kapat} className="mt-4 w-full bg-white border border-slate-200 text-slate-600 font-black text-[15px] py-3 rounded-2xl">Kapat</button>
+    </div>
+  </div>);
+};
+const ZSistemDugme = () => {
+  const [kim,setKim]=useState(zSistemKimAl()); const [acik,setAcik]=useState(false);
+  useEffect(()=>{ const f=()=>setKim(zSistemKimAl()); window.addEventListener('zsistem-kim',f); const g=()=>setAcik(true); window.addEventListener('zsistem-ac',g); f(); const t=setTimeout(f,1500); return ()=>{ clearTimeout(t); window.removeEventListener('zsistem-kim',f); window.removeEventListener('zsistem-ac',g); }; },[]);
+  if(!kim || !kim.rol) return null;
+  const tur=kim.rol==='ogretmen'?'bg':zSistemOf(kim.sinif);
+  return (<>
+    <button onClick={()=>setAcik(true)} aria-label="Dijital sistemler" className="relative flex-1 min-w-0 flex flex-col items-center justify-center py-1.5 rounded-2xl text-slate-500 active:bg-slate-100 transition-all">
+      <span className="leading-none -my-0.5"><ZAmblem tur={tur} boyut={26} uid="nav" /></span>
+      <span className="text-[10.5px] font-black mt-1 truncate max-w-full px-0.5">Sistem</span>
+    </button>
+    {acik && ReactDOM.createPortal(<ZSistemPenceresi kim={kim} kapat={()=>setAcik(false)} />, document.body)}
+  </>);
+};
 const ZOkulSistemleri = ({ rol, sinif, ad }) => {
   const benim = zSistemOf(sinif);
   if(rol==='ogrenci') return (<div className="space-y-3 mt-2">
@@ -10081,6 +10121,7 @@ const ZAltMenu = ({ ogeler, aktif, onSec, z }) => (
           <span className="text-[10.5px] font-black mt-1 truncate max-w-full px-0.5">{s.ad}</span>
           {r>0 && <span className="absolute top-0.5 right-[14%] min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-white">{r>9?'9+':r}</span>}
         </button>); })}
+      <ZBolumKalkani ad="sistem" sessiz={true}><ZSistemDugme /></ZBolumKalkani>
     </div>
   </nav>);
 const ZSekmeli = ({ rol, sekmeler, children, kapali, z }) => {
