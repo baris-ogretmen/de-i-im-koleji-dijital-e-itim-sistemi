@@ -2830,6 +2830,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='kitapharita' && <KitapKurduHaritasi ogrenciler={ogrenciler} />}
         {!yukleniyor && sekme==='sinav'   && <SinavUret apiKey={apiKey} modelName={modelName} />}
         <ZSistemKim rol="ogretmen" />
+        <ZAcilisEkrani db={db} rol="ogretmen" />
         <ZOkulSistemleri rol="ogretmen" />
         <AkademiKart rol="ogretmen" />
         {!yukleniyor && sekme==='ders'    && <ProgramMerkezi db={db} user={user} />}
@@ -3593,6 +3594,7 @@ const OgrenciMerkezi = ({ db, user }) => {
         {ik:'💬',ad:'Mesajlarım',sayi:_oOkunmayan,durum:_oOkunmayan?(_oOkunmayan+' yeni mesaj'):'Öğretmenine yaz',git:()=>zBolumeGit('ob-mesaj')},
         {ik:'⭐',ad:'Yıldızlarım',sayi:0,durum:(ben.puan||0)+' yıldız',git:()=>zBolumeGit('ob-lig')}]} /></ZSekme>}
       {ben && <ZSistemKim rol="ogrenci" sinif={sinifim} ad={ben.ad} />}
+      {ben && <ZAcilisEkrani db={db} rol="ogrenci" sinif={sinifim} />}
       {ben && <ZSekme ad="bugun ogren"><ZSistemSeridi rol="ogrenci" sinif={sinifim} /></ZSekme>}
       {ben && (<ZSekme ad="bugun">
         <div className="grid grid-cols-3 gap-2 md:gap-4">
@@ -3800,6 +3802,7 @@ const VeliMerkezi = ({ db, user }) => {
             {ik:'💬',ad:'Mesajlar',sayi:_vOkunmayan,durum:_vOkunmayan?(_vOkunmayan+' yeni mesaj'):'Yeni mesaj yok',git:()=>zBolumeGit('vb-mesaj')},
             {ik:'📰',ad:'Özetler',sayi:_vOzet,durum:_vOzet?(_vOzet+' yeni özet'):'Özetler burada',git:()=>{ zOzetGorIsaretle(cocuk?('v_'+cocuk.id):'', _vOzYeni.map(p=>p.id)); zBolumeGit('vb-dersozet'); }}]} /></ZSekme>
           <ZSistemKim rol="veli" sinif={cocuk.sinif} ad={cocuk.ad} />
+          <ZAcilisEkrani db={db} rol="veli" sinif={cocuk.sinif} />
           <ZSekme ad="bugun"><ZSistemSeridi rol="veli" sinif={cocuk.sinif} /></ZSekme>
           <ZSekme ad="cocuk">
           <SistemDurumu db={db} />
@@ -6039,6 +6042,10 @@ async function zOtoTemizle(db){
     // Pano
     const pR=doc(db,"maas_config","k12_pano"); const pS=await getDoc(pR);
     if(pS.exists()){ const l=(pS.data()||{}).liste||[]; const k=l.filter(p=>!(p&&p.bitis&&p.bitis<simdi)); if(k.length!==l.length) await setDoc(pR,{liste:k},{merge:true}); }
+    // v69 · Açılış afişleri: bitişinden 1 gün sonra kayıttan ve fotoğrafıyla birlikte kalkar
+    try{ const aR=doc(db,"maas_config","k12_acilis"); const aS=await getDoc(aR);
+      if(aS.exists()){ const l=(aS.data()||{}).liste||[]; const eski=l.filter(a=>a&&a.bitis&&a.bitis<simdi-86400000);
+        if(eski.length){ await setDoc(aR,{liste:l.filter(a=>eski.indexOf(a)<0)},{merge:true}); for(const a of eski){ if(a.resimVar){ try{ await setDoc(doc(db,"maas_config","k12_acilis_res_"+a.id),{data:'',silindi:true,guncelleme:simdi},{merge:true}); }catch(e){} } } } } }catch(e){}
     // Bilgilendirmeler (sadece bilgi:true ve bitişi geçmiş olanlar)
     const oR=doc(db,"maas_config","k12_odevler"); const oS=await getDoc(oR);
     if(oS.exists()){ const l=(oS.data()||{}).liste||[]; const silinen=l.filter(o=>o&&o.bilgi&&o.bitis&&o.bitis<simdi).map(o=>o.id);
@@ -8577,7 +8584,133 @@ const ZDerslerinOnemi = () => {
   </div>);
 };
 
-const LOCAL_SURUM = 68;
+/* ============================================================================
+   v69 · 🎬 AÇILIŞ EKRANI (Duyuru Afişi) — Yönetim panelinden, koda girmeden
+   · Fotoğraf + başlık + kısa yazı · kimler görsün (veli / öğrenci / öğretmen · sınıf)
+   · ekranda kaç saniye kalsın · ne zaman başlasın / bitsin (süresi dolunca kendiliğinden kalkar)
+   · uygulama her açılışta (oturum başına bir kez) tam ekran gösterilir, "Geç" ile kapanır
+   · veri: maas_config/k12_acilis {liste:[…]} · fotoğraf: maas_config/k12_acilis_res_<id> {data}
+   · sayaç: maas_config/k12_acilis_say {<id>: kaç kez gösterildi}
+   ============================================================================ */
+const ZACILIS_SURE = [['3','3 sn'],['5','5 sn'],['8','8 sn'],['10','10 sn']];
+const ZACILIS_BITIS = [['bugun','☀️ Bugün bitince'],['1','1 gün (24 saat)'],['3','3 gün'],['7','1 hafta']];
+function zAcilisBitis(k, bas){ const b=bas||Date.now(); if(k==='bugun'){ const d=new Date(b); d.setHours(23,59,0,0); return d.getTime(); } return b+(parseInt(k,10)||1)*86400000; }
+function zYarinSabah(){ const d=new Date(); d.setDate(d.getDate()+1); d.setHours(8,0,0,0); return d.getTime(); }
+function zAcilisAktif(a, simdi){ const t=simdi||Date.now(); return !!a && a.aktif!==false && t>=(a.baslangic||a.ts||0) && (!a.bitis || t<a.bitis); }
+function zAcilisBana(a, rol, sinif){ if(!a) return false; const h=a.hedef||['veli','ogrenci','ogretmen']; if(h.indexOf(rol)<0) return false;
+  if(a.sinif && rol!=='ogretmen' && String(a.sinif)!==String(sinif||'')) return false; return true; }
+function zAcilisKalan(ts){ const f=(ts||0)-Date.now(); if(f<=0) return 'bitti'; const s=Math.floor(f/3600000), d=Math.round((f%3600000)/60000); return s>=24?(Math.floor(s/24)+' gün '+(s%24)+' sa kaldı'):(s>0?(s+' sa '+d+' dk kaldı'):(d+' dk kaldı')); }
+function zResimKucult(dosya, max, kalite){ return new Promise((coz,red)=>{ try{ const r=new FileReader(); r.onerror=()=>red(new Error('okunamadı'));
+  r.onload=ev=>{ const img=new Image(); img.onerror=()=>red(new Error('resim değil')); img.onload=()=>{ let w=img.width,h=img.height; const m=max||1200; if(w>m||h>m){ if(w>h){ h=Math.round(h*m/w); w=m; } else { w=Math.round(w*m/h); h=m; } }
+    const c=document.createElement('canvas'); c.width=w; c.height=h; const x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,w,h); x.drawImage(img,0,0,w,h);
+    let q=kalite||0.74, d=c.toDataURL('image/jpeg',q); while(d.length>700000 && q>0.4){ q-=0.08; d=c.toDataURL('image/jpeg',q); } coz(d); }; img.src=ev.target.result; };
+  r.readAsDataURL(dosya); }catch(e){ red(e); } }); }
+
+/* Tam ekran afiş (hem kullanıcı hem önizleme) */
+const ZAcilisPerde = ({ a, resim, kapat, onizleme }) => {
+  const sure=Math.max(2, parseInt(a.sure,10)||5); const [kalan,setKalan]=useState(sure);
+  useEffect(()=>{ const bas=Date.now(); const t=setInterval(()=>{ const k=sure-Math.floor((Date.now()-bas)/1000); setKalan(k); if(k<=0){ clearInterval(t); kapat(); } },250);
+    const f=e=>{ if(e.key==='Escape') kapat(); }; window.addEventListener('keydown',f);
+    return ()=>{ clearInterval(t); window.removeEventListener('keydown',f); }; },[]);
+  const yuzde=Math.max(0,Math.min(100,(1-kalan/sure)*100));
+  return (<div className="fixed inset-0 z-[9800] flex flex-col items-center justify-center p-4 zsekme-gir" role="dialog" aria-modal="true" aria-label={a.baslik||'Duyuru'}
+      style={{background:'radial-gradient(120% 90% at 50% 0%, rgba(30,58,138,.99), rgba(11,30,63,1))', paddingTop:'calc(1rem + env(safe-area-inset-top))', paddingBottom:'calc(1rem + env(safe-area-inset-bottom))'}}>
+    <div className="absolute top-0 left-0 right-0 h-1.5 bg-white/15"><div className="h-full bg-gradient-to-r from-amber-300 to-emerald-400 transition-all duration-200" style={{width:yuzde+'%'}}></div></div>
+    <button onClick={kapat} className="absolute right-3 bg-white/95 text-slate-800 font-black text-[14px] px-4 py-2 rounded-full shadow-lg" style={{top:'calc(.75rem + env(safe-area-inset-top))'}}>Geç {kalan>0?('· '+kalan):''} ✕</button>
+    {onizleme && <span className="absolute left-3 bg-amber-400 text-slate-900 font-black text-[11px] px-3 py-1.5 rounded-full" style={{top:'calc(.9rem + env(safe-area-inset-top))'}}>👁️ ÖNİZLEME</span>}
+    <p className="text-[11px] font-black uppercase tracking-[.25em] text-amber-300 mb-2">📣 Değişim Koleji</p>
+    {resim && <img src={resim} alt={a.baslik||'Duyuru afişi'} className="max-w-full rounded-2xl shadow-2xl object-contain bg-white" style={{maxHeight:(a.baslik||a.alt)?'62vh':'72vh'}} />}
+    {a.baslik && <h2 className="mt-4 text-white text-[24px] sm:text-[30px] font-black text-center leading-tight max-w-xl">{a.baslik}</h2>}
+    {a.alt && <p className="mt-1.5 text-white/85 text-[15px] sm:text-[17px] font-bold text-center leading-snug max-w-xl whitespace-pre-line">{a.alt}</p>}
+    {a.link && <a href={a.link} target="_blank" rel="noopener noreferrer" onClick={kapat} className="mt-4 bg-gradient-to-r from-amber-300 to-yellow-400 text-slate-900 font-black text-[16px] px-6 py-3 rounded-2xl shadow-lg">{a.linkAd||'Detaylar'} →</a>}
+  </div>);
+};
+
+/* Kullanıcıya gösterim: uygulama açılınca bir kez (oturum başına) */
+const ZAcilisEkrani = ({ db, rol, sinif }) => {
+  const d=useOkulDoc(db,'k12_acilis'); const [goster,setGoster]=useState(null); const [resim,setResim]=useState(''); const bakildi=React.useRef(false);
+  useEffect(()=>{ if(!d || bakildi.current || !db) return; bakildi.current=true;
+    let a=null; try{ a=((d.liste)||[]).filter(x=>zAcilisAktif(x) && zAcilisBana(x,rol,sinif) && !(function(){ try{ return x.birKez ? localStorage.getItem('zacilis_'+x.id) : sessionStorage.getItem('zacilis_'+x.id); }catch(e){ return null; } })()).sort((p,q)=>(q.ts||0)-(p.ts||0))[0]||null; }catch(e){ a=null; }
+    if(!a) return; let iptal=false;
+    const ac=(r)=>{ if(iptal) return; try{ (a.birKez?localStorage:sessionStorage).setItem('zacilis_'+a.id,'1'); }catch(e){} setResim(r||''); setGoster(a);
+      try{ const S=window.FirebaseSDK; if(S&&S.increment) S.setDoc(S.doc(db,'maas_config','k12_acilis_say'),{[a.id]:S.increment(1)},{merge:true}).catch(()=>{}); }catch(e){} };
+    if(!a.resimVar){ if(a.baslik||a.alt) ac(''); return; }
+    const zm=setTimeout(()=>{ if(a.baslik||a.alt) ac(''); else iptal=true; }, 6000);
+    (async()=>{ try{ const S=window.FirebaseSDK; const s=await S.getDoc(S.doc(db,'maas_config','k12_acilis_res_'+a.id)); const v=s&&s.exists&&s.exists()?(s.data()||{}).data:''; clearTimeout(zm); if(v) ac(v); else if(a.baslik||a.alt) ac(''); }catch(e){ clearTimeout(zm); if(a.baslik||a.alt) ac(''); } })();
+  },[d, db]);
+  if(!goster) return null;
+  return ReactDOM.createPortal(<ZAcilisPerde a={goster} resim={resim} kapat={()=>setGoster(null)} />, document.body);
+};
+
+/* ============ Yönetim kartı ============ */
+const ZAcilisYonetim = ({ db }) => {
+  const d=useOkulDoc(db,'k12_acilis'); const liste=((d&&d.liste)||[]).filter(Boolean);
+  const say=useOkulDoc(db,'k12_acilis_say')||{}; const od=useOkulDoc(db,'k12_ogrenciler');
+  const siniflar=Array.from(new Set(((od&&od.liste)||[]).map(o=>o&&o.sinif).filter(Boolean))).sort((a,b)=>(typeof zSinifNo==='function'?zSinifNo(a)-zSinifNo(b):String(a).localeCompare(String(b),'tr')));
+  const [resim,setResim]=useState(''); const [baslik,setBaslik]=useState(''); const [alt,setAlt]=useState(''); const [hedef,setHedef]=useState(['veli','ogrenci','ogretmen']);
+  const [sinif,setSinif]=useState(''); const [sure,setSure]=useState('5'); const [bitis,setBitis]=useState('1'); const [bas,setBas]=useState('hemen');
+  const [link,setLink]=useState(''); const [linkAd,setLinkAd]=useState(''); const [birKez,setBirKez]=useState(false); const [mesgul,setMesgul]=useState(false); const [onizle,setOnizle]=useState(null);
+  const dosyaSec=async(e)=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return; if(String(f.type).indexOf('image/')!==0) return alert('Lütfen bir fotoğraf / afiş görseli seçin.');
+    try{ const r=await zResimKucult(f,1200,0.76); setResim(r); toast('🖼️ Afiş hazır — önizleyip yayınlayabilirsiniz.','green'); }catch(x){ alert('Fotoğraf okunamadı, başka bir fotoğraf deneyin.'); } };
+  const tikHedef=k=>setHedef(h=>h.indexOf(k)>=0?(h.length>1?h.filter(x=>x!==k):h):h.concat([k]));
+  const taslak=()=>{ const b=bas==='yarin'?zYarinSabah():Date.now(); return {id:'ac'+yeniId(), baslik:baslik.trim(), alt:alt.trim(), hedef, sinif, sure, ts:Date.now(), baslangic:b, bitis:zAcilisBitis(bitis,b), resimVar:!!resim, link:link.trim(), linkAd:linkAd.trim(), birKez, aktif:true, ekleyen:'Yönetim'}; };
+  const yayinla=async()=>{ if(!resim && !baslik.trim()) return alert('Bir afiş fotoğrafı seçin ya da en azından bir başlık yazın.'); if(link.trim() && !/^https?:\/\//i.test(link.trim())) return alert('Bağlantı https:// ile başlamalı.');
+    if(mesgul) return; setMesgul(true); const a=taslak();
+    let ok=true; if(resim){ ok=await okulYaz(db,'k12_acilis_res_'+a.id,{data:resim}); }
+    if(ok) ok=await okulYaz(db,'k12_acilis',{liste:[a].concat(liste)}); setMesgul(false);
+    if(ok){ toast(bas==='yarin'?'🗓️ Afiş yarın 08:00’de başlayacak.':'🎬 Afiş yayında! Uygulamayı açan herkes görecek.','green'); setResim(''); setBaslik(''); setAlt(''); setLink(''); setLinkAd(''); setSinif(''); setBirKez(false); } };
+  const guncelle=async(id,ek)=>{ await okulYaz(db,'k12_acilis',{liste:liste.map(x=>x.id===id?{...x,...ek}:x)}); };
+  const sil=async(a)=>{ if(!window.confirm('Bu açılış afişi kaldırılsın mı?')) return; const ok=await okulYaz(db,'k12_acilis',{liste:liste.filter(x=>x.id!==a.id)});
+    if(ok){ try{ if(a.resimVar) await okulYaz(db,'k12_acilis_res_'+a.id,{data:'',silindi:true}); }catch(e){} toast('🗑️ Afiş kaldırıldı.','green'); } };
+  const onizleAc=async(a, r)=>{ if(r!==undefined) return setOnizle({a, r}); let v=''; try{ if(a.resimVar){ const S=window.FirebaseSDK; const s=await S.getDoc(S.doc(db,'maas_config','k12_acilis_res_'+a.id)); v=(s&&s.exists&&s.exists())?((s.data()||{}).data||''):''; } }catch(e){} setOnizle({a, r:v}); };
+  const simdi=Date.now(); const durum=a=>a.aktif===false?['⏸️ Durduruldu','bg-slate-200 text-slate-600']:(simdi<(a.baslangic||a.ts)?['🗓️ Planlandı','bg-sky-100 text-sky-700']:(a.bitis&&simdi>=a.bitis?['⌛ Süresi doldu','bg-slate-100 text-slate-400']:['🟢 Yayında','bg-emerald-100 text-emerald-700']));
+  const Cip=({on,onClick,children})=>(<button type="button" onClick={onClick} className={'px-3 py-2 rounded-xl text-[13px] font-black border-2 transition '+(on?'bg-indigo-600 text-white border-indigo-600':'bg-white text-slate-600 border-slate-200')}>{children}</button>);
+  return (<div>
+    <p className="text-[12.5px] text-slate-600 leading-snug mb-3">Turnuva, gezi, bayram, tebrik… Afişi seçin; uygulamayı açan veli, öğrenci ve öğretmenler <b>tam ekran</b> görür, birkaç saniye sonra kendiliğinden kapanır. Süresi dolunca <b>kendiliğinden kalkar</b> — koda girmeye gerek yok.</p>
+    <label className={'flex flex-col items-center justify-center w-full rounded-2xl border-2 border-dashed cursor-pointer overflow-hidden '+(resim?'border-emerald-300 bg-emerald-50':'border-indigo-300 bg-indigo-50 py-6')}>
+      {resim ? <img src={resim} alt="Afiş önizleme" className="max-h-64 object-contain" /> : <><span className="text-[34px]">🖼️</span><span className="text-[14px] font-black text-indigo-700 mt-1">Afiş / fotoğraf seç</span><span className="text-[11px] font-bold text-indigo-400 text-center px-3">Instagram görseli, ekran görüntüsü… otomatik küçültülür · 💡 ekran görüntüsüyse önce telefonda kırpın</span></>}
+      <input type="file" accept="image/*" onChange={dosyaSec} className="hidden" />
+    </label>
+    {resim && <button onClick={()=>setResim('')} className="mt-1 text-[11.5px] font-black text-rose-500">✕ Fotoğrafı kaldır</button>}
+    <input value={baslik} onChange={e=>setBaslik(e.target.value)} maxLength={80} placeholder="Başlık (isteğe bağlı) · örn: Satranç turnuvamızda gururlandık! ♟️" className="mt-3 w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[15px] font-bold outline-none focus:border-indigo-400" />
+    <textarea value={alt} onChange={e=>setAlt(e.target.value)} maxLength={220} rows="2" placeholder="Kısa yazı (isteğe bağlı) · örn: Bugün öğrencilerimiz Beylikdüzü okullar arası turnuvada yarıştı." className="mt-2 w-full px-3 py-2.5 rounded-xl border-2 border-slate-200 text-[14px] outline-none focus:border-indigo-400 resize-y"></textarea>
+    <p className="text-[12px] font-black text-slate-500 mt-3 mb-1.5">👥 Kimler görsün?</p>
+    <div className="flex flex-wrap gap-1.5"><Cip on={hedef.indexOf('veli')>=0} onClick={()=>tikHedef('veli')}>👪 Veli</Cip><Cip on={hedef.indexOf('ogrenci')>=0} onClick={()=>tikHedef('ogrenci')}>🎒 Öğrenci</Cip><Cip on={hedef.indexOf('ogretmen')>=0} onClick={()=>tikHedef('ogretmen')}>👩‍🏫 Öğretmen</Cip>
+      <select value={sinif} onChange={e=>setSinif(e.target.value)} className="px-2 py-2 rounded-xl border-2 border-slate-200 text-[13px] font-bold"><option value="">🏫 Tüm okul</option>{siniflar.map(s=><option key={s} value={s}>{s}</option>)}</select></div>
+    <p className="text-[12px] font-black text-slate-500 mt-3 mb-1.5">⏱️ Ekranda kaç saniye kalsın?</p>
+    <div className="flex flex-wrap gap-1.5">{ZACILIS_SURE.map(([k,ad])=><Cip key={k} on={sure===k} onClick={()=>setSure(k)}>{ad}</Cip>)}</div>
+    <p className="text-[12px] font-black text-slate-500 mt-3 mb-1.5">🗓️ Ne zaman başlasın · ne zaman kalksın?</p>
+    <div className="flex flex-wrap gap-1.5"><Cip on={bas==='hemen'} onClick={()=>setBas('hemen')}>⚡ Hemen</Cip><Cip on={bas==='yarin'} onClick={()=>setBas('yarin')}>🌅 Yarın 08:00</Cip></div>
+    <div className="flex flex-wrap gap-1.5 mt-1.5">{ZACILIS_BITIS.map(([k,ad])=><Cip key={k} on={bitis===k} onClick={()=>setBitis(k)}>{ad}</Cip>)}</div>
+    <details className="mt-3 bg-slate-50 rounded-xl px-3 py-2"><summary className="text-[12.5px] font-black text-slate-600 cursor-pointer">➕ Ek ayarlar (bağlantı · bir kez göster)</summary>
+      <input value={link} onChange={e=>setLink(e.target.value)} placeholder="🔗 Bağlantı (isteğe bağlı) · https://…" className="mt-2 w-full px-3 py-2 rounded-xl border border-slate-200 text-[13px]" />
+      <input value={linkAd} onChange={e=>setLinkAd(e.target.value)} maxLength={30} placeholder="Düğme yazısı · örn: Fotoğrafları gör" className="mt-1.5 w-full px-3 py-2 rounded-xl border border-slate-200 text-[13px]" />
+      <label className="mt-2 flex items-center gap-2 text-[12.5px] font-bold text-slate-600"><input type="checkbox" checked={birKez} onChange={e=>setBirKez(e.target.checked)} /> Her kişiye yalnızca 1 kez göster (kapalıysa: uygulamayı her açışta 1 kez)</label>
+    </details>
+    <div className="grid grid-cols-2 gap-2 mt-3">
+      <button onClick={()=>{ if(!resim && !baslik.trim()) return alert('Önizleme için fotoğraf seçin ya da başlık yazın.'); onizleAc(taslak(), resim); }} className="py-3 rounded-2xl bg-white border-2 border-indigo-200 text-indigo-700 font-black text-[15px]">👁️ Önizle</button>
+      <button disabled={mesgul} onClick={yayinla} className="py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-black text-[15px] shadow-lg disabled:opacity-60">{mesgul?'Yükleniyor…':'🚀 Yayınla'}</button>
+    </div>
+    {liste.length>0 && <div className="mt-4 space-y-2"><p className="text-[12px] font-black text-slate-500">Afişler</p>
+      {liste.slice().sort((p,q)=>(q.ts||0)-(p.ts||0)).slice(0,12).map(a=>{ const [dy,dr]=durum(a); const kac=say[a.id]||0; return (<div key={a.id} className="bg-white border border-slate-200 rounded-xl p-3">
+        <div className="flex items-start gap-2"><div className="flex-1 min-w-0">
+          <p className="text-[13.5px] font-black text-slate-800 truncate">{a.baslik || (a.resimVar?'🖼️ Fotoğraflı afiş':'Afiş')}</p>
+          <p className="text-[11px] font-bold text-slate-400 mt-0.5">{(a.hedef||[]).map(h=>({veli:'👪',ogrenci:'🎒',ogretmen:'👩‍🏫'})[h]).join(' ')} · {a.sinif||'Tüm okul'} · {a.sure||5} sn · {new Date(a.baslangic||a.ts).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</p>
+          <div className="flex flex-wrap items-center gap-1.5 mt-1"><span className={'text-[10.5px] font-black px-2 py-0.5 rounded-full '+dr}>{dy}</span>{zAcilisAktif(a) && <span className="text-[10.5px] font-bold text-amber-600">⏳ {zAcilisKalan(a.bitis)}</span>}<span className="text-[10.5px] font-bold text-slate-500">👀 {kac} kez gösterildi</span></div>
+        </div>
+        <div className="flex flex-col gap-1 shrink-0">
+          <button onClick={()=>onizleAc(a)} className="text-[11.5px] font-black bg-indigo-50 text-indigo-700 rounded-lg px-2 py-1">👁️</button>
+          {!(a.bitis && simdi>=a.bitis) && <button onClick={()=>guncelle(a.id,{aktif:a.aktif===false})} className="text-[11.5px] font-black bg-slate-100 text-slate-600 rounded-lg px-2 py-1">{a.aktif===false?'▶️':'⏸️'}</button>}
+          <button onClick={()=>sil(a)} className="text-[11.5px] font-black bg-rose-50 text-rose-600 rounded-lg px-2 py-1">🗑️</button>
+        </div></div>
+      </div>); })}
+    </div>}
+    <p className="text-[10.5px] text-slate-400 mt-3 leading-snug">ℹ️ Süresi dolan afişler kimseye gösterilmez; bir gün sonra kayıtlardan da otomatik temizlenir. Afiş, uygulama açıldığında oturum başına bir kez görünür — sekmeler arasında gezerken tekrar çıkmaz.</p>
+    {onizle && ReactDOM.createPortal(<ZAcilisPerde a={onizle.a} resim={onizle.r} onizleme={true} kapat={()=>setOnizle(null)} />, document.body)}
+  </div>);
+};
+
+const LOCAL_SURUM = 69;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
@@ -12410,6 +12543,7 @@ const renderSharedUI = () => (
                                     <div className="space-y-4">
                                         <ZSekme ad="duyuru"><p className="text-[12px] font-black uppercase tracking-widest text-amber-600 px-1">📢 Duyuru & Haber</p></ZSekme>
                                         <div className="space-y-4">
+                                            <ZYKart ad="duyuru" baslik="🎬 Açılış ekranı (duyuru afişi)" alt="Uygulamayı açan herkese tam ekran afiş · 5 sn · süresi dolunca kendiliğinden kalkar"><ZAcilisYonetim db={db} /></ZYKart>
                                             <ZYKart ad="duyuru" baslik="📲 Bildirimli duyuru" alt="Tüm okula, bir sınıfa, sadece velilere ya da öğretmenlere — telefonlara anında bildirim"><ZYoneticiDuyuru db={db} user={{name:'Okul Yönetimi'}} /></ZYKart>
                                             <ZYKart ad="duyuru" baslik="📢 Kayan haber & acil duyuru" alt="Kayan bant herkesin ekranının üstünde görünür; pop-up açılışta bir kez çıkar.">
                                             <div>
