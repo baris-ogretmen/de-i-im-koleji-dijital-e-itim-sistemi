@@ -1507,6 +1507,7 @@ const GirisYildizlari = ({ db }) => {
   const kisa=(ad)=>{ const p=String(ad||'').trim().split(/\s+/); return p.length>1 ? (p.slice(0,-1).join(' ')+' '+p[p.length-1].charAt(0).toLocaleUpperCase('tr')+'.') : p[0]; };
   return (
     <div className="mb-6 -mt-6">
+      <ZBolumKalkani ad="acilis" sessiz={true}><ZAcilisEkrani db={db} rol="giris" /></ZBolumKalkani>
       <div className="flex justify-center mb-3"><span className="text-[10px] font-black tracking-widest text-emerald-300 bg-emerald-500/15 border border-emerald-400/30 px-3 py-1 rounded-full">● SÜRÜM {LOCAL_SURUM} · GÜNCEL</span></div>
       {liste.length>0 && <div className="flex justify-center"><span className="text-[11px] font-bold text-amber-200 bg-amber-500/10 border border-amber-400/30 px-3 py-1.5 rounded-full">⭐ Bu hafta {liste.length} sınıfta <b className="text-amber-300">Haftanın Öğrencisi</b> seçildi — görmek için giriş yapın</span></div>}
     </div>
@@ -8597,7 +8598,9 @@ const ZACILIS_BITIS = [['bugun','☀️ Bugün bitince'],['1','1 gün (24 saat)'
 function zAcilisBitis(k, bas){ const b=bas||Date.now(); if(k==='bugun'){ const d=new Date(b); d.setHours(23,59,0,0); return d.getTime(); } return b+(parseInt(k,10)||1)*86400000; }
 function zYarinSabah(){ const d=new Date(); d.setDate(d.getDate()+1); d.setHours(8,0,0,0); return d.getTime(); }
 function zAcilisAktif(a, simdi){ const t=simdi||Date.now(); return !!a && a.aktif!==false && t>=(a.baslangic||a.ts||0) && (!a.bitis || t<a.bitis); }
-function zAcilisBana(a, rol, sinif){ if(!a) return false; const h=a.hedef||['veli','ogrenci','ogretmen']; if(h.indexOf(rol)<0) return false;
+function zAcilisBana(a, rol, sinif){ if(!a) return false; const h=a.hedef||['veli','ogrenci','ogretmen'];
+  if(rol==='giris') return a.girisEkrani!==false && !a.sinif && h.indexOf('veli')>=0 && h.indexOf('ogrenci')>=0;
+  if(h.indexOf(rol)<0) return false;
   if(a.sinif && rol!=='ogretmen' && String(a.sinif)!==String(sinif||'')) return false; return true; }
 function zAcilisKalan(ts){ const f=(ts||0)-Date.now(); if(f<=0) return 'bitti'; const s=Math.floor(f/3600000), d=Math.round((f%3600000)/60000); return s>=24?(Math.floor(s/24)+' gün '+(s%24)+' sa kaldı'):(s>0?(s+' sa '+d+' dk kaldı'):(d+' dk kaldı')); }
 function zResimKucult(dosya, max, kalite){ return new Promise((coz,red)=>{ try{ const r=new FileReader(); r.onerror=()=>red(new Error('okunamadı'));
@@ -8607,22 +8610,34 @@ function zResimKucult(dosya, max, kalite){ return new Promise((coz,red)=>{ try{ 
   r.readAsDataURL(dosya); }catch(e){ red(e); } }); }
 
 /* Tam ekran afiş (hem kullanıcı hem önizleme) */
+const ZACILIS_CSS='@keyframes zacGir{from{transform:translateY(28px) scale(.96);opacity:0}to{transform:none;opacity:1}}@keyframes zacSis{from{opacity:0}to{opacity:1}}.zac-kart{animation:zacGir .38s cubic-bezier(.2,.9,.3,1.2) both}.zac-sis{animation:zacSis .3s ease-out both}';
 const ZAcilisPerde = ({ a, resim, kapat, onizleme }) => {
-  const sure=Math.max(2, parseInt(a.sure,10)||5); const [kalan,setKalan]=useState(sure);
-  useEffect(()=>{ const bas=Date.now(); const t=setInterval(()=>{ const k=sure-Math.floor((Date.now()-bas)/1000); setKalan(k); if(k<=0){ clearInterval(t); kapat(); } },250);
-    const f=e=>{ if(e.key==='Escape') kapat(); }; window.addEventListener('keydown',f);
+  const sure=Math.max(2, parseInt(a.sure,10)||5); const [kalan,setKalan]=useState(sure); const [ms,setMs]=useState(0); const [cikis,setCikis]=useState(false);
+  const kapan=()=>{ if(cikis) return; setCikis(true); setTimeout(kapat,220); };
+  useEffect(()=>{ const bas=Date.now(); const t=setInterval(()=>{ const g=Date.now()-bas; setMs(g); const k=Math.ceil((sure*1000-g)/1000); setKalan(k); if(g>=sure*1000){ clearInterval(t); kapan(); } },100);
+    const f=e=>{ if(e.key==='Escape') kapan(); }; window.addEventListener('keydown',f);
     return ()=>{ clearInterval(t); window.removeEventListener('keydown',f); }; },[]);
-  const yuzde=Math.max(0,Math.min(100,(1-kalan/sure)*100));
-  return (<div className="fixed inset-0 z-[9800] flex flex-col items-center justify-center p-4 zsekme-gir" role="dialog" aria-modal="true" aria-label={a.baslik||'Duyuru'}
-      style={{background:'radial-gradient(120% 90% at 50% 0%, rgba(30,58,138,.99), rgba(11,30,63,1))', paddingTop:'calc(1rem + env(safe-area-inset-top))', paddingBottom:'calc(1rem + env(safe-area-inset-bottom))'}}>
-    <div className="absolute top-0 left-0 right-0 h-1.5 bg-white/15"><div className="h-full bg-gradient-to-r from-amber-300 to-emerald-400 transition-all duration-200" style={{width:yuzde+'%'}}></div></div>
-    <button onClick={kapat} className="absolute right-3 bg-white/95 text-slate-800 font-black text-[14px] px-4 py-2 rounded-full shadow-lg" style={{top:'calc(.75rem + env(safe-area-inset-top))'}}>Geç {kalan>0?('· '+kalan):''} ✕</button>
-    {onizleme && <span className="absolute left-3 bg-amber-400 text-slate-900 font-black text-[11px] px-3 py-1.5 rounded-full" style={{top:'calc(.9rem + env(safe-area-inset-top))'}}>👁️ ÖNİZLEME</span>}
-    <p className="text-[11px] font-black uppercase tracking-[.25em] text-amber-300 mb-2">📣 Değişim Koleji</p>
-    {resim && <img src={resim} alt={a.baslik||'Duyuru afişi'} className="max-w-full rounded-2xl shadow-2xl object-contain bg-white" style={{maxHeight:(a.baslik||a.alt)?'62vh':'72vh'}} />}
-    {a.baslik && <h2 className="mt-4 text-white text-[24px] sm:text-[30px] font-black text-center leading-tight max-w-xl">{a.baslik}</h2>}
-    {a.alt && <p className="mt-1.5 text-white/85 text-[15px] sm:text-[17px] font-bold text-center leading-snug max-w-xl whitespace-pre-line">{a.alt}</p>}
-    {a.link && <a href={a.link} target="_blank" rel="noopener noreferrer" onClick={kapat} className="mt-4 bg-gradient-to-r from-amber-300 to-yellow-400 text-slate-900 font-black text-[16px] px-6 py-3 rounded-2xl shadow-lg">{a.linkAd||'Detaylar'} →</a>}
+  const oran=Math.max(0,Math.min(1,ms/(sure*1000))); const R=15, C=2*Math.PI*R;
+  return (<div className={'fixed inset-0 z-[9800] flex items-end sm:items-center justify-center px-3 transition-opacity duration-200 '+(cikis?'opacity-0':'opacity-100')} role="dialog" aria-modal="true" aria-label={a.baslik||'Duyuru'}
+      style={{paddingBottom:'calc(96px + env(safe-area-inset-bottom))'}}>
+    <style>{ZACILIS_CSS}</style>
+    <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-[1.5px] zac-sis" onClick={kapan}></div>
+    <div className="zac-kart relative w-full max-w-[420px] bg-white rounded-[1.8rem] shadow-[0_24px_60px_rgba(15,23,42,.45)] overflow-hidden">
+      <div className="flex items-center gap-2 pl-4 pr-2 pt-2.5 pb-2 bg-gradient-to-r from-[#0b1e3f] to-indigo-700 text-white">
+        <span className="flex-1 min-w-0 text-[11px] font-black uppercase tracking-[.2em] text-amber-300 truncate">📣 Değişim Koleji{onizleme?' · 👁️ önizleme':''}</span>
+        <button onClick={kapan} aria-label="Geç" className="flex items-center gap-1.5 bg-white text-slate-800 font-black text-[13px] pl-1 pr-3 py-1 rounded-full shadow active:scale-95 transition">
+          <svg width="30" height="30" viewBox="0 0 36 36" className="-rotate-90"><circle cx="18" cy="18" r={R} fill="none" stroke="#e2e8f0" strokeWidth="3.5"/><circle cx="18" cy="18" r={R} fill="none" stroke="#6366f1" strokeWidth="3.5" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C*oran}/><text x="18" y="18" transform="rotate(90 18 18)" textAnchor="middle" dominantBaseline="central" fontSize="13" fontWeight="900" fill="#1e293b">{Math.max(0,kalan)}</text></svg>
+          Geç ›
+        </button>
+      </div>
+      {resim && <div className="bg-slate-100 flex justify-center"><img src={resim} alt={a.baslik||'Duyuru afişi'} className="w-full object-contain" style={{maxHeight:(a.baslik||a.alt)?'46vh':'56vh'}} /></div>}
+      {(a.baslik||a.alt||a.link) && <div className="px-4 pt-3 pb-4">
+        {a.baslik && <h2 className="text-slate-800 text-[19px] font-black leading-tight">{a.baslik}</h2>}
+        {a.alt && <p className="mt-1 text-slate-600 text-[14px] font-bold leading-snug whitespace-pre-line">{a.alt}</p>}
+        {a.link && <a href={a.link} target="_blank" rel="noopener noreferrer" onClick={kapan} className="mt-3 inline-flex bg-gradient-to-r from-amber-300 to-yellow-400 text-slate-900 font-black text-[14px] px-4 py-2.5 rounded-xl shadow">{a.linkAd||'Detaylar'} →</a>}
+      </div>}
+      <div className="h-1.5 bg-slate-100"><div className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400" style={{width:(oran*100)+'%'}}></div></div>
+    </div>
   </div>);
 };
 
@@ -8632,7 +8647,8 @@ const ZAcilisEkrani = ({ db, rol, sinif }) => {
   useEffect(()=>{ if(!d || bakildi.current || !db) return; bakildi.current=true;
     let a=null; try{ a=((d.liste)||[]).filter(x=>zAcilisAktif(x) && zAcilisBana(x,rol,sinif) && !(function(){ try{ return x.birKez ? localStorage.getItem('zacilis_'+x.id) : sessionStorage.getItem('zacilis_'+x.id); }catch(e){ return null; } })()).sort((p,q)=>(q.ts||0)-(p.ts||0))[0]||null; }catch(e){ a=null; }
     if(!a) return; let iptal=false;
-    const ac=(r)=>{ if(iptal) return; try{ (a.birKez?localStorage:sessionStorage).setItem('zacilis_'+a.id,'1'); }catch(e){} setResim(r||''); setGoster(a);
+    const ac=(r)=>{ if(iptal) return; setTimeout(()=>ac2(r),600); };
+    const ac2=(r)=>{ if(iptal) return; try{ (a.birKez?localStorage:sessionStorage).setItem('zacilis_'+a.id,'1'); }catch(e){} setResim(r||''); setGoster(a);
       try{ const S=window.FirebaseSDK; if(S&&S.increment) S.setDoc(S.doc(db,'maas_config','k12_acilis_say'),{[a.id]:S.increment(1)},{merge:true}).catch(()=>{}); }catch(e){} };
     if(!a.resimVar){ if(a.baslik||a.alt) ac(''); return; }
     const zm=setTimeout(()=>{ if(a.baslik||a.alt) ac(''); else iptal=true; }, 6000);
@@ -8649,11 +8665,11 @@ const ZAcilisYonetim = ({ db }) => {
   const siniflar=Array.from(new Set(((od&&od.liste)||[]).map(o=>o&&o.sinif).filter(Boolean))).sort((a,b)=>(typeof zSinifNo==='function'?zSinifNo(a)-zSinifNo(b):String(a).localeCompare(String(b),'tr')));
   const [resim,setResim]=useState(''); const [baslik,setBaslik]=useState(''); const [alt,setAlt]=useState(''); const [hedef,setHedef]=useState(['veli','ogrenci','ogretmen']);
   const [sinif,setSinif]=useState(''); const [sure,setSure]=useState('5'); const [bitis,setBitis]=useState('1'); const [bas,setBas]=useState('hemen');
-  const [link,setLink]=useState(''); const [linkAd,setLinkAd]=useState(''); const [birKez,setBirKez]=useState(false); const [mesgul,setMesgul]=useState(false); const [onizle,setOnizle]=useState(null);
+  const [link,setLink]=useState(''); const [linkAd,setLinkAd]=useState(''); const [birKez,setBirKez]=useState(false); const [girisE,setGirisE]=useState(true); const [mesgul,setMesgul]=useState(false); const [onizle,setOnizle]=useState(null);
   const dosyaSec=async(e)=>{ const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return; if(String(f.type).indexOf('image/')!==0) return alert('Lütfen bir fotoğraf / afiş görseli seçin.');
     try{ const r=await zResimKucult(f,1200,0.76); setResim(r); toast('🖼️ Afiş hazır — önizleyip yayınlayabilirsiniz.','green'); }catch(x){ alert('Fotoğraf okunamadı, başka bir fotoğraf deneyin.'); } };
   const tikHedef=k=>setHedef(h=>h.indexOf(k)>=0?(h.length>1?h.filter(x=>x!==k):h):h.concat([k]));
-  const taslak=()=>{ const b=bas==='yarin'?zYarinSabah():Date.now(); return {id:'ac'+yeniId(), baslik:baslik.trim(), alt:alt.trim(), hedef, sinif, sure, ts:Date.now(), baslangic:b, bitis:zAcilisBitis(bitis,b), resimVar:!!resim, link:link.trim(), linkAd:linkAd.trim(), birKez, aktif:true, ekleyen:'Yönetim'}; };
+  const taslak=()=>{ const b=bas==='yarin'?zYarinSabah():Date.now(); return {id:'ac'+yeniId(), baslik:baslik.trim(), alt:alt.trim(), hedef, sinif, sure, ts:Date.now(), baslangic:b, bitis:zAcilisBitis(bitis,b), resimVar:!!resim, link:link.trim(), linkAd:linkAd.trim(), birKez, girisEkrani:girisE, aktif:true, ekleyen:'Yönetim'}; };
   const yayinla=async()=>{ if(!resim && !baslik.trim()) return alert('Bir afiş fotoğrafı seçin ya da en azından bir başlık yazın.'); if(link.trim() && !/^https?:\/\//i.test(link.trim())) return alert('Bağlantı https:// ile başlamalı.');
     if(mesgul) return; setMesgul(true); const a=taslak();
     let ok=true; if(resim){ ok=await okulYaz(db,'k12_acilis_res_'+a.id,{data:resim}); }
@@ -8666,7 +8682,7 @@ const ZAcilisYonetim = ({ db }) => {
   const simdi=Date.now(); const durum=a=>a.aktif===false?['⏸️ Durduruldu','bg-slate-200 text-slate-600']:(simdi<(a.baslangic||a.ts)?['🗓️ Planlandı','bg-sky-100 text-sky-700']:(a.bitis&&simdi>=a.bitis?['⌛ Süresi doldu','bg-slate-100 text-slate-400']:['🟢 Yayında','bg-emerald-100 text-emerald-700']));
   const Cip=({on,onClick,children})=>(<button type="button" onClick={onClick} className={'px-3 py-2 rounded-xl text-[13px] font-black border-2 transition '+(on?'bg-indigo-600 text-white border-indigo-600':'bg-white text-slate-600 border-slate-200')}>{children}</button>);
   return (<div>
-    <p className="text-[12.5px] text-slate-600 leading-snug mb-3">Turnuva, gezi, bayram, tebrik… Afişi seçin; uygulamayı açan veli, öğrenci ve öğretmenler <b>tam ekran</b> görür, birkaç saniye sonra kendiliğinden kapanır. Süresi dolunca <b>kendiliğinden kalkar</b> — koda girmeye gerek yok.</p>
+    <p className="text-[12.5px] text-slate-600 leading-snug mb-3">Turnuva, gezi, bayram, tebrik… Afişi seçin; uygulamayı açan veli, öğrenci ve öğretmenler şık bir <b>duyuru kartı</b> olarak görür, birkaç saniye sonra kendiliğinden kapanır (<b>“Geç”</b> ile hemen de kapatılır). Süresi dolunca <b>kendiliğinden kalkar</b> — koda girmeye gerek yok.</p>
     <label className={'flex flex-col items-center justify-center w-full rounded-2xl border-2 border-dashed cursor-pointer overflow-hidden '+(resim?'border-emerald-300 bg-emerald-50':'border-indigo-300 bg-indigo-50 py-6')}>
       {resim ? <img src={resim} alt="Afiş önizleme" className="max-h-64 object-contain" /> : <><span className="text-[34px]">🖼️</span><span className="text-[14px] font-black text-indigo-700 mt-1">Afiş / fotoğraf seç</span><span className="text-[11px] font-bold text-indigo-400 text-center px-3">Instagram görseli, ekran görüntüsü… otomatik küçültülür · 💡 ekran görüntüsüyse önce telefonda kırpın</span></>}
       <input type="file" accept="image/*" onChange={dosyaSec} className="hidden" />
@@ -8685,6 +8701,7 @@ const ZAcilisYonetim = ({ db }) => {
     <details className="mt-3 bg-slate-50 rounded-xl px-3 py-2"><summary className="text-[12.5px] font-black text-slate-600 cursor-pointer">➕ Ek ayarlar (bağlantı · bir kez göster)</summary>
       <input value={link} onChange={e=>setLink(e.target.value)} placeholder="🔗 Bağlantı (isteğe bağlı) · https://…" className="mt-2 w-full px-3 py-2 rounded-xl border border-slate-200 text-[13px]" />
       <input value={linkAd} onChange={e=>setLinkAd(e.target.value)} maxLength={30} placeholder="Düğme yazısı · örn: Fotoğrafları gör" className="mt-1.5 w-full px-3 py-2 rounded-xl border border-slate-200 text-[13px]" />
+      <label className="mt-2 flex items-center gap-2 text-[12.5px] font-bold text-slate-600"><input type="checkbox" checked={girisE} onChange={e=>setGirisE(e.target.checked)} /> Giriş ekranında da göster (tüm okula, veli + öğrenciye açık afişlerde)</label>
       <label className="mt-2 flex items-center gap-2 text-[12.5px] font-bold text-slate-600"><input type="checkbox" checked={birKez} onChange={e=>setBirKez(e.target.checked)} /> Her kişiye yalnızca 1 kez göster (kapalıysa: uygulamayı her açışta 1 kez)</label>
     </details>
     <div className="grid grid-cols-2 gap-2 mt-3">
@@ -8705,12 +8722,12 @@ const ZAcilisYonetim = ({ db }) => {
         </div></div>
       </div>); })}
     </div>}
-    <p className="text-[10.5px] text-slate-400 mt-3 leading-snug">ℹ️ Süresi dolan afişler kimseye gösterilmez; bir gün sonra kayıtlardan da otomatik temizlenir. Afiş, uygulama açıldığında oturum başına bir kez görünür — sekmeler arasında gezerken tekrar çıkmaz.</p>
+    <p className="text-[10.5px] text-slate-400 mt-3 leading-snug">ℹ️ Süresi dolan afişler kimseye gösterilmez; bir gün sonra kayıtlardan da otomatik temizlenir. Afiş, uygulama açıldığında oturum başına bir kez görünür — sekmeler arasında gezerken tekrar çıkmaz. Hiç afiş yayınlanmadıysa kimseye bir şey çıkmaz.</p>
     {onizle && ReactDOM.createPortal(<ZAcilisPerde a={onizle.a} resim={onizle.r} onizleme={true} kapat={()=>setOnizle(null)} />, document.body)}
   </div>);
 };
 
-const LOCAL_SURUM = 69;
+const LOCAL_SURUM = 70;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
