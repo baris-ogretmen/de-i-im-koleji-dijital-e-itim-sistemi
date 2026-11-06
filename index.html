@@ -2578,6 +2578,7 @@ const AiOgrenciOneri = ({ db, ogrenciler, apiKey, modelName }) => {
         <button onClick={uret} disabled={yuk} className="w-full bg-cyan-600 text-white font-black py-2.5 rounded-lg text-sm disabled:opacity-60">{yuk?'⏳ Analiz ediliyor…':'🧠 Öneri Üret'}</button>
       </div>
       {oneri && <div className="bg-white border border-slate-200 rounded-xl p-3 text-sm text-slate-700 whitespace-pre-wrap">{oneri}</div>}
+      {oneri && <ZYazdirBtn etiket="Öneriyi yazdır / PDF" onClick={()=>{ const og=(ogrenciler||[]).find(x=>x&&x.id===ogrId); zYazdir({baslik:'🧠 AI Öğrenci Koçu · Öneri',kim:og?{ad:og.ad,sinif:og.sinif}:{},ai:true,bolumler:[{metin:oneri}]}); }} />}
     </div>
   );
 };
@@ -3224,6 +3225,7 @@ const OdevAta = ({ db, user, ogrenciler, odevler, apiKey, modelName }) => {
               <div className="flex flex-col">
                 <button onClick={()=>setDuzenle({id:o.id,konu:o.konu||'',detay:o.detay||'',sonTeslim:o.sonTeslim||'',link:o.link||'',tur:o.tur||'sinif',ogrenciId:o.ogrenciId||'',sinif:o.sinif,bilgi:!!o.bilgi})} className="text-slate-300 hover:text-amber-500 p-1" title="Düzenle"><i className="fa-solid fa-pen"></i></button>
                 {!o.bilgi && <button onClick={async()=>{ if(!window.confirm('Bu kayıt ödev yerine "Hatırlatma" olarak gösterilsin mi? (1 hafta sonra kendiliğinden kalkar)')) return; const ok=await okulYaz(db,"k12_odevler",{liste:odevler.map(x=>x.id===o.id?{...x,bilgi:true,sonTeslim:'',bitis:zBitis('7')}:x)}); if(ok) toast('📢 Hatırlatmaya çevrildi.','green'); }} className="text-slate-300 hover:text-sky-500 p-1" title="Hatırlatmaya çevir">📢</button>}
+                <button onClick={()=>zOdevYazdir(db,[o],{ad:'',sinif:o.sinif})} className="text-slate-300 hover:text-indigo-600 p-1" title="Yazdır / PDF"><i className="fa-solid fa-print"></i></button>
                 <button onClick={()=>sil(o.id)} className="text-slate-300 hover:text-red-500 p-1" title="Sil"><i className="fa-solid fa-trash-can"></i></button>
               </div>
             </div>
@@ -3658,7 +3660,7 @@ const OgrenciMerkezi = ({ db, user }) => {
       {/* Ödevlerim */}
       <ZSekme ad="odev" icerik="ob-odevler">
       <div id="ob-odevler" className="bg-white border-4 border-orange-200 rounded-[2rem] p-6 shadow-lg">
-        <h3 className="text-xl font-black text-orange-900 mb-4 flex items-center"><i className="fa-solid fa-list-check text-orange-500 mr-2"></i>Ödevlerim ({benimOdevler.length})</h3>
+        <h3 className="text-xl font-black text-orange-900 mb-4 flex items-center"><i className="fa-solid fa-list-check text-orange-500 mr-2"></i>Ödevlerim ({benimOdevler.length}){benimOdevler.filter(o=>!yapilanIds.has(o.id)).length>0 && <ZYazdirBtn etiket="Bekleyenleri yazdır" sinif="ml-auto text-[12px] font-black bg-orange-100 text-orange-800 rounded-xl px-3 py-1.5" onClick={()=>zOdevYazdir(db,benimOdevler.filter(o=>!yapilanIds.has(o.id)),ben?{ad:ben.ad,sinif:sinifim}:null,'Bekleyen ödevlerim')} />}</h3>
         {benimOdevler.length===0 ? (
           <p className="text-slate-500 font-medium bg-orange-50 rounded-xl p-4 text-center">Şu an atanmış ödev yok. Kitap okumaya ne dersin? 📚</p>
         ) : (
@@ -3675,7 +3677,7 @@ const OgrenciMerkezi = ({ db, user }) => {
                     {o.sonTeslim && (()=>{ const gecti = o.sonTeslim < new Date().toISOString().slice(0,10); return <span className={`text-[10px] font-bold ml-auto ${gecti?'text-emerald-600':'text-red-500'}`}><i className="fa-solid fa-clock mr-1"></i>{gecti?'Süre doldu · yine de yapabilirsin':('Son: '+o.sonTeslim)}</span>; })()}
                   </div>
                   <p className="text-slate-800 font-medium whitespace-pre-wrap leading-relaxed text-sm">{o.detay}</p>
-                  <div className="mt-1"><AIBtn metin={o.detay} kucuk={true} /></div>
+                  <div className="mt-1 flex items-center gap-3"><AIBtn metin={o.detay} kucuk={true} /><ZYazdirBtn onClick={()=>zOdevYazdir(db,[o],ben?{ad:ben.ad,sinif:sinifim}:null)} /></div>
                   <ZEkler db={db} o={o} kim={{ogr:ben, rol:'ogrenci'}} />
                   <ZGor db={db} kayit={o} ogr={ben} rol="ogrenci" />
                   {ben && !yapildi && o.bilgi && <button onClick={()=>okudum(o)} className="mt-3 w-full bg-sky-500 hover:bg-sky-600 text-white font-black py-2.5 rounded-xl text-sm">👍 Okudum</button>}
@@ -3905,6 +3907,7 @@ const VeliMerkezi = ({ db, user }) => {
           <ZSekme ad="odev">
           <div id="vb-odev" className="bg-white border-4 border-orange-200 rounded-[2rem] p-6 shadow-lg">
             <h3 className="text-lg font-black text-orange-900 mb-3"><i className="fa-solid fa-list-check text-orange-500 mr-2"></i>{cocuk.ad} · Ödevler ve Teslim Durumu</h3>
+            {cocukOdevler.filter(o=>!cocukYapilanIds.has(o.id)).length>0 && <ZYazdirBtn etiket="Bekleyen ödevlerin hepsini yazdır" sinif="mb-3 w-full text-[13px] font-black bg-orange-100 text-orange-800 rounded-xl px-3 py-2.5" onClick={()=>zOdevYazdir(db,cocukOdevler.filter(o=>!cocukYapilanIds.has(o.id)),{ad:cocuk.ad,sinif:cocuk.sinif},cocuk.ad+' · Bekleyen ödevler')} />}
             {cocukOdevler.length===0 ? <p className="text-sm text-slate-500 bg-orange-50 rounded-xl p-3">Şu an atanmış ödev yok.</p> : (
               <div className="space-y-2">
                 {cocukOdevler.map(o=>{
@@ -3918,6 +3921,7 @@ const VeliMerkezi = ({ db, user }) => {
                         <span className={`text-[10px] font-black ml-auto ${yapildi?'text-emerald-600':(o.bilgi?'text-sky-600':'text-orange-500')}`}>{o.bilgi?(yapildi?'👍 Çocuğunuz okudu':'📢 Bilgilendirme'):(yapildi?'✅ Yapıldı':((o.sonTeslim && o.sonTeslim<zYerelTarih())?'⌛ Teslim süresi geçti':(o.sonTeslim?('⏳ Son gün: '+o.sonTeslim.split('-').reverse().slice(0,2).join('.')):'⏳ Bekliyor')))}</span>
                       </div>
                       <p className="text-slate-700 text-sm whitespace-pre-wrap">{o.detay}</p>
+                      <div className="mt-1"><ZYazdirBtn onClick={()=>zOdevYazdir(db,[o],{ad:cocuk.ad,sinif:cocuk.sinif})} /></div>
                       <ZEkler db={db} o={o} kim={{ogr:cocuk, rol:'veli'}} />
                       <ZGor db={db} kayit={o} ogr={cocuk} rol="veli" />
                     </div>
@@ -4183,6 +4187,7 @@ const KonuCalisma = ({ grade }) => {
         <div className="bg-white rounded-2xl border-2 border-cyan-200 shadow-inner overflow-hidden">
           <div className="bg-cyan-500 text-white px-4 py-2 flex items-center justify-between">
             <span className="font-black text-sm"><i className={`fa-solid ${mod==='ozet'?'fa-book':'fa-palette'} mr-2`}></i>{konu} · {mod==='ozet'?'Özet':'Etkinlik'}</span>
+            <button onClick={()=>zYazdir({baslik:konu+' · '+(mod==='ozet'?'Konu Özeti':'Etkinlik'),alt:(grade||'')+' · Konu Çalışma',kim:{},ai:true,bolumler:[{baslik:konu,html:sonuc,calisma:mod==='ozet'?0:6}]})} className="bg-white/20 hover:bg-white/40 px-2 py-1 rounded text-[11px] font-black mr-1">🖨️ Yazdır</button>
             <button onClick={()=>zSesliOku(sonuc)} className="bg-white/20 hover:bg-white/40 px-2 py-1 rounded text-[11px] font-black mr-1"><i className="fa-solid fa-volume-high mr-1"></i>Sesli Oku / Durdur</button>
             <button onClick={()=>{ try{navigator.clipboard.writeText(sonuc.replace(/<[^>]+>/g,''));toast('📋 Kopyalandı','green');}catch(e){} }} className="bg-white/20 hover:bg-white/40 px-2 py-1 rounded text-[11px] font-black"><i className="fa-solid fa-copy mr-1"></i>Kopyala</button>
           </div>
@@ -6329,7 +6334,7 @@ const DegerlendirmeRapor = ({ db, ogrenci, ogrenciler, veliModu, ogretmen }) => 
   const paylas=()=>{ const t='📊 *'+ogrenci.ad+' — '+son+'. Hafta Değerlendirmesi*\n'+dersler.map(d=>{ const v=(kSon.d||{})[d.ad]; return '• '+d.ad+': '+(v===undefined||v===''?'–':(d.max!==100?(v+'/'+d.max):v)); }).join('\n')+(kSon.dav?('\n• Davranış: '+DAV_ETIKET[kSon.dav]):'')+(genelSon!==null?('\n\n✨ Genel başarı: %'+genelSon):'')+(kSon.not?('\n📝 '+kSon.not):'')+'\n\nDeğişim Koleji';
     try{ if(navigator.share){ navigator.share({text:t}); return; } }catch(e){} window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank'); };
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 zyaz-deg">
       <div className="rounded-3xl p-4 text-white bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 shadow-lg">
         <p className="text-[10px] font-black tracking-[0.3em] opacity-90">36 HAFTALIK DEĞERLENDİRME</p>
         <p className="text-xl font-black mt-0.5">{ogrenci.ad}</p>
@@ -6361,6 +6366,7 @@ const DegerlendirmeRapor = ({ db, ogrenci, ogrenciler, veliModu, ogretmen }) => 
         <div className="flex items-center justify-between gap-2"><p className="text-[12px] font-black text-cyan-800">🌟 Genel değerlendirme (yapay zekâ)</p><button onClick={aiYaz} disabled={aiYuk} className="text-[11px] font-black bg-gradient-to-r from-cyan-600 to-indigo-600 text-white px-3 py-1.5 rounded-lg disabled:opacity-50">{aiYuk?'⏳ Yazılıyor…':(aiYorum?'🔄 Yeniden yaz':'✨ Yorum yaz')}</button></div>
         {aiYorum && <p className="text-[13px] text-slate-700 mt-2 leading-relaxed whitespace-pre-wrap">{aiYorum}</p>}
         {aiYorum && <p className="text-[10px] text-slate-400 mt-1">Yapay zekâ yorumudur; öğretmen görüşünün yerini tutmaz.</p>}
+        <div className="mt-2"><ZYazdirBtn etiket="Raporun tamamını yazdır / PDF" sinif="text-[12.5px] font-black bg-white border border-cyan-200 text-cyan-800 rounded-xl px-3 py-2" onClick={e=>zYazdirEleman(e.currentTarget.closest('.zyaz-deg'),'36 Haftalık Değerlendirme',ogrenci.ad+' · '+(ogrenci.sinif||''))} /></div>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <button onClick={yazdir} className="bg-gradient-to-r from-slate-700 to-slate-900 text-white font-black py-2.5 rounded-xl text-[12px]">🖨️ Rapor / PDF</button>
@@ -8057,6 +8063,7 @@ const ZHaftaRaporVeli = ({ db, cocuk }) => {
     <p className="text-[12px] font-black tracking-widest text-fuchsia-700">📊 HAFTALIK GELİŞİM RAPORU</p>
     <p className="text-[12.5px] text-slate-500 mt-0.5">{r.ogretmen} · {trTarih(r.ts)}</p>
     <p className="text-[16px] text-slate-800 leading-relaxed mt-2 whitespace-pre-line">{r.metin}</p>
+    <div className="mt-2"><ZYazdirBtn etiket="Raporu yazdır / PDF" sinif="text-[12.5px] font-black bg-white border border-fuchsia-200 text-fuchsia-700 rounded-xl px-3 py-2" onClick={()=>zYazdir({baslik:'📊 Haftalık Gelişim Raporu',alt:(r.ogretmen||'')+' · '+trTarih(r.ts),kim:{ad:cocuk.ad,sinif:cocuk.sinif},bolumler:[{metin:r.metin}]})} /></div>
     <ZGor db={db} kayit={{id:'hr'+hk, tarih:r.ts}} ogr={cocuk} rol="veli" />
   </div>);
 };
@@ -8727,7 +8734,90 @@ const ZAcilisYonetim = ({ db }) => {
   </div>);
 };
 
-const LOCAL_SURUM = 70;
+/* ============================================================================
+   v71 · 🖨️ YAZDIR / PDF — ödevler ve yapay zekâ çıktıları (öğretmen · veli · öğrenci)
+   · zYazdir({...}) → A4'e uygun, okul başlıklı şık sayfa; "Yazdır / PDF olarak kaydet"
+   · iPhone'da: Paylaş/Yazdır penceresinden "PDF olarak kaydet" ya da yazıcıya gönder
+   · zYazdirEleman(el) → ekrandaki bir raporu görünümüyle birlikte yazdırır
+   ============================================================================ */
+function zYzKac(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+function zYzMetin(t){ /* düz/markdown metni güvenli HTML'e çevirir */
+  const sat=String(t||'').replace(/\r/g,'').split('\n'); let h='', liste=false;
+  const ic=x=>zYzKac(x).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<i>$2</i>').replace(/`([^`]+)`/g,'<code>$1</code>');
+  sat.forEach(l=>{ const s=l.trim(); const m=s.match(/^(?:[-•*▪●]|\d+[.)])\s+(.*)$/);
+    if(m){ if(!liste){ h+='<ul>'; liste=true; } h+='<li>'+ic(m[1])+'</li>'; return; }
+    if(liste){ h+='</ul>'; liste=false; }
+    if(!s){ h+='<div class="bos"></div>'; return; }
+    const b=s.match(/^#{1,4}\s+(.*)$/); if(b){ h+='<h3>'+ic(b[1])+'</h3>'; return; }
+    h+='<p>'+ic(s)+'</p>'; });
+  if(liste) h+='</ul>'; return h; }
+function zYzHtml(h){ /* yapay zekâdan gelen HTML: betik/olay temizliği */
+  return String(h||'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<iframe[\s\S]*?<\/iframe>/gi,'').replace(/\son\w+="[^"]*"/gi,'').replace(/\son\w+='[^']*'/gi,'').replace(/javascript:/gi,''); }
+const ZYZ_CSS='@page{size:A4;margin:14mm}*{box-sizing:border-box}body{margin:0;font-family:Inter,"Segoe UI",Arial,sans-serif;color:#0f172a;background:#f1f5f9;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+ +'.sayfa{max-width:800px;margin:0 auto;background:#fff;padding:26px 30px 30px}'
+ +'.ust{display:flex;align-items:center;gap:12px;border-bottom:3px solid #4f46e5;padding-bottom:10px;margin-bottom:16px}.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#4f46e5,#10b981);color:#fff;font-weight:900;font-size:20px;display:flex;align-items:center;justify-content:center}'
+ +'.okul{font-weight:900;font-size:17px;letter-spacing:.02em}.okul small{display:block;font-size:11px;font-weight:700;color:#64748b;letter-spacing:.08em}.tarih{margin-left:auto;font-size:12px;color:#64748b;font-weight:700;text-align:right}'
+ +'h1{font-size:23px;font-weight:900;margin:0 0 6px;line-height:1.2}.alt{font-size:13px;color:#475569;margin:0 0 12px}.kim{display:flex;gap:18px;flex-wrap:wrap;font-size:13.5px;margin:6px 0 16px;padding:9px 12px;border:1.5px dashed #cbd5e1;border-radius:10px}.kim b{display:inline-block;min-width:150px;border-bottom:1.5px solid #94a3b8;padding:0 4px}'
+ +'.bolum{border:1.5px solid #e2e8f0;border-radius:14px;padding:14px 16px;margin:0 0 14px;page-break-inside:avoid;break-inside:avoid}.bolum h2{font-size:17px;margin:0 0 6px;color:#3730a3}.meta{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}.meta span{font-size:11.5px;font-weight:800;background:#eef2ff;color:#3730a3;border-radius:999px;padding:3px 9px}'
+ +'.icerik{font-size:14.5px;line-height:1.65}.icerik p{margin:0 0 6px}.icerik h3,.icerik h2,.icerik h4{color:#4338ca;margin:10px 0 4px;font-size:15.5px}.icerik ul,.icerik ol{margin:4px 0 8px 20px;padding:0}.icerik li{margin:2px 0}.icerik .bos{height:6px}.icerik img{max-width:100%}.icerik table{border-collapse:collapse;width:100%;margin:6px 0}.icerik td,.icerik th{border:1px solid #cbd5e1;padding:5px 7px;font-size:13px;text-align:left}'
+ +'.resim{text-align:center;margin:10px 0}.resim img{max-width:100%;max-height:520px;border-radius:10px;border:1px solid #e2e8f0}.link{font-size:12px;color:#334155;word-break:break-all;margin:3px 0}'
+ +'.calisma{margin-top:12px}.calisma p{font-size:12px;font-weight:800;color:#64748b;margin:0 0 2px}.calisma div{height:30px;border-bottom:1.5px solid #cbd5e1}'
+ +'.ai{font-size:11px;color:#6b21a8;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:7px 10px;margin-top:10px}.alt-imza{margin-top:18px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10.5px;color:#94a3b8;text-align:center}'
+ +'.arac{position:sticky;top:0;z-index:5;display:flex;gap:8px;justify-content:center;padding:10px;background:#0f172a}.arac button{border:0;border-radius:12px;padding:12px 18px;font-weight:900;font-size:15px;cursor:pointer}.arac .y{background:#4f46e5;color:#fff}.arac .k{background:#fff;color:#0f172a}.arac small{color:#cbd5e1;font-size:11px;align-self:center}'
+ +'@media print{body{background:#fff}.arac{display:none!important}.sayfa{max-width:none;padding:0}}';
+function zYazdirAc(html, baslik, ekBas){
+  const tam='<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+zYzKac(baslik||'Yazdır')+'</title>'+(ekBas||'')+'<style>'+ZYZ_CSS+'</style></head><body>'
+    +'<div class="arac"><button class="y" onclick="window.print()">🖨️ Yazdır / PDF olarak kaydet</button><button class="k" onclick="window.close()">✕ Kapat</button></div>'
+    +html+'<script>window.addEventListener("load",function(){setTimeout(function(){try{window.focus();window.print();}catch(e){}},700);});<\/script></body></html>';
+  let w=null; try{ w=window.open('','_blank'); }catch(e){ w=null; }
+  if(w && w.document){ w.document.open(); w.document.write(tam); w.document.close(); return true; }
+  /* açılır pencere engellendiyse (ör. ana ekrana eklenmiş uygulama) — gizli çerçeveden yazdır */
+  try{ let f=document.getElementById('z-yazdir-cerceve'); if(f) f.remove(); f=document.createElement('iframe'); f.id='z-yazdir-cerceve'; f.setAttribute('aria-hidden','true');
+    f.style.cssText='position:fixed;right:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none'; document.body.appendChild(f);
+    const d=f.contentWindow.document; d.open(); d.write(tam.replace(/<script>[\s\S]*?<\/script>/,'')); d.close();
+    setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ alert('Yazdırma açılamadı. Lütfen tarayıcıda açılır pencerelere izin verin.'); } },700); return true;
+  }catch(e){ alert('Yazdırma açılamadı. Lütfen tarayıcıda açılır pencerelere izin verin.'); return false; } }
+/* bolumler: [{baslik, meta:[], metin|html, resim, linkler:[{ad,url}], calisma:satırSayısı}] · kim:{ad,sinif} · ai:true → yapay zekâ notu */
+function zYazdir(o){ try{ o=o||{}; const t=new Date();
+  let h='<div class="sayfa"><div class="ust"><div class="logo">D</div><div class="okul">DEĞİŞİM KOLEJİ<small>DİJİTAL EĞİTİM SİSTEMİ</small></div><div class="tarih">'+t.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})+'<br>'+zYzKac(o.ust||'')+'</div></div>';
+  if(o.baslik) h+='<h1>'+zYzKac(o.baslik)+'</h1>'; if(o.alt) h+='<p class="alt">'+zYzKac(o.alt)+'</p>';
+  if(o.kim!==false){ const k=o.kim||{}; h+='<div class="kim"><span>Ad Soyad: <b>'+zYzKac(k.ad||'')+'</b></span><span>Sınıf: <b style="min-width:80px">'+zYzKac(k.sinif||'')+'</b></span></div>'; }
+  (o.bolumler||[]).forEach(b=>{ h+='<div class="bolum">'; if(b.baslik) h+='<h2>'+zYzKac(b.baslik)+'</h2>';
+    const mt=(b.meta||[]).filter(Boolean); if(mt.length) h+='<div class="meta">'+mt.map(m=>'<span>'+zYzKac(m)+'</span>').join('')+'</div>';
+    if(b.html) h+='<div class="icerik">'+zYzHtml(b.html)+'</div>'; else if(b.metin) h+='<div class="icerik">'+zYzMetin(b.metin)+'</div>';
+    (b.resimler||(b.resim?[b.resim]:[])).forEach(r=>{ if(r && /^data:image\//.test(r)) h+='<div class="resim"><img src="'+r+'"></div>'; });
+    (b.linkler||[]).filter(l=>l&&l.url).forEach(l=>{ h+='<p class="link">🔗 '+zYzKac(l.ad||'Bağlantı')+': '+zYzKac(l.url)+'</p>'; });
+    if(b.calisma){ h+='<div class="calisma"><p>✍️ Çalışma / cevap alanı</p>'+Array.from({length:b.calisma}).map(()=>'<div></div>').join('')+'</div>'; }
+    h+='</div>'; });
+  if(o.ai) h+='<div class="ai">🤖 Bu içerik yapay zekâ yardımıyla hazırlanmıştır; %100 doğru olmayabilir. Önemli konularda öğretmeninize danışın.</div>';
+  h+='<div class="alt-imza">Değişim Koleji · MEGA Dijital Eğitim Sistemi · Barış Öğretmen tarafından hazırlandı</div></div>';
+  return zYazdirAc(h, o.baslik||'Değişim Koleji');
+}catch(e){ alert('Yazdırma hazırlanamadı.'); return false; } }
+/* Ekrandaki bir bölümü görünümüyle yazdır (rapor, özet kartı…) */
+function zYazdirEleman(el, baslik, kim){ try{ if(!el) return false; const k=el.cloneNode(true);
+  k.querySelectorAll('button,.no-print,[data-yazdirma="yok"],input,select,textarea').forEach(x=>{ if(x.tagName==='BUTTON' && x.closest('svg')) return; x.remove(); });
+  const stil=Array.from(document.querySelectorAll('style')).map(s=>s.outerHTML).join('')+Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l=>'<link rel="stylesheet" href="'+l.href+'">').join('');
+  const t=new Date();
+  const h='<div class="sayfa"><div class="ust"><div class="logo">D</div><div class="okul">DEĞİŞİM KOLEJİ<small>DİJİTAL EĞİTİM SİSTEMİ</small></div><div class="tarih">'+t.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})+'</div></div>'
+    +(baslik?'<h1>'+zYzKac(baslik)+'</h1>':'')+(kim?'<p class="alt">'+zYzKac(kim)+'</p>':'')+'<div class="tw">'+k.outerHTML+'</div><div class="alt-imza">Değişim Koleji · MEGA Dijital Eğitim Sistemi · Barış Öğretmen tarafından hazırlandı</div></div>';
+  return zYazdirAc(h, baslik||'Değişim Koleji', stil+'<style>.tw *{box-shadow:none!important}</style>'); }catch(e){ alert('Yazdırma hazırlanamadı.'); return false; } }
+window.zYazdir=zYazdir; window.zYazdirEleman=zYazdirEleman;
+
+/* Ödevden yazdırma bölümü (fotoğraf eki varsa onu da alır) */
+async function zOdevBolum(db, o){
+  const meta=[o.bilgi?'📢 Bilgilendirme':(o.tur==='birey'?'👤 Kişiye özel ödev':'📝 Sınıf ödevi'), o.sinif, o.ekleyen?('Öğretmen: '+o.ekleyen):'', o.tarih?('Veriliş: '+new Date(o.tarih).toLocaleDateString('tr-TR')):'', o.sonTeslim?('Son teslim: '+o.sonTeslim.split('-').reverse().join('.')):''];
+  let resim=''; try{ if(o.resimVar && (typeof zMedyaAktif!=='function' || zMedyaAktif(o)) && db && window.FirebaseSDK){ const S=window.FirebaseSDK; const s=await S.getDoc(S.doc(db,'maas_config','k12_res_'+o.id)); const v=s&&s.exists&&s.exists()?(s.data()||{}):{}; if(v.data && /^data:image\//.test(v.data) && v.tur!=='video' && v.tur!=='pdf') resim=v.data; } }catch(e){}
+  const ln=[]; if(o.link) ln.push({ad:'Bağlantı',url:o.link}); (o.linkler||[]).forEach(l=>{ if(l&&l.url) ln.push({ad:l.ad||l.baslik||'Bağlantı',url:l.url}); });
+  return { baslik:(o.ders||'Ödev')+(o.konu?(' · '+o.konu):''), meta, metin:o.detay||'', resim, linkler:ln, calisma:o.bilgi?0:8 }; }
+async function zOdevYazdir(db, liste, kim, baslik){ const l=(liste||[]).filter(Boolean); if(!l.length) return alert('Yazdırılacak ödev yok.');
+  try{ toast('🖨️ Yazdırma sayfası hazırlanıyor…','green'); }catch(e){}
+  const b=[]; for(const o of l) b.push(await zOdevBolum(db,o));
+  return zYazdir({ baslik: baslik || (l.length===1 ? ((l[0].bilgi?'Bilgilendirme · ':'Ödev · ')+(l[0].ders||'')) : ('Ödevlerim ('+l.length+')')), kim, bolumler:b }); }
+const ZYazdirBtn = ({ onClick, etiket, sinif }) => (
+  <button type="button" onClick={e=>{ e.stopPropagation(); onClick&&onClick(e); }} className={sinif||'inline-flex items-center gap-1 font-black text-slate-600 hover:text-indigo-700 text-[11px]'} title="Yazdır ya da PDF olarak kaydet">🖨️ {etiket||'Yazdır'}</button>
+);
+
+const LOCAL_SURUM = 71;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
@@ -8925,7 +9015,7 @@ const HatirlatmaKarti = ({ db, sinif, bilgiler, yapilanIds, onOkudum, veli, ogr 
               <span className="text-[10px] text-slate-400 ml-auto">{new Date(o.tarih||Date.now()).toLocaleDateString('tr-TR')}</span>
             </div>
             <p className="text-sm text-slate-700 font-medium whitespace-pre-wrap leading-snug">{o.detay}</p>
-            <div className="mt-1"><AIBtn metin={o.detay} kucuk={true} /></div>
+            <div className="mt-1 flex items-center gap-3"><AIBtn metin={o.detay} kucuk={true} /><ZYazdirBtn onClick={()=>zOdevYazdir(db,[o],ogr?{ad:ogr.ad,sinif:ogr.sinif}:null)} /></div>
             <ZEkler db={db} o={o} kim={ogr?{ogr, rol:(veli?'veli':'ogrenci')}:null} />
             {ogr && <ZGor db={db} kayit={o} ogr={ogr} rol={veli?'veli':'ogrenci'} />}
             {veli
@@ -9924,7 +10014,7 @@ const DersOzetleri = ({ db, sinif, ogr, rol }) => {
   return (
     <div className="bg-gradient-to-br from-indigo-50 to-fuchsia-50 border-4 border-indigo-200 rounded-[2rem] p-4 shadow-lg mt-6">
       <h3 className="text-lg font-black text-indigo-800 mb-3 flex items-center"><span className="mr-2">📰</span>Günün & Haftanın Özeti</h3>
-      <div className="space-y-3">{gor.map(p=>(<div key={p.id}><OzetKart p={p} db={db} />{ogr && <ZGor db={db} kayit={p} ogr={ogr} rol={rol||'ogrenci'} />}<div className="flex gap-3 mt-1 px-1"><AIBtn metin={p.metin} /></div></div>))}</div>
+      <div className="space-y-3">{gor.map(p=>(<div key={p.id}><OzetKart p={p} db={db} />{ogr && <ZGor db={db} kayit={p} ogr={ogr} rol={rol||'ogrenci'} />}<div className="flex gap-3 mt-1 px-1"><AIBtn metin={p.metin} /><ZYazdirBtn onClick={e=>{ const k=e.currentTarget.parentElement&&e.currentTarget.parentElement.parentElement; zYazdirEleman(k&&k.firstElementChild,'📰 Günün & Haftanın Özeti',(ogr?(ogr.ad+' · '):'')+(sinif||'')); }} /></div></div>))}</div>
       {liste.length>2 && <button onClick={()=>setHepsi(!hepsi)} className="mt-3 w-full bg-white border border-indigo-200 text-indigo-700 font-black py-2 rounded-xl text-[12px]">{hepsi?'▲ Daha az göster':('▼ Önceki özetler ('+(liste.length-2)+')')}</button>}
     </div>
   );
@@ -10014,7 +10104,7 @@ const SecimAI = () => {
           {modal.sonuc && <div className="bg-gradient-to-br from-violet-50 to-fuchsia-50 border border-violet-200 rounded-2xl p-3">
             <p className="text-[11px] font-black text-violet-700 mb-1">{modal.baslik}</p>
             <p className="text-[14px] text-slate-800 whitespace-pre-wrap leading-relaxed">{modal.sonuc}</p>
-            <div className="flex gap-3 mt-2 text-[12px] font-black"><button onClick={()=>zSesliOku(modal.sonuc)} className="text-emerald-700">🔊 Dinle</button><button onClick={async()=>{ try{ await navigator.clipboard.writeText(modal.sonuc); toast('📋 Kopyalandı','green'); }catch(e){} }} className="text-slate-600">📋 Kopyala</button><a href={'https://wa.me/?text='+encodeURIComponent(modal.sonuc)} target="_blank" rel="noopener noreferrer" className="text-green-700">WhatsApp</a></div>
+            <div className="flex gap-3 mt-2 text-[12px] font-black"><button onClick={()=>zSesliOku(modal.sonuc)} className="text-emerald-700">🔊 Dinle</button><button onClick={async()=>{ try{ await navigator.clipboard.writeText(modal.sonuc); toast('📋 Kopyalandı','green'); }catch(e){} }} className="text-slate-600">📋 Kopyala</button><button onClick={()=>zYazdir({baslik:'🤖 '+(modal.baslik||'Yapay Zekâ Yardımcısı'),kim:false,ai:true,bolumler:[{baslik:'Metin',metin:modal.metin},{baslik:modal.baslik||'Yapay zekâ cevabı',metin:modal.sonuc}]})} className="text-indigo-700">🖨️ Yazdır</button><a href={'https://wa.me/?text='+encodeURIComponent(modal.sonuc)} target="_blank" rel="noopener noreferrer" className="text-green-700">WhatsApp</a></div>
           </div>}
           <p className="text-[10px] text-slate-400 mt-2">💡 İpucu: Sistemdeki herhangi bir yazıyı parmağınızla seçin → altta "🤖 AI ile" çıkar.</p>
         </div>
