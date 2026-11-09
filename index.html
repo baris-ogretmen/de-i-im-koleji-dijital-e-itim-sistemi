@@ -7259,10 +7259,12 @@ const GirisKayitlari = ({ db }) => {
   const _knorm=(x)=>String(x||'').replace(/[İIı]/g,'i').replace(/[Ğğ]/g,'g').replace(/[Üü]/g,'u').replace(/[Şş]/g,'s').replace(/[Öö]/g,'o').replace(/[Çç]/g,'c').toLowerCase().replace(/ogretmen|hocam|hoca|teacher|ogrenci|veli/g,'').replace(/\s+/g,'').trim();
   const _mergePrefix=(map)=>{ const keys=Object.keys(map).sort((a,b)=>b.length-a.length); const out={}; keys.forEach(function(k){ let hedef=null; const ok=Object.keys(out); for(var i=0;i<ok.length;i++){ var kk=ok[i]; var kisa=k.length<kk.length?k:kk, uzun=k.length<kk.length?kk:k; if(kisa.length>=4 && uzun.indexOf(kisa)===0){ hedef=kk; break; } } if(hedef){ var t=out[hedef], sc=map[k]; t.n=(t.n||0)+(sc.n||0); t.adet=(t.adet||0)+(sc.adet||0); if((sc.sonTs||0)>(t.sonTs||0))t.sonTs=sc.sonTs; if((sc.ad||'').length>(t.ad||'').length)t.ad=sc.ad; } else { out[k]={}; for(var p in map[k]) out[k][p]=map[k][p]; } }); return out; };
   const rawSay={teacher:{},parent:{},student:{}};
-  basarili.forEach(r=>{ if(rawSay[r.rol]){ const nk=_knorm(r.ad); if(!rawSay[r.rol][nk]) rawSay[r.rol][nk]={ad:r.ad,n:0}; rawSay[r.rol][nk].n++; if((r.ad||'').length>(rawSay[r.rol][nk].ad||'').length) rawSay[r.rol][nk].ad=r.ad; } });
+  basarili.forEach(r=>{ if(rawSay[r.rol] && !zOnurDemo(r.ad)){ const nk=_knorm(r.ad); if(!rawSay[r.rol][nk]) rawSay[r.rol][nk]={ad:r.ad,n:0}; rawSay[r.rol][nk].n++; if((r.ad||'').length>(rawSay[r.rol][nk].ad||'').length) rawSay[r.rol][nk].ad=r.ad; } });
   const sayac={teacher:_mergePrefix(rawSay.teacher),parent:_mergePrefix(rawSay.parent),student:_mergePrefix(rawSay.student)};
   const rolSay = (rol)=> Object.keys(sayac[rol]||{}).length;
-  const enCok=(rol)=> Object.keys(sayac[rol]||{}).map(function(nk){return sayac[rol][nk];}).sort((a,b)=>b.n-a.n).slice(0,3);
+  const enCokN=(rol,k)=> Object.keys(sayac[rol]||{}).map(function(nk){return sayac[rol][nk];}).filter(function(e){ return !zOnurDemo(e.ad); }).sort((a,b)=>b.n-a.n).slice(0,k);
+  const enCok=(rol)=> enCokN(rol,3);
+  const [onurAcik,setOnurAcik]=useState(false);
   const kaynak = sekme==='supheli' ? supheli : basarili.filter(r=>r.rol===sekme);
   const rawGrup={};
   kaynak.forEach(r=>{ const nk=_knorm(r.ad); if(!rawGrup[nk]) rawGrup[nk]={ad:r.ad,rol:r.rol,durum:r.durum,adet:0,sonTs:0}; rawGrup[nk].adet++; if((r.ad||'').length>(rawGrup[nk].ad||'').length) rawGrup[nk].ad=r.ad; if((r.ts||0)>rawGrup[nk].sonTs) rawGrup[nk].sonTs=r.ts||0; });
@@ -7277,17 +7279,23 @@ const GirisKayitlari = ({ db }) => {
     <div className="bg-white/90 rounded-xl p-3">
       <div className="flex items-center justify-between mb-2"><span className="text-[12px] font-black text-slate-700 uppercase"><i className="fa-solid fa-clock-rotate-left mr-1"></i>Giriş Kayıtları ({liste.length})</span>{liste.length>0 && <button onClick={temizle} className="text-[10px] text-white bg-rose-500 hover:bg-rose-600 font-bold px-2.5 py-1 rounded-lg">🗑️ Ay Sonu · Temizle</button>}</div>
       {liste.length>0 && (()=>{ const ts=liste.map(r=>r.ts).filter(Boolean); const ilk=Math.min.apply(null,ts), son=Math.max.apply(null,ts); return <p className="text-[11px] text-slate-500 mb-2">📅 <b>{new Date(ilk).toLocaleDateString('tr-TR')}</b> — <b>{new Date(son).toLocaleDateString('tr-TR')}</b> arası toplam <b>{liste.length}</b> giriş</p>; })()}
-      {basarili.length>0 && <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl p-3 mb-3 text-white">
-        <p className="font-black text-sm mb-2">🏆 Bu Ayın En Çok Girenleri (motivasyon / ödül)</p>
-        <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
-          {[{r:'teacher',ad:'👩‍🏫 Öğretmen'},{r:'parent',ad:'👪 Veli'},{r:'student',ad:'🧑‍🎓 Öğrenci'}].map(x=>{ const t=enCok(x.r); return (
-            <div key={x.r} className="bg-white/15 rounded-xl p-2">
-              <div className="font-bold text-white/90 mb-1">{x.ad}</div>
-              {t.length===0? <div className="text-white/60">—</div> : t.map((e,i)=>(<div key={i} className="truncate">{madalya[i]} {e.ad} <b>({e.n})</b></div>))}
+      {basarili.length>0 && <div id="z-onur-panel" className="rounded-2xl mb-3 overflow-hidden border border-amber-200 bg-gradient-to-b from-amber-50 to-white shadow-sm">
+        <div className="flex items-center gap-2.5 px-3 py-2.5 bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 text-white"><span className="text-2xl">🏆</span><div className="flex-1 min-w-0"><p className="font-black text-[15px] leading-tight">Bu Ayın Yıldızları</p><p className="text-[10.5px] text-white/90 font-bold">En çok giren 3 kişi · teşekkür ve ödül için</p></div></div>
+        <div className="p-2.5 space-y-2">
+          {[{r:'teacher',ad:'👩‍🏫 Öğretmenler'},{r:'parent',ad:'👪 Veliler'},{r:'student',ad:'🧑‍🎓 Öğrenciler'}].map(x=>{ const t=enCok(x.r); return (
+            <div key={x.r} className="bg-white rounded-xl px-2.5 py-2 shadow-sm border border-amber-100">
+              <p className="text-[11px] font-black text-slate-500 mb-1">{x.ad}</p>
+              {t.length===0? <p className="text-[12px] text-slate-400">Henüz kayıt yok</p> : t.map((e,i)=>(<div key={i} className="flex items-center gap-2 py-1">
+                <span className={'w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-[12px] font-black shadow-sm '+(i===0?'bg-gradient-to-br from-amber-200 to-amber-500 text-amber-900':i===1?'bg-gradient-to-br from-slate-100 to-slate-400 text-slate-800':'bg-gradient-to-br from-orange-200 to-orange-600 text-orange-950')}>{i+1}</span>
+                <span className="flex-1 min-w-0 font-black text-[13.5px] text-slate-800 truncate">{zOnurBuyuk(e.ad)}</span>
+                <span className="shrink-0 text-[11px] font-black text-amber-800 bg-amber-100 rounded-full px-2 py-0.5">{e.n} giriş</span>
+              </div>))}
             </div>
           );})}
+          <button id="z-onur-ac" onClick={()=>setOnurAcik(true)} className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-green-500 text-white font-black text-[14px] shadow active:scale-[.98]">📤 Teşekkür kartı hazırla · gruplara paylaş</button>
         </div>
       </div>}
+      {onurAcik && <ZOnurKarti veri={{teacher:enCokN('teacher',6),parent:enCokN('parent',6),student:enCokN('student',6)}} onKapat={()=>setOnurAcik(false)} />}
       {supheli.length>0 && <div className="bg-rose-50 border border-rose-200 rounded-lg p-2 mb-2 text-[11px] text-rose-700 font-bold">⚠️ {supheli.length} şüpheli/başarısız giriş denemesi var! "Şüpheli" sekmesine bakın.</div>}
       <div className="flex gap-1 mb-2 flex-wrap">
         {sekmeler.map(x=>(<button key={x.k} onClick={()=>setSekme(x.k)} className={`px-2.5 py-1.5 rounded-lg text-[11px] font-black transition ${sekme===x.k?(x.k==='supheli'?'bg-rose-600 text-white':'bg-indigo-600 text-white'):'bg-slate-100 text-slate-500'}`}>{x.ad} ({x.s})</button>))}
@@ -8801,7 +8809,7 @@ function zYazdir(o){ try{ o=o||{}; const t=new Date();
     if(b.calisma){ h+='<div class="calisma"><p>✍️ Çalışma / cevap alanı</p>'+Array.from({length:b.calisma}).map(()=>'<div></div>').join('')+'</div>'; }
     h+='</div>'; });
   if(o.ai) h+='<div class="ai">🤖 Bu içerik yapay zekâ yardımıyla hazırlanmıştır; %100 doğru olmayabilir. Önemli konularda öğretmeninize danışın.</div>';
-  h+='<div class="alt-imza">Değişim Koleji · MEGA Dijital Eğitim Sistemi · Barış Öğretmen tarafından hazırlandı</div></div>';
+  h+='<div class="alt-imza">Değişim Koleji · MEGA Dijital Eğitim Sistemi'+(typeof LOCAL_SURUM!=='undefined'?' · Sürüm '+LOCAL_SURUM:'')+' · Barış Öğretmen tarafından hazırlandı</div></div>';
   return zYazdirAc(h, o.baslik||'Değişim Koleji');
 }catch(e){ alert('Yazdırma hazırlanamadı.'); return false; } }
 /* Ekrandaki bir bölümü görünümüyle yazdır (rapor, özet kartı…) */
@@ -8810,7 +8818,7 @@ function zYazdirEleman(el, baslik, kim){ try{ if(!el) return false; const k=el.c
   const stil=Array.from(document.querySelectorAll('style')).map(s=>s.outerHTML).join('')+Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l=>'<link rel="stylesheet" href="'+l.href+'">').join('');
   const t=new Date();
   const h='<div class="sayfa"><div class="ust"><img class="logo" src="'+DK_LOGO+'" alt="Değişim Koleji"><div class="okul">DEĞİŞİM KOLEJİ<small>DİJİTAL EĞİTİM SİSTEMİ</small></div><div class="tarih">'+t.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})+'</div></div>'
-    +(baslik?'<h1>'+zYzKac(baslik)+'</h1>':'')+(kim?'<p class="alt">'+zYzKac(kim)+'</p>':'')+'<div class="tw">'+k.outerHTML+'</div><div class="alt-imza">Değişim Koleji · MEGA Dijital Eğitim Sistemi · Barış Öğretmen tarafından hazırlandı</div></div>';
+    +(baslik?'<h1>'+zYzKac(baslik)+'</h1>':'')+(kim?'<p class="alt">'+zYzKac(kim)+'</p>':'')+'<div class="tw">'+k.outerHTML+'</div><div class="alt-imza">Değişim Koleji · MEGA Dijital Eğitim Sistemi'+(typeof LOCAL_SURUM!=='undefined'?' · Sürüm '+LOCAL_SURUM:'')+' · Barış Öğretmen tarafından hazırlandı</div></div>';
   return zYazdirAc(h, baslik||'Değişim Koleji', stil+'<style>.tw *{box-shadow:none!important}</style>'); }catch(e){ alert('Yazdırma hazırlanamadı.'); return false; } }
 window.zYazdir=zYazdir; window.zYazdirEleman=zYazdirEleman;
 
@@ -9147,7 +9155,132 @@ const ZTatilYonetim = ({ db }) => {
     <button disabled={mesgul} onClick={kaydet} className="mt-2 w-full py-3 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-black text-[15px] disabled:opacity-60">{mesgul?'Kaydediliyor…':'💾 Tatil takvimini kaydet'}</button>
   </div>); };
 
-const LOCAL_SURUM = 73;
+/* ===== v74 · Bu Ayın Yıldızları — paylaşılabilir Teşekkür Kartı ===== */
+function zOnurDemo(ad){ const s=String(ad||'').toLocaleLowerCase('tr').replace(/ı/g,'i').trim(); return !s || /^(örnek|ornek|test|deneme|demo|misafir)(\s|$|\d)/.test(s); }
+function zOnurBuyuk(s){ return String(s||'').trim().replace(/\s+/g,' ').split(' ').map(function(w){ if(!w) return w; let k=w; if(w===w.toLocaleLowerCase('tr')){ k=w; } else if(w===w.toLocaleUpperCase('tr') || w===w.toUpperCase()){ k=/[ÇĞİÖŞÜ]/.test(w)? w.toLocaleLowerCase('tr') : w.toLowerCase(); } else { return w.charAt(0).toLocaleUpperCase('tr')+w.slice(1); } return k.charAt(0).toLocaleUpperCase('tr')+k.slice(1); }).join(' '); }
+function zOnurAd(ad, rol, kisalt){ let a=zOnurBuyuk(ad); if(kisalt && rol!=='teacher'){ let p=a.split(' '); const ek=[]; while(p.length>1){ const son=p[p.length-1]; if(/^(Velisi|Annesi|Babası|Veli)$/i.test(son)){ ek.unshift(son); p.pop(); } else if(/^(\d{1,2}[\.\-\/]?[A-Za-zÇĞİÖŞÜçğıöşü]?\.?|Sınıf|Şube|Anaokulu)$/i.test(son)){ p.pop(); } else break; } if(p.length>1){ const son=p[p.length-1]; p=p.slice(0,-1).concat([son.charAt(0)+'.']); } a=p.concat(ek).join(' '); } return a.replace(/[*_~`]/g,''); }
+function zOnurAy(){ const s=new Date(zSimdi()).toLocaleDateString('tr-TR',{month:'long',year:'numeric'}); return s.charAt(0).toLocaleUpperCase('tr')+s.slice(1); }
+const ZONUR_ROL={ teacher:{ad:'Öğretmenlerimiz',ik:'👩‍🏫',tek:'Öğretmen'}, parent:{ad:'Velilerimiz',ik:'👪',tek:'Veli'}, student:{ad:'Öğrencilerimiz',ik:'🧑‍🎓',tek:'Öğrenci'} };
+const ZONUR_KITLE=[{k:'teacher',ad:'👩‍🏫 Öğretmen grubu'},{k:'parent',ad:'👪 Veli grubu'},{k:'student',ad:'🧑‍🎓 Öğrenci grubu'},{k:'hepsi',ad:'🏛️ Yönetim · hepsi'}];
+const ZONUR_BASLIK={ teacher:'Teşekkürler Öğretmenlerimiz!', parent:'Teşekkürler Velilerimiz!', student:'Tebrikler Öğrencilerimiz!', hepsi:'Bu Ayın Yıldızları' };
+const ZONUR_MESAJ={
+  teacher:'Sistemimizi her gün canlı tutan, öğrencilerine emek veren öğretmenlerimize gönülden teşekkür ederiz.',
+  parent:'Çocuklarının eğitimini MEGA üzerinden yakından takip eden değerli velilerimize teşekkür ederiz.',
+  student:'Bu ay MEGA\'da en çok çalışan öğrencilerimizi tebrik ediyoruz. Böyle devam!',
+  hepsi:'Okulumuzun dijital ailesini büyüten öğretmen, veli ve öğrencilerimize teşekkür ederiz. Birlikte daha güzel!'
+};
+const ZONUR_MADALYA=[{a:'#fde68a',b:'#d97706',y:'#7c2d12'},{a:'#f1f5f9',b:'#94a3b8',y:'#1e293b'},{a:'#fed7aa',b:'#c2410c',y:'#431407'}];
+function zOnurYuvarlak(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r); c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h); c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r); c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y); c.closePath(); }
+function zOnurSar(c,metin,gen){ const k=String(metin||'').split(/\s+/).filter(Boolean); const sat=[]; let s=''; k.forEach(function(w){ const d=s?s+' '+w:w; if(c.measureText(d).width>gen && s){ sat.push(s); s=w; } else s=d; }); if(s) sat.push(s); return sat; }
+function zOnurSigdir(c,metin,gen,boy,agirlik){ let b=boy; c.font=agirlik+' '+b+'px '+ZONUR_FONT; while(b>16 && c.measureText(metin).width>gen){ b-=2; c.font=agirlik+' '+b+'px '+ZONUR_FONT; } return b; }
+const ZONUR_FONT='-apple-system, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+function zOnurMadalya(c,x,y,r,i){ const m=ZONUR_MADALYA[i]||ZONUR_MADALYA[2]; const g=c.createLinearGradient(x-r,y-r,x+r,y+r); g.addColorStop(0,m.a); g.addColorStop(1,m.b); c.save(); c.shadowColor='rgba(0,0,0,.25)'; c.shadowBlur=r*.4; c.shadowOffsetY=r*.12; c.fillStyle=g; c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.fill(); c.restore(); c.strokeStyle='rgba(255,255,255,.75)'; c.lineWidth=Math.max(2,r*.1); c.beginPath(); c.arc(x,y,r*.8,0,Math.PI*2); c.stroke(); c.fillStyle=m.y; c.font='900 '+Math.round(r*1.05)+'px '+ZONUR_FONT; c.textAlign='center'; c.textBaseline='middle'; c.fillText(String(i+1),x,y+r*.05); }
+function zOnurResim(src){ return new Promise(function(ok){ try{ const im=new Image(); im.onload=function(){ ok(im); }; im.onerror=function(){ ok(null); }; im.src=src; }catch(e){ ok(null); } }); }
+async function zOnurCiz(cv,o){
+  const W=1080,H=1350; cv.width=W; cv.height=H; const c=cv.getContext('2d');
+  const bg=c.createLinearGradient(0,0,W*.4,H); bg.addColorStop(0,'#123f22'); bg.addColorStop(.55,'#2f7a3e'); bg.addColorStop(1,'#16502a'); c.fillStyle=bg; c.fillRect(0,0,W,H);
+  c.fillStyle='rgba(255,255,255,.05)'; [[930,120,260],[120,1180,300],[1000,900,160]].forEach(function(d){ c.beginPath(); c.arc(d[0],d[1],d[2],0,Math.PI*2); c.fill(); });
+  let tohum=7; const rnd=function(){ tohum=(tohum*16807)%2147483647; return tohum/2147483647; };
+  const konf=['#fcd34d','#8bc34a','#ffffff','#fb923c','#a7f3d0'];
+  for(let i=0;i<46;i++){ const x=rnd()*W, y=rnd()<.6? rnd()*330 : 330+rnd()*120; if(Math.abs(x-540)<130 && y<300) continue; c.save(); c.translate(x,y); c.rotate(rnd()*Math.PI); c.globalAlpha=.35+rnd()*.45; c.fillStyle=konf[i%konf.length]; c.fillRect(-7,-3,14,6+rnd()*6); c.restore(); }
+  c.globalAlpha=1;
+  /* logo */
+  const logo=await zOnurResim(typeof DK_LOGO!=='undefined'?DK_LOGO:'');
+  c.save(); c.shadowColor='rgba(0,0,0,.3)'; c.shadowBlur=24; c.fillStyle='#fff'; c.beginPath(); c.arc(540,148,92,0,Math.PI*2); c.fill(); c.restore();
+  if(logo){ c.save(); c.beginPath(); c.arc(540,148,82,0,Math.PI*2); c.clip(); const s=Math.max(164/logo.width,164/logo.height); c.drawImage(logo,540-logo.width*s/2,148-logo.height*s/2,logo.width*s,logo.height*s); c.restore(); }
+  c.textAlign='center'; c.textBaseline='alphabetic';
+  c.fillStyle='rgba(255,255,255,.9)'; c.font='800 26px '+ZONUR_FONT; try{ c.letterSpacing='6px'; }catch(e){} c.fillText('DEĞİŞİM KOLEJİ',540,282); try{ c.letterSpacing='0px'; }catch(e){}
+  const tb=zOnurSigdir(c,o.baslik,960,74,'900'); const tg=c.createLinearGradient(0,330-tb,0,340); tg.addColorStop(0,'#fef3c7'); tg.addColorStop(1,'#fbbf24'); c.fillStyle=tg; c.save(); c.shadowColor='rgba(0,0,0,.25)'; c.shadowBlur=12; c.shadowOffsetY=4; c.fillText(o.baslik,540,358); c.restore();
+  c.fillStyle='rgba(255,255,255,.85)'; zOnurSigdir(c,o.alt,940,32,'700'); c.fillText(o.alt,540,412);
+  const gr=(o.gruplar||[]).filter(function(g){ return g.kisiler && g.kisiler.length; });
+  if(gr.length===1){
+    /* kürsü */
+    const k=gr[0].kisiler, taban=1100, sut=[{i:1,x:235,h:250},{i:0,x:540,h:330},{i:2,x:845,h:195}];
+    c.fillStyle='rgba(255,255,255,.95)'; c.font='800 34px '+ZONUR_FONT; c.fillText(ZONUR_ROL[gr[0].rol].ad,540,490);
+    sut.forEach(function(s){ const e=k[s.i]; if(!e) return; const ust=taban-s.h, gw=262;
+      const bg2=c.createLinearGradient(0,ust,0,taban); bg2.addColorStop(0,'rgba(255,255,255,.26)'); bg2.addColorStop(1,'rgba(255,255,255,.08)'); c.fillStyle=bg2; zOnurYuvarlak(c,s.x-gw/2,ust,gw,s.h+40,22); c.fill();
+      c.fillStyle=ZONUR_MADALYA[s.i].b; zOnurYuvarlak(c,s.x-gw/2,ust,gw,10,5); c.fill();
+      c.fillStyle='rgba(255,255,255,.22)'; c.font='900 '+(s.i===0?120:96)+'px '+ZONUR_FONT; c.textAlign='center'; c.textBaseline='alphabetic'; c.fillText(String(s.i+1),s.x,taban-(s.i===0?40:24));
+      if(o.sayi && e.n){ c.fillStyle='#fff'; c.font='800 28px '+ZONUR_FONT; c.fillText(e.n+' giriş',s.x,ust+50); }
+      zOnurMadalya(c,s.x,ust-62,s.i===0?52:44,s.i);
+      c.fillStyle='#fff'; c.font='900 '+(s.i===0?40:34)+'px '+ZONUR_FONT; c.textAlign='center'; c.textBaseline='alphabetic';
+      const sat=zOnurSar(c,e.ad,gw+30).slice(0,2); const satY=ust-62-(s.i===0?52:44)-22; sat.slice().reverse().forEach(function(t,j){ let b=s.i===0?40:34; c.font='900 '+b+'px '+ZONUR_FONT; while(b>20 && c.measureText(t).width>gw+40){ b-=2; c.font='900 '+b+'px '+ZONUR_FONT; } c.fillText(t,s.x,satY-j*(b+8)); });
+    });
+  } else if(gr.length>1){
+    const y0=455, y1=1128, ara=16, h=(y1-y0-ara*(gr.length-1))/gr.length;
+    gr.forEach(function(g,gi){ const y=y0+gi*(h+ara); c.save(); c.shadowColor='rgba(0,0,0,.18)'; c.shadowBlur=20; c.shadowOffsetY=6; c.fillStyle='rgba(255,255,255,.96)'; zOnurYuvarlak(c,70,y,940,h,30); c.fill(); c.restore();
+      c.save(); zOnurYuvarlak(c,70,y,940,h,30); c.clip(); c.fillStyle='#2f7a3e'; c.fillRect(70,y,12,h); c.restore();
+      c.textAlign='left'; c.textBaseline='alphabetic'; c.fillStyle='#2f7a3e'; c.font='900 28px '+ZONUR_FONT; c.fillText(ZONUR_ROL[g.rol].ad.toLocaleUpperCase('tr'),112,y+42);
+      const sh=Math.min(66,(h-66)/3);
+      g.kisiler.forEach(function(e,i){ const cy=y+58+sh*i+sh/2; zOnurMadalya(c,132,cy,Math.min(24,sh*.42),i);
+        c.textAlign='left'; c.textBaseline='middle'; c.fillStyle='#0f172a'; let b=Math.min(36,sh*.62); c.font='800 '+b+'px '+ZONUR_FONT; const gen=o.sayi?600:780; while(b>18 && c.measureText(e.ad).width>gen){ b-=2; c.font='800 '+b+'px '+ZONUR_FONT; } c.fillText(e.ad,174,cy+2);
+        if(o.sayi && e.n){ c.textAlign='right'; c.fillStyle='#b45309'; c.font='800 '+Math.round(Math.min(28,sh*.56))+'px '+ZONUR_FONT; c.fillText(e.n+' giriş',978,cy+2); } });
+    });
+  } else {
+    c.fillStyle='rgba(255,255,255,.8)'; c.font='700 34px '+ZONUR_FONT; c.textAlign='center'; c.fillText('Bu grupta henüz kayıt yok.',540,780);
+  }
+  /* mesaj + alt bilgi */
+  c.textAlign='center'; c.textBaseline='alphabetic'; c.fillStyle='rgba(255,255,255,.95)'; c.font='italic 600 31px '+ZONUR_FONT;
+  const ms=zOnurSar(c,o.mesaj||'',920).slice(0,3); const my=gr.length===1?1180:1175; ms.forEach(function(t,j){ c.fillText(t,540,my+j*42); });
+  c.strokeStyle='rgba(252,211,77,.55)'; c.lineWidth=2; c.beginPath(); c.moveTo(380,1290); c.lineTo(700,1290); c.stroke();
+  c.fillStyle='rgba(255,255,255,.7)'; c.font='700 22px '+ZONUR_FONT; c.fillText('Değişim Koleji · MEGA Dijital Eğitim Sistemi'+(o.surum?' · Sürüm '+o.surum:''),540,1326);
+  return cv;
+}
+function zOnurMetin(o){ const s=['🏆 *Değişim Koleji · '+o.ay+'*','✨ *'+o.baslik+'*','']; (o.gruplar||[]).forEach(function(g){ if(!g.kisiler.length) return; s.push(ZONUR_ROL[g.rol].ik+' *'+ZONUR_ROL[g.rol].ad+'*'); g.kisiler.forEach(function(e,i){ s.push(['🥇','🥈','🥉'][i]+' '+String(e.ad).replace(/[*_~`]/g,'')+(o.sayi&&e.n?' ('+e.n+' giriş)':'')); }); s.push(''); }); if(o.mesaj) s.push(o.mesaj+' 💚',''); s.push('_Değişim Koleji · MEGA Dijital Eğitim Sistemi'+(o.surum?' · Sürüm '+o.surum:'')+'_'); return s.join('\n'); }
+const ZOnurKarti = ({ veri, onKapat }) => {
+  const [kitle,setKitle]=useState('teacher');
+  const [sayi,setSayi]=useState(true);
+  const [kisalt,setKisalt]=useState(true);
+  const [gizli,setGizli]=useState({});
+  const [mesaj,setMesaj]=useState(ZONUR_MESAJ.teacher);
+  const [elle,setElle]=useState(false);
+  const [resim,setResim]=useState('');
+  const [kopya,setKopya]=useState(false);
+  const cvRef=useRef(null); const dosyaRef=useRef(null);
+  const ay=zOnurAy();
+  const roller=kitle==='hepsi'?['teacher','parent','student']:[kitle];
+  const gruplar=roller.map(function(r){ return {rol:r, kisiler:((veri&&veri[r])||[]).filter(function(e){ return !gizli[r+'|'+e.ad]; }).slice(0,3).map(function(e){ return {ad:zOnurAd(e.ad,r,kisalt), n:e.n}; })}; });
+  const surum=(typeof LOCAL_SURUM!=='undefined'?LOCAL_SURUM:'');
+  const ayar={baslik:ZONUR_BASLIK[kitle], alt:ay+' · MEGA\'yı en aktif kullananlar', ay, gruplar, mesaj, sayi, surum};
+  const anahtar=JSON.stringify([kitle,sayi,kisalt,gizli,mesaj,gruplar]);
+  const dosyaAdi='Degisim_Koleji_Tesekkur_'+ay.replace(/\s+/g,'_')+'.jpg';
+  const bos=gruplar.every(function(g){ return !g.kisiler.length; });
+  useEffect(()=>{ if(!elle) setMesaj(ZONUR_MESAJ[kitle]); },[kitle]);
+  useEffect(()=>{ let iptal=false; const t=setTimeout(async()=>{ try{ const cv=document.createElement('canvas'); await zOnurCiz(cv,ayar); if(iptal) return; cvRef.current=cv; setResim(cv.toDataURL('image/jpeg',0.92)); dosyaRef.current=null; try{ cv.toBlob(function(bl){ if(!iptal && bl) dosyaRef.current=new File([bl],dosyaAdi,{type:'image/jpeg'}); },'image/jpeg',0.92); }catch(_){} }catch(e){} },120); return ()=>{ iptal=true; clearTimeout(t); }; },[anahtar]);
+  const indir=()=>{ if(!resim || bos) return; try{ const a=document.createElement('a'); a.href=resim; a.download=dosyaAdi; document.body.appendChild(a); a.click(); a.remove(); toast('⬇️ Kart indirildi','green'); }catch(e){} };
+  const kopyala=async()=>{ const t=zOnurMetin(ayar); try{ await navigator.clipboard.writeText(t); }catch(e){ try{ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }catch(_){} } setKopya(true); setTimeout(()=>setKopya(false),2200); };
+  const paylas=async()=>{ if(bos) return; const f=dosyaRef.current; try{ if(navigator.clipboard) navigator.clipboard.writeText(zOnurMetin(ayar)).catch(function(){}); }catch(_){}
+    try{ if(f && navigator.canShare && navigator.canShare({files:[f]})){ const pr=navigator.share({files:[f]}); toast('📋 Mesaj da kopyalandı — WhatsApp\'ta resmin altına yapıştırabilirsiniz','green'); await pr; return; } }catch(e){ if(e && e.name==='AbortError') return; } indir(); };
+  const adaylar=roller.map(function(r){ return {rol:r, l:((veri&&veri[r])||[]).slice(0,6)}; });
+  return (
+    <div className="fixed inset-0 z-[300] bg-black/60 flex items-end sm:items-center justify-center" onClick={onKapat}>
+      <div id="z-onur-pencere" className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[94vh] overflow-auto p-4 shadow-2xl" onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center gap-2 mb-3"><span className="text-2xl">🏆</span><div className="flex-1"><p className="font-black text-[17px] text-slate-800 leading-tight">Teşekkür Kartı</p><p className="text-[11.5px] text-slate-500 font-bold">WhatsApp gruplarına hazır · {ay}</p></div><button onClick={onKapat} className="w-9 h-9 rounded-full bg-slate-100 text-slate-600 font-black">✕</button></div>
+        <div className="grid grid-cols-2 gap-1.5 mb-3">{ZONUR_KITLE.map(x=>(<button key={x.k} onClick={()=>setKitle(x.k)} className={'py-2 rounded-xl text-[12.5px] font-black transition '+(kitle===x.k?'bg-emerald-700 text-white shadow':'bg-slate-100 text-slate-600')}>{x.ad}</button>))}</div>
+        <div className="rounded-2xl overflow-hidden shadow-lg bg-emerald-900" style={{aspectRatio:'1080/1350'}}>{resim ? <img id="z-onur-resim" src={resim} alt="Teşekkür kartı" className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center text-white/80 text-sm font-bold">Kart hazırlanıyor…</div>}</div>
+        <p className="text-[10.5px] text-slate-400 text-center mt-1.5">iPhone'da resme basılı tutup "Fotoğraflar'a Ekle" de diyebilirsiniz. Paylaş'a basınca mesaj metni de kopyalanır.</p>
+        <button onClick={paylas} disabled={bos} className="disabled:opacity-40 mt-2 w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-green-500 text-white font-black text-[15px] shadow active:scale-[.98]">📤 Paylaş · WhatsApp</button>
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <button onClick={kopyala} className={'py-2.5 rounded-xl font-black text-[13px] '+(kopya?'bg-emerald-700 text-white':'bg-slate-800 text-white')}>{kopya?'✅ Kopyalandı':'📋 Mesajı kopyala'}</button>
+          <button onClick={indir} disabled={bos} className="disabled:opacity-40 py-2.5 rounded-xl font-black text-[13px] bg-slate-100 text-slate-700">⬇️ Resmi indir</button>
+        </div>
+        <details className="mt-3 bg-slate-50 rounded-2xl p-3">
+          <summary className="font-black text-[13px] text-slate-700 cursor-pointer">✏️ Kartı düzenle</summary>
+          <label className="flex items-center gap-2 mt-2 text-[12.5px] font-bold text-slate-600"><input type="checkbox" checked={sayi} onChange={e=>setSayi(e.target.checked)} /> Giriş sayılarını göster</label>
+          <label className="flex items-center gap-2 mt-1 text-[12.5px] font-bold text-slate-600"><input type="checkbox" checked={kisalt} onChange={e=>setKisalt(e.target.checked)} /> Öğrenci ve velilerde soyadını kısalt (Ayşe K.)</label>
+          {adaylar.map(a=>(<div key={a.rol} className="mt-2.5"><p className="text-[11px] font-black text-slate-500 mb-1">{ZONUR_ROL[a.rol].ik} {ZONUR_ROL[a.rol].ad} · karta konacakları seçin (ilk 3 görünür)</p>
+            <div className="flex flex-wrap gap-1.5">{a.l.length===0? <span className="text-[11px] text-slate-400">Kayıt yok</span> : a.l.map(e=>{ const k=a.rol+'|'+e.ad, g=!!gizli[k]; return (<button key={k} onClick={()=>setGizli(s=>{ const y=Object.assign({},s); if(y[k]) delete y[k]; else y[k]=true; return y; })} className={'px-2.5 py-1 rounded-full text-[11.5px] font-black border '+(g?'bg-white text-slate-400 border-slate-200 line-through':'bg-emerald-50 text-emerald-800 border-emerald-200')}>{g?'':'✓ '}{zOnurBuyuk(e.ad)} · {e.n}</button>); })}</div></div>))}
+          <p className="text-[11px] font-black text-slate-500 mt-3 mb-1">Mesaj</p>
+          <textarea value={mesaj} onChange={e=>{ setElle(true); setMesaj(e.target.value.slice(0,220)); }} rows={3} className="w-full px-3 py-2 rounded-xl border border-slate-200 text-[13px] outline-none" />
+          {elle && <button onClick={()=>{ setElle(false); setMesaj(ZONUR_MESAJ[kitle]); }} className="text-[11px] font-black text-emerald-700 mt-1">↺ Hazır mesaja dön</button>}
+          <p className="text-[10.5px] text-slate-400 mt-2">🧪 "Örnek / deneme" hesapları karta otomatik konmaz.</p>
+        </details>
+      </div>
+    </div>
+  );
+};
+
+const LOCAL_SURUM = 74;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
