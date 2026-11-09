@@ -2667,6 +2667,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
     { k:'katilim', ad:'Katılım Takibi', ikon:'fa-user-check', grup:'sinif' },
     { k:'dna',     ad:'Öğrenme DNA', ikon:'fa-dna', grup:'deger' },
     { k:'rozet',   ad:'Rozet & Sıralama', ikon:'fa-trophy', grup:'deger' },
+    { k:'karnegorus', ad:'📝 Karne Görüşü (Değişim Karnesi)', ikon:'fa-pen-to-square', grup:'deger' },
     { k:'degerlendirme', ad:'36 Haftalık Değerlendirme', ikon:'fa-chart-column', grup:'deger' },
     { k:'karne',   ad:'Sınıf Karnesi', ikon:'fa-file-lines', grup:'deger' },
     { k:'bulten',  ad:'Haftalık Bülten', ikon:'fa-newspaper', grup:'deger' },
@@ -2776,6 +2777,8 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         <AiDurum db={db} user={user} rol="teacher" />
         <ZBolumKalkani ad="ust-serit" sessiz={true}>
         {!yukleniyor && <ZOgretmenOzet db={db} user={user} odevler={odevler} teslimler={teslimler} okunmamis={okunmamisMesaj} setSekme={setSekme} />}
+        {!yukleniyor && <div className="mb-3"><ZYemekBugun db={db} rol="ogretmen" ince={true} /></div>}
+        {!yukleniyor && <ZBolumKalkani ad="tatil" sessiz={true}><ZTatilKart db={db} rol="ogretmen" setSekme={setSekme} /></ZBolumKalkani>}
         {!yukleniyor && sekme!=='haftanin' && <HaftaninOyHatirlat db={db} user={user} ogrenciler={ogrenciler} onAc={()=>setSekme('haftanin')} />}
         {!yukleniyor && <ZAlmaOgretmen db={db} user={user} />}
         {!yukleniyor && sekme!=='haftarapor' && <ZHaftaRaporHatirlat db={db} user={user} onAc={()=>setSekme('haftarapor')} />}
@@ -2805,6 +2808,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='hafta5' && <ZHaftaSoruOgretmen db={db} user={user} ogrenciler={ogrenciler} />}
         {!yukleniyor && sekme==='kitapkose' && <ZKitapKosesi db={db} rol="ogretmen" user={user} />}
         {!yukleniyor && sekme==='haftarapor' && <ZHaftaRaporOgretmen db={db} user={user} ogrenciler={ogrenciler} />}
+        {!yukleniyor && sekme==='karnegorus' && <ZKarneGorus db={db} user={user} ogrenciler={ogrenciler} odevler={odevler} teslimler={teslimler} />}
         {!yukleniyor && sekme==='kapi' && <ZKapi db={db} user={user} ogrenciler={ogrenciler} />}
         {!yukleniyor && sekme==='anket'   && <VeliAnketi db={db} duzenlenebilir={true} user={user} />}
         {!yukleniyor && sekme==='pano'    && <SinifPanosu db={db} duzenlenebilir={true} user={user} />}
@@ -2836,6 +2840,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         <ZOkulSistemleri rol="ogretmen" />
         <AkademiKart rol="ogretmen" />
         {!yukleniyor && sekme==='ders'    && <ProgramMerkezi db={db} user={user} />}
+        {!yukleniyor && sekme==='yemek'   && <ZYemekAyKart db={db} rol="ogretmen" />}
         {!yukleniyor && sekme==='yemek'   && <YemekListesi db={db} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='servis'  && <ServisTakip db={db} duzenlenebilir={true} />}
         {!yukleniyor && sekme==='duyuru'  && <DuyuruYonetim db={db} user={user} duyurular={duyurular} />}
@@ -3598,7 +3603,9 @@ const OgrenciMerkezi = ({ db, user }) => {
         {ik:'⭐',ad:'Yıldızlarım',sayi:0,durum:(ben.puan||0)+' yıldız',git:()=>zBolumeGit('ob-lig')}]} /></ZSekme>}
       {ben && <ZSistemKim rol="ogrenci" sinif={sinifim} ad={ben.ad} />}
       {ben && <ZAcilisEkrani db={db} rol="ogrenci" sinif={sinifim} />}
+      {ben && <ZSekme ad="bugun"><ZBolumKalkani ad="tatil" sessiz={true}><ZTatilKart db={db} rol="ogrenci" ogr={ben} /></ZBolumKalkani></ZSekme>}
       {ben && <ZSekme ad="bugun ogren"><ZSistemSeridi rol="ogrenci" sinif={sinifim} /></ZSekme>}
+      {ben && <ZSekme ad="bugun"><ZBolumKalkani ad="yemek" sessiz={true}><ZYemekBugun db={db} rol="ogrenci" sinif={sinifim} /></ZBolumKalkani></ZSekme>}
       {ben && (<ZSekme ad="bugun">
         <div className="grid grid-cols-3 gap-2 md:gap-4">
           <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl md:rounded-3xl p-3 md:p-5 text-white shadow-lg text-center">
@@ -3806,7 +3813,9 @@ const VeliMerkezi = ({ db, user }) => {
             {ik:'📰',ad:'Özetler',sayi:_vOzet,durum:_vOzet?(_vOzet+' yeni özet'):'Özetler burada',git:()=>{ zOzetGorIsaretle(cocuk?('v_'+cocuk.id):'', _vOzYeni.map(p=>p.id)); zBolumeGit('vb-dersozet'); }}]} /></ZSekme>
           <ZSistemKim rol="veli" sinif={cocuk.sinif} ad={cocuk.ad} />
           <ZAcilisEkrani db={db} rol="veli" sinif={cocuk.sinif} />
+          <ZSekme ad="bugun"><ZBolumKalkani ad="tatil" sessiz={true}><ZTatilKart db={db} rol="veli" ogr={cocuk} /></ZBolumKalkani></ZSekme>
           <ZSekme ad="bugun"><ZSistemSeridi rol="veli" sinif={cocuk.sinif} /></ZSekme>
+          <ZSekme ad="bugun"><ZBolumKalkani ad="yemek" sessiz={true}><ZYemekBugun db={db} rol="veli" sinif={cocuk.sinif} /></ZBolumKalkani></ZSekme>
           <ZSekme ad="cocuk">
           <SistemDurumu db={db} />
           </ZSekme>
@@ -3872,6 +3881,7 @@ const VeliMerkezi = ({ db, user }) => {
           <Katla id="vb-kitapkurdu" baslik="Kitap Kurdu Türkiye Yolculuğu" ikon="🗺️" renk="from-emerald-500 to-teal-600"><KitapKurduHaritasi ogrenciler={ogrenciler} /></Katla>
           </ZSekme>
           <ZSekme ad="okul">
+          <Katla id="vb-yemek" baslik="Yemek Listesi" ikon="🍽️" renk="from-orange-400 to-amber-500" alt="Ayın menüsü · bugün işaretli · yazdırılabilir"><ZBolumKalkani ad="yemekay" sessiz={true}><ZYemekAyKart db={db} rol="veli" sinif={cocuk.sinif} /></ZBolumKalkani></Katla>
           <Katla id="vb-onem" baslik="Derslerimiz Neden Önemli?" ikon="🔬" renk="from-indigo-500 to-violet-600" alt="Bilim ne diyor · makaleler ve videolar" acikBaslangic={true}><ZDerslerinOnemi /></Katla>
           </ZSekme>
           <ZSekme ad="okul">
@@ -8631,7 +8641,7 @@ const ZAcilisPerde = ({ a, resim, kapat, onizleme }) => {
     <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-[1.5px] zac-sis" onClick={kapan}></div>
     <div className="zac-kart relative w-full max-w-[420px] bg-white rounded-[1.8rem] shadow-[0_24px_60px_rgba(15,23,42,.45)] overflow-hidden">
       <div className="flex items-center gap-2 pl-4 pr-2 pt-2.5 pb-2 bg-gradient-to-r from-[#0b1e3f] to-indigo-700 text-white">
-        <span className="flex-1 min-w-0 text-[11px] font-black uppercase tracking-[.2em] text-amber-300 truncate">📣 Değişim Koleji{onizleme?' · 👁️ önizleme':''}</span>
+        <img src={DK_LOGO} alt="" className="w-7 h-7 rounded-lg object-cover bg-white shrink-0" /><span className="flex-1 min-w-0 text-[11px] font-black uppercase tracking-[.2em] text-amber-300 truncate">Değişim Koleji{onizleme?' · 👁️ önizleme':''}</span>
         <button onClick={kapan} aria-label="Geç" className="flex items-center gap-1.5 bg-white text-slate-800 font-black text-[13px] pl-1 pr-3 py-1 rounded-full shadow active:scale-95 transition">
           <svg width="30" height="30" viewBox="0 0 36 36" className="-rotate-90"><circle cx="18" cy="18" r={R} fill="none" stroke="#e2e8f0" strokeWidth="3.5"/><circle cx="18" cy="18" r={R} fill="none" stroke="#6366f1" strokeWidth="3.5" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C*oran}/><text x="18" y="18" transform="rotate(90 18 18)" textAnchor="middle" dominantBaseline="central" fontSize="13" fontWeight="900" fill="#1e293b">{Math.max(0,kalan)}</text></svg>
           Geç ›
@@ -8756,6 +8766,7 @@ function zYzHtml(h){ /* yapay zekâdan gelen HTML: betik/olay temizliği */
 const ZYZ_CSS='@page{size:A4;margin:14mm}*{box-sizing:border-box}body{margin:0;font-family:Inter,"Segoe UI",Arial,sans-serif;color:#0f172a;background:#f1f5f9;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
  +'.sayfa{max-width:800px;margin:0 auto;background:#fff;padding:26px 30px 30px}'
  +'.ust{display:flex;align-items:center;gap:12px;border-bottom:3px solid #4f46e5;padding-bottom:10px;margin-bottom:16px}.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#4f46e5,#10b981);color:#fff;font-weight:900;font-size:20px;display:flex;align-items:center;justify-content:center}'
+ +'img.logo{width:46px;height:46px;border-radius:12px;object-fit:cover;background:none;display:block}'
  +'.okul{font-weight:900;font-size:17px;letter-spacing:.02em}.okul small{display:block;font-size:11px;font-weight:700;color:#64748b;letter-spacing:.08em}.tarih{margin-left:auto;font-size:12px;color:#64748b;font-weight:700;text-align:right}'
  +'h1{font-size:23px;font-weight:900;margin:0 0 6px;line-height:1.2}.alt{font-size:13px;color:#475569;margin:0 0 12px}.kim{display:flex;gap:18px;flex-wrap:wrap;font-size:13.5px;margin:6px 0 16px;padding:9px 12px;border:1.5px dashed #cbd5e1;border-radius:10px}.kim b{display:inline-block;min-width:150px;border-bottom:1.5px solid #94a3b8;padding:0 4px}'
  +'.bolum{border:1.5px solid #e2e8f0;border-radius:14px;padding:14px 16px;margin:0 0 14px;page-break-inside:avoid;break-inside:avoid}.bolum h2{font-size:17px;margin:0 0 6px;color:#3730a3}.meta{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}.meta span{font-size:11.5px;font-weight:800;background:#eef2ff;color:#3730a3;border-radius:999px;padding:3px 9px}'
@@ -8779,7 +8790,7 @@ function zYazdirAc(html, baslik, ekBas){
   }catch(e){ alert('Yazdırma açılamadı. Lütfen tarayıcıda açılır pencerelere izin verin.'); return false; } }
 /* bolumler: [{baslik, meta:[], metin|html, resim, linkler:[{ad,url}], calisma:satırSayısı}] · kim:{ad,sinif} · ai:true → yapay zekâ notu */
 function zYazdir(o){ try{ o=o||{}; const t=new Date();
-  let h='<div class="sayfa"><div class="ust"><div class="logo">D</div><div class="okul">DEĞİŞİM KOLEJİ<small>DİJİTAL EĞİTİM SİSTEMİ</small></div><div class="tarih">'+t.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})+'<br>'+zYzKac(o.ust||'')+'</div></div>';
+  let h='<div class="sayfa"><div class="ust"><img class="logo" src="'+DK_LOGO+'" alt="Değişim Koleji"><div class="okul">DEĞİŞİM KOLEJİ<small>DİJİTAL EĞİTİM SİSTEMİ</small></div><div class="tarih">'+t.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})+'<br>'+zYzKac(o.ust||'')+'</div></div>';
   if(o.baslik) h+='<h1>'+zYzKac(o.baslik)+'</h1>'; if(o.alt) h+='<p class="alt">'+zYzKac(o.alt)+'</p>';
   if(o.kim!==false){ const k=o.kim||{}; h+='<div class="kim"><span>Ad Soyad: <b>'+zYzKac(k.ad||'')+'</b></span><span>Sınıf: <b style="min-width:80px">'+zYzKac(k.sinif||'')+'</b></span></div>'; }
   (o.bolumler||[]).forEach(b=>{ h+='<div class="bolum">'; if(b.baslik) h+='<h2>'+zYzKac(b.baslik)+'</h2>';
@@ -8798,7 +8809,7 @@ function zYazdirEleman(el, baslik, kim){ try{ if(!el) return false; const k=el.c
   k.querySelectorAll('button,.no-print,[data-yazdirma="yok"],input,select,textarea').forEach(x=>{ if(x.tagName==='BUTTON' && x.closest('svg')) return; x.remove(); });
   const stil=Array.from(document.querySelectorAll('style')).map(s=>s.outerHTML).join('')+Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(l=>'<link rel="stylesheet" href="'+l.href+'">').join('');
   const t=new Date();
-  const h='<div class="sayfa"><div class="ust"><div class="logo">D</div><div class="okul">DEĞİŞİM KOLEJİ<small>DİJİTAL EĞİTİM SİSTEMİ</small></div><div class="tarih">'+t.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})+'</div></div>'
+  const h='<div class="sayfa"><div class="ust"><img class="logo" src="'+DK_LOGO+'" alt="Değişim Koleji"><div class="okul">DEĞİŞİM KOLEJİ<small>DİJİTAL EĞİTİM SİSTEMİ</small></div><div class="tarih">'+t.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})+'</div></div>'
     +(baslik?'<h1>'+zYzKac(baslik)+'</h1>':'')+(kim?'<p class="alt">'+zYzKac(kim)+'</p>':'')+'<div class="tw">'+k.outerHTML+'</div><div class="alt-imza">Değişim Koleji · MEGA Dijital Eğitim Sistemi · Barış Öğretmen tarafından hazırlandı</div></div>';
   return zYazdirAc(h, baslik||'Değişim Koleji', stil+'<style>.tw *{box-shadow:none!important}</style>'); }catch(e){ alert('Yazdırma hazırlanamadı.'); return false; } }
 window.zYazdir=zYazdir; window.zYazdirEleman=zYazdirEleman;
@@ -8817,7 +8828,326 @@ const ZYazdirBtn = ({ onClick, etiket, sinif }) => (
   <button type="button" onClick={e=>{ e.stopPropagation(); onClick&&onClick(e); }} className={sinif||'inline-flex items-center gap-1 font-black text-slate-600 hover:text-indigo-700 text-[11px]'} title="Yazdır ya da PDF olarak kaydet">🖨️ {etiket||'Yazdır'}</button>
 );
 
-const LOCAL_SURUM = 71;
+/* ============================================================================
+   v72 · 🍽️ AYLIK YEMEK LİSTESİ (öğretmen · öğrenci · veli) + 📝 KARNE GÖRÜŞÜ ASİSTANI
+   · Yemek: maas_config/k12_yemek_ay {baslik, haftaBas:[YYYY-MM-DD…], tatil:[[bas,bit]], gunler:{'1-0':{o,i}}, kahvalti}
+     bulutta kayıt yoksa aşağıdaki Kasım 2026 listesi kullanılır · eski haftalık liste (k12_yemek) aynen durur
+   · Karne görüşü: maas_config/k12_karne_<dönem>_<sınıf> {'<ogrId>__<öğretmen>': {ders, metin, ogretmen, ts}}
+   ============================================================================ */
+const ZYEMEK_GUNLER=['Pazartesi','Salı','Çarşamba','Perşembe','Cuma'];
+const ZYEMEK_VARSAYILAN={ ay:'2026-11', baslik:'Kasım Ayı Yemek Listesi', kahvalti:'Karışık Kahvaltı Tabağı',
+  haftaBas:['2026-11-02','2026-11-09','2026-11-23','2026-11-30'], tatil:[['2026-11-16','2026-11-20','Ara tatil']],
+  gunler:{
+    '1-0':{o:'Çorba, Taze Fasulye, Makarna',i:'Kurabiye'}, '1-1':{o:'Çorba, Etli Patates Yemeği, Erişte',i:'Puding'}, '1-2':{o:'Çorba, Mantı, Yoğurt',i:'Kek'}, '1-3':{o:'Çorba, Pilav, Döner, Ayran',i:'Bisküvili Pasta'}, '1-4':{o:'Çorba, Kuru Döner, Ayran',i:'Meyve'},
+    '2-0':{o:'Çorba, Taze Fasulye, Yoğurt',i:'Kuruyemiş'}, '2-1':{o:'Çorba, Kuru Fasulye, Pilav',i:'Puding'}, '2-2':{o:'Çorba, Karnabahar, Makarna',i:'Kek'}, '2-3':{o:'Çorba, Bezelye Yemeği, Börek',i:'Supangle'}, '2-4':{o:'Çorba, Tavuk Izgara, Pilav',i:'Tuzlu Kurabiye'},
+    '3-0':{o:'Çorba, Sebzeli Makarna, Yoğurt',i:'Sarelle’li Ekmek'}, '3-1':{o:'Çorba, Köfte, Pilav, Taze Salata',i:'Kuruyemiş'}, '3-2':{o:'Çorba, Tavuklu Pilav, Salata',i:'Supangle'}, '3-3':{o:'Çorba, Mantı, Yoğurt',i:'Sandviç'}, '3-4':{o:'Çorba, Hamburger, Ayran',i:'Patlamış Mısır'},
+    '4-0':{o:'Çorba, Taze Fasulye, Yoğurt',i:'Pişi'}, '4-1':{o:'Çorba, Hünkâr Beğendi, Erişte',i:'Un Kurabiyesi'}, '4-2':{o:'Çorba, Şinitzel, Pilav, Salata',i:'Meyve'}, '4-3':{o:'Çorba, Pizza, Ayran',i:'Puding'}, '4-4':{o:'Haşlanmış Patates',i:'Kuruyemiş'} } };
+function zYemekTarih(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function zYemekVeri(doc){ const d=doc||{}; const v=ZYEMEK_VARSAYILAN; return { ay:d.ay||v.ay, baslik:d.baslik||v.baslik, kahvalti:(d.kahvalti!==undefined?d.kahvalti:v.kahvalti), haftaBas:(d.haftaBas&&d.haftaBas.length?d.haftaBas:v.haftaBas), tatil:(d.tatil||v.tatil), gunler:(d.gunler&&Object.keys(d.gunler).length?d.gunler:v.gunler) }; }
+/* Bir tarihin menüsü: {hafta, gun, gunAd, o, i, k} · tatil → {tatil:ad} · listede yoksa null */
+function zYemekGunu(Y, tarih){ const t=new Date(tarih); t.setHours(12,0,0,0); const ts=zYemekTarih(t); const g=(t.getDay()+6)%7; if(g>4) return null;
+  for(const r of (Y.tatil||[])){ if(r && ts>=r[0] && ts<=r[1]) return {tatil:r[2]||'Tatil', ts}; }
+  for(let h=0; h<(Y.haftaBas||[]).length; h++){ const b=new Date(Y.haftaBas[h]+'T12:00:00'); const f=Math.round((t-b)/86400000); if(f>=0 && f<=4){ const m=(Y.gunler||{})[(h+1)+'-'+f]; if(m) return {hafta:h+1, gun:f, gunAd:ZYEMEK_GUNLER[f], o:m.o||'', i:m.i||'', k:Y.kahvalti||'', ts}; } }
+  return null; }
+function zYemekSiradaki(Y){ const d=new Date(); const saat=d.getHours(); if(saat>=15) d.setDate(d.getDate()+1); for(let i=0;i<14;i++){ const g=(d.getDay()+6)%7; if(g<=4){ const m=zYemekGunu(Y,d); if(m && !m.tatil) return {m, tarih:new Date(d), bugun:i===0 && saat<15}; } d.setDate(d.getDate()+1); } return null; }
+function zKahvaltiGorur(rol, sinif){ return rol==='ogretmen' || (typeof zSinifNo==='function' ? zSinifNo(sinif)===0 : /ana/i.test(String(sinif||''))); }
+
+/* v73 · Yemek listesi — yeni görünüm (hafta sekmeleri, yemek çipleri, okul logosu) */
+const ZYEMEK_RENK=[['from-sky-500 to-blue-500','bg-sky-50','text-sky-700'],['from-emerald-500 to-teal-500','bg-emerald-50','text-emerald-700'],['from-violet-500 to-purple-500','bg-violet-50','text-violet-700'],['from-orange-500 to-amber-500','bg-orange-50','text-orange-700'],['from-rose-500 to-pink-500','bg-rose-50','text-rose-700']];
+const ZYEMEK_EMOJI=[[/çorba/i,'🍲'],[/pilav/i,'🍚'],[/makarna|erişte|eriste/i,'🍝'],[/mantı|manti/i,'🥟'],[/yoğurt|yogurt|ayran/i,'🥛'],[/köfte|kofte|döner|doner|hamburger/i,'🍔'],[/tavuk|şinitzel|sinitzel|şnitzel/i,'🍗'],[/pizza/i,'🍕'],[/börek|borek|pişi|pisi/i,'🥐'],[/salata/i,'🥗'],[/fasulye|bezelye|karnabahar|karnıbahar|sebze|hünkâr|hünkar|beğendi/i,'🥘'],[/patates/i,'🥔'],[/meyve/i,'🍎'],[/kek|pasta/i,'🍰'],[/puding|supangle/i,'🍮'],[/kurabiye|bisküvi/i,'🍪'],[/kuruyemiş|kuruyemis/i,'🥜'],[/sandviç|sandvic|ekmek/i,'🥪'],[/patlamış|popcorn/i,'🍿'],[/kahvaltı|kahvalti/i,'🍳']];
+function zYemekEmoji(t){ for(const [r,e] of ZYEMEK_EMOJI){ if(r.test(t)) return e; } return '🍽️'; }
+const ZYemekCipler = ({ metin, buyuk }) => (<div className="flex flex-wrap gap-1.5">{String(metin||'—').split(',').map(x=>x.trim()).filter(Boolean).map((x,i)=>(
+  <span key={i} className={'inline-flex items-center gap-1 bg-white border border-orange-100 shadow-sm rounded-full font-bold text-slate-700 '+(buyuk?'text-[14px] px-3 py-1.5':'text-[12.5px] px-2.5 py-1')}><span>{zYemekEmoji(x)}</span>{x}</span>))}</div>);
+function zYemekHaftaAralik(hb){ const b=new Date(hb+'T12:00:00'); const s=new Date(b.getTime()+4*86400000); return b.getDate()+(b.getMonth()!==s.getMonth()?(' '+b.toLocaleDateString('tr-TR',{month:'short'})):'')+'–'+s.toLocaleDateString('tr-TR',{day:'numeric',month:'short'}); }
+function zYemekBuHafta(Y){ const s=zYemekSiradaki(Y); return s&&s.m&&s.m.hafta?s.m.hafta-1:0; }
+
+const ZYemekAyTablo = ({ Y, kahvalti, bugunTs }) => {
+  const [h,setH]=useState(()=>zYemekBuHafta(Y)); const hb=(Y.haftaBas||[])[h];
+  return (<div>
+    <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">{(Y.haftaBas||[]).map((x,i)=>(<button key={x+i} onClick={()=>setH(i)} className={'shrink-0 rounded-2xl px-3 py-2 text-left border-2 transition '+(h===i?'bg-orange-500 border-orange-500 text-white shadow':'bg-white border-orange-100 text-orange-800')}><span className="block text-[13px] font-black leading-none">{i+1}. Hafta</span><span className={'block text-[10.5px] font-bold mt-0.5 '+(h===i?'text-white/85':'text-orange-400')}>{x?zYemekHaftaAralik(x):''}</span></button>))}</div>
+    {kahvalti && Y.kahvalti && <p className="mb-2 text-[12.5px] font-bold text-slate-600 bg-white border border-orange-100 rounded-2xl px-3 py-2">🍳 Anaokulu kahvaltısı (her gün): <b className="text-slate-800">{Y.kahvalti}</b></p>}
+    {hb && <div className="space-y-2">{ZYEMEK_GUNLER.map((gad,g)=>{ const m=(Y.gunler||{})[(h+1)+'-'+g]||{}; const d=new Date(new Date(hb+'T12:00:00').getTime()+g*86400000); const bu=zYemekTarih(d)===bugunTs; const R=ZYEMEK_RENK[g]; return (
+      <div key={g} className={'relative rounded-2xl overflow-hidden bg-white border '+(bu?'border-amber-400 ring-2 ring-amber-300 shadow-md':'border-slate-100 shadow-sm')}>
+        <div className="flex"><div className={'w-[68px] shrink-0 bg-gradient-to-b '+R[0]+' text-white flex flex-col items-center justify-center py-2'}><span className="text-[22px] font-black leading-none">{d.getDate()}</span><span className="text-[10px] font-black uppercase tracking-wider mt-0.5">{gad.slice(0,3)}</span></div>
+          <div className="flex-1 min-w-0 p-2.5 space-y-1.5">
+            <div className="flex items-center gap-1.5"><span className={'text-[12.5px] font-black '+R[2]}>{gad}</span>{bu && <span className="text-[9.5px] font-black bg-amber-400 text-white rounded-full px-2 py-0.5">BUGÜN</span>}</div>
+            <ZYemekCipler metin={m.o} />
+            {m.i && <p className="text-[12px] text-slate-500 font-bold">İkindi: <span className="text-slate-700">{zYemekEmoji(m.i)} {m.i}</span></p>}
+          </div></div>
+      </div>); })}</div>}
+    {(Y.tatil||[]).map((r,i)=>(<p key={i} className="mt-2 text-[12.5px] font-bold text-sky-700 bg-sky-50 border border-sky-100 rounded-2xl px-3 py-2">🏖️ {r[2]||'Tatil'}: {r[0]?new Date(r[0]+'T12:00:00').toLocaleDateString('tr-TR',{day:'numeric',month:'long'}):''} – {r[1]?new Date(r[1]+'T12:00:00').toLocaleDateString('tr-TR',{day:'numeric',month:'long'}):''} · yemek yok</p>))}
+  </div>); };
+
+function zYemekYazdir(Y, kahvalti){ const renk=['#0ea5e9','#10b981','#8b5cf6','#f97316','#f43f5e'];
+  let h='<style>.ym td,.ym th{border:1px solid #fed7aa;padding:6px 8px;font-size:12.5px;vertical-align:top}.ym th{background:#fff7ed;color:#9a3412;text-align:left}.ym .hf{background:#f97316;color:#fff;font-weight:900;font-size:13px}.ym .gn{font-weight:900;white-space:nowrap}</style><table class="ym" style="width:100%;border-collapse:collapse"><tr><th>Gün</th>'+(kahvalti?'<th>Kahvaltı (Anaokulu)</th>':'')+'<th>Öğlen</th><th>İkindi</th></tr>';
+  (Y.haftaBas||[]).forEach((hb,hi)=>{ if(!hb) return; const bas=new Date(hb+'T12:00:00'); h+='<tr><td class="hf" colspan="'+(kahvalti?4:3)+'">'+(hi+1)+'. Hafta · '+zYzKac(zYemekHaftaAralik(hb))+'</td></tr>';
+    ZYEMEK_GUNLER.forEach((gad,g)=>{ const m=(Y.gunler||{})[(hi+1)+'-'+g]||{}; const d=new Date(bas.getTime()+g*86400000);
+      h+='<tr><td class="gn" style="color:'+renk[g]+'">'+gad+' '+d.getDate()+'</td>'+(kahvalti?'<td>'+zYzKac(Y.kahvalti||'')+'</td>':'')+'<td>'+zYzKac(m.o||'—')+'</td><td>'+zYzKac(m.i||'—')+'</td></tr>'; }); });
+  h+='</table>'; (Y.tatil||[]).forEach(r=>{ h+='<p style="margin-top:8px;font-size:13px">🏖️ <b>'+zYzKac(r[2]||'Tatil')+'</b>: '+zYzKac(zTrGun(r[0]))+' – '+zYzKac(zTrGun(r[1]))+' (yemek yok)</p>'; });
+  zYazdir({baslik:'🍽️ '+(Y.baslik||'Yemek Listesi'),kim:false,bolumler:[{html:h}]}); }
+
+const ZYemekBaslik = ({ Y, sag }) => (<div className="flex items-center gap-2.5 mb-3">
+  <img src={DK_LOGO} alt="Değişim Koleji" className="w-11 h-11 rounded-xl object-cover shadow-sm shrink-0" />
+  <div className="flex-1 min-w-0"><p className="text-[10.5px] font-black tracking-[.18em] text-orange-500 uppercase">Değişim Koleji</p><p className="text-[17px] font-black text-slate-800 leading-tight">{Y.baslik}</p></div>{sag}</div>);
+
+/* Aylık liste penceresi */
+const ZYemekPencere = ({ Y, rol, sinif, kapat }) => { const kah=zKahvaltiGorur(rol,sinif);
+  useEffect(()=>{ const f=e=>{ if(e.key==='Escape') kapat(); }; window.addEventListener('keydown',f); return ()=>window.removeEventListener('keydown',f); },[]);
+  return ReactDOM.createPortal(<div className="fixed inset-0 z-[9700] flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="Yemek listesi">
+    <div className="absolute inset-0 bg-slate-900/55" onClick={kapat}></div>
+    <div className="relative w-full sm:max-w-lg max-h-[90vh] overflow-y-auto bg-gradient-to-b from-orange-50 to-white rounded-t-[2rem] sm:rounded-[2rem] p-4 shadow-2xl" style={{paddingBottom:'calc(1.5rem + env(safe-area-inset-bottom))'}}>
+      <div className="w-12 h-1.5 bg-orange-200 rounded-full mx-auto mb-3"></div>
+      <ZYemekBaslik Y={Y} sag={<><button onClick={()=>zYemekYazdir(Y,kah)} className="text-[12px] font-black bg-white border border-orange-200 text-orange-700 rounded-xl px-3 py-2">🖨️</button><button onClick={kapat} className="w-10 h-10 rounded-full bg-white border border-orange-200 font-black text-slate-600" aria-label="Kapat">✕</button></>} />
+      <ZYemekAyTablo Y={Y} kahvalti={kah} bugunTs={zYemekTarih(new Date())} />
+      <button onClick={kapat} className="mt-3 w-full bg-white border border-orange-200 text-slate-600 font-black py-3 rounded-2xl">Kapat</button>
+    </div></div>, document.body); };
+
+/* Bugünün (ya da sıradaki okul gününün) menüsü */
+const ZYemekBugun = ({ db, rol, sinif, ince }) => {
+  const doc=useOkulDoc(db,'k12_yemek_ay'); const [acik,setAcik]=useState(false); if(doc===null) return null;
+  const Y=zYemekVeri(doc); const s=zYemekSiradaki(Y); const bugunTatil=(()=>{ const m=zYemekGunu(Y,new Date()); return m&&m.tatil?m:null; })();
+  const kah=zKahvaltiGorur(rol,sinif);
+  if(!s && !bugunTatil) return null;
+  const etiket=s?(s.bugun?'Bugün':((s.tarih.toDateString()===new Date(Date.now()+86400000).toDateString())?'Yarın':s.tarih.toLocaleDateString('tr-TR',{weekday:'long'}))):'';
+  const baslik=s?(s.bugun?'Bugünün menüsü':(etiket==='Yarın'?'Yarının menüsü':(etiket.charAt(0).toLocaleUpperCase('tr-TR')+etiket.slice(1)+' menüsü'))):'Yemek';
+  if(ince) return (<>{s && <button onClick={()=>setAcik(true)} className="w-full flex items-center gap-2 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-2xl px-3 py-2 text-left"><span className="text-[20px]">🍽️</span><span className="flex-1 min-w-0 text-[12.5px] text-slate-700 truncate"><b className="text-orange-700">{etiket} öğlen:</b> {s.m.o}</span><span className="text-[11px] font-black text-orange-600">Liste ›</span></button>}{acik && <ZYemekPencere Y={Y} rol={rol} sinif={sinif} kapat={()=>setAcik(false)} />}</>);
+  return (<div className="rounded-[1.8rem] overflow-hidden bg-white border-2 border-orange-200 shadow-md">
+    <div className="bg-gradient-to-r from-orange-500 via-amber-500 to-rose-400 px-4 py-3 flex items-center gap-2.5 text-white">
+      <img src={DK_LOGO} alt="" className="w-9 h-9 rounded-xl object-cover bg-white shrink-0" />
+      <div className="flex-1 min-w-0"><p className="text-[16px] font-black leading-tight">🍽️ {baslik}</p><p className="text-[11.5px] font-bold text-white/90">{s?s.tarih.toLocaleDateString('tr-TR',{day:'numeric',month:'long',weekday:'long'}):''}</p></div>
+      <button onClick={()=>setAcik(true)} className="shrink-0 text-[12px] font-black bg-white/95 text-orange-700 rounded-xl px-3 py-2 shadow">Ayın listesi ›</button></div>
+    <div className="p-4 bg-gradient-to-b from-orange-50/60 to-white space-y-2.5">
+      {bugunTatil && <p className="text-[13px] font-black text-sky-700 bg-sky-50 rounded-xl px-3 py-2">🏖️ {bugunTatil.tatil} — iyi tatiller!</p>}
+      {s && kah && s.m.k && <div><p className="text-[10.5px] font-black tracking-widest text-slate-400 mb-1">KAHVALTI{rol==='ogretmen'?' · ANAOKULU':''}</p><ZYemekCipler metin={s.m.k} /></div>}
+      {s && <div><p className="text-[10.5px] font-black tracking-widest text-orange-500 mb-1">ÖĞLEN</p><ZYemekCipler metin={s.m.o} buyuk={true} /></div>}
+      {s && s.m.i && <div><p className="text-[10.5px] font-black tracking-widest text-rose-400 mb-1">İKİNDİ</p><ZYemekCipler metin={s.m.i} /></div>}
+    </div>
+    {acik && <ZYemekPencere Y={Y} rol={rol} sinif={sinif} kapat={()=>setAcik(false)} />}
+  </div>); };
+
+/* Öğretmen / veli için tam ay görünümü (sekme içinde) */
+const ZYemekAyKart = ({ db, rol, sinif }) => { const doc=useOkulDoc(db,'k12_yemek_ay'); if(doc===null) return null; const Y=zYemekVeri(doc); const kah=zKahvaltiGorur(rol,sinif);
+  return (<div className="bg-white border-2 border-orange-200 rounded-[2rem] p-4 shadow-lg mb-4">
+    <ZYemekBaslik Y={Y} sag={<button onClick={()=>zYemekYazdir(Y,kah)} className="text-[12px] font-black bg-orange-50 border border-orange-200 text-orange-700 rounded-xl px-3 py-2">🖨️ Yazdır</button>} />
+    <ZYemekAyTablo Y={Y} kahvalti={kah} bugunTs={zYemekTarih(new Date())} /></div>); };
+
+/* Yönetim: aylık listeyi düzenle (yeni ay için de) */
+const ZYemekYonetim = ({ db }) => {
+  const doc=useOkulDoc(db,'k12_yemek_ay'); const [T,setT]=useState(null); const [mesgul,setMesgul]=useState(false);
+  useEffect(()=>{ if(doc!==null && !T) setT(JSON.parse(JSON.stringify(zYemekVeri(doc)))); },[doc]);
+  if(!T) return <p className="text-[12px] text-slate-400">⏳ Yükleniyor…</p>;
+  const set=(f)=>setT(x=>{ const y=JSON.parse(JSON.stringify(x)); f(y); return y; });
+  const kaydet=async()=>{ setMesgul(true); const ok=await okulYaz(db,'k12_yemek_ay',T); setMesgul(false); if(ok) toast('🍽️ Yemek listesi kaydedildi — herkeste güncellendi.','green'); };
+  return (<div>
+    <p className="text-[12.5px] text-slate-600 leading-snug mb-2">Öğretmen, öğrenci ve velinin <b>Bugün</b> ekranında “Bugünün menüsü” olarak görünür; anaokulu kahvaltısını sadece anaokulu velisi/öğrencisi ve öğretmenler görür. Kasım listesi hazır yüklendi; yeni ay geldiğinde buradan değiştirip kaydedin.</p>
+    <input value={T.baslik} onChange={e=>set(y=>{ y.baslik=e.target.value; })} className="w-full px-3 py-2 rounded-xl border-2 border-slate-200 font-black text-[14px]" />
+    <input value={T.kahvalti} onChange={e=>set(y=>{ y.kahvalti=e.target.value; })} placeholder="Anaokulu kahvaltısı" className="mt-2 w-full px-3 py-2 rounded-xl border border-slate-200 text-[13px]" />
+    <p className="text-[12px] font-black text-slate-500 mt-3 mb-1">📅 Hafta başlangıçları (Pazartesi)</p>
+    <div className="grid grid-cols-2 gap-1.5">{T.haftaBas.map((hb,i)=>(<label key={i} className="text-[11.5px] font-bold text-slate-500">{i+1}. hafta<input type="date" value={hb} onChange={e=>set(y=>{ y.haftaBas[i]=e.target.value; })} className="w-full px-2 py-1.5 rounded-lg border border-slate-200 text-[13px] text-slate-800" /></label>))}</div>
+    <div className="flex gap-2 mt-1.5">{T.haftaBas.length<5 && <button onClick={()=>set(y=>{ y.haftaBas.push(''); })} className="text-[11.5px] font-black text-indigo-600">+ hafta ekle</button>}{T.haftaBas.length>1 && <button onClick={()=>set(y=>{ const n=y.haftaBas.length; y.haftaBas.pop(); ZYEMEK_GUNLER.forEach((_,g)=>{ delete y.gunler[n+'-'+g]; }); })} className="text-[11.5px] font-black text-rose-500">− son haftayı kaldır</button>}</div>
+    <p className="text-[12px] font-black text-slate-500 mt-3 mb-1">🏖️ Tatil (yemek yok)</p>
+    {T.tatil.map((r,i)=>(<div key={i} className="flex flex-wrap gap-1.5 mb-1"><input type="date" value={r[0]} onChange={e=>set(y=>{ y.tatil[i][0]=e.target.value; })} className="flex-1 min-w-[120px] px-2 py-1.5 rounded-lg border border-slate-200 text-[12px]" /><input type="date" value={r[1]} onChange={e=>set(y=>{ y.tatil[i][1]=e.target.value; })} className="flex-1 min-w-[120px] px-2 py-1.5 rounded-lg border border-slate-200 text-[12px]" /><input value={r[2]||''} onChange={e=>set(y=>{ y.tatil[i][2]=e.target.value; })} className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-slate-200 text-[12px]" /><button onClick={()=>set(y=>{ y.tatil.splice(i,1); })} className="text-rose-500 font-black px-1">✕</button></div>))}
+    <button onClick={()=>set(y=>{ y.tatil.push(['','','Tatil']); })} className="text-[11.5px] font-black text-indigo-600">+ tatil ekle</button>
+    <details className="mt-3 bg-slate-50 rounded-xl px-3 py-2"><summary className="text-[12.5px] font-black text-slate-600 cursor-pointer">✏️ Menüleri düzenle (gün gün)</summary>
+      {T.haftaBas.map((_,h)=>(<div key={h} className="mt-2"><p className="text-[12px] font-black text-orange-700">{h+1}. Hafta</p>
+        {ZYEMEK_GUNLER.map((gad,g)=>{ const k=(h+1)+'-'+g; const m=T.gunler[k]||{}; return (<div key={g} className="grid grid-cols-[70px_1fr_110px] gap-1 mt-1 items-center"><span className="text-[11px] font-bold text-slate-500">{gad}</span>
+          <input value={m.o||''} onChange={e=>set(y=>{ y.gunler[k]=Object.assign({},y.gunler[k]||{},{o:e.target.value}); })} placeholder="Öğlen" className="px-2 py-1.5 rounded-lg border border-slate-200 text-[12px] min-w-0" />
+          <input value={m.i||''} onChange={e=>set(y=>{ y.gunler[k]=Object.assign({},y.gunler[k]||{},{i:e.target.value}); })} placeholder="İkindi" className="px-2 py-1.5 rounded-lg border border-slate-200 text-[12px] min-w-0" /></div>); })}</div>))}
+    </details>
+    <button disabled={mesgul} onClick={kaydet} className="mt-3 w-full py-3 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 text-white font-black text-[15px] disabled:opacity-60">{mesgul?'Kaydediliyor…':'💾 Kaydet ve herkese yayınla'}</button>
+  </div>); };
+
+/* ============ 📝 KARNE GÖRÜŞÜ ASİSTANI ============ */
+const ZKARNE_DONEM=(zSimdi()>new Date('2027-02-01T00:00:00').getTime())?'2026_d2':'2026_d1';
+const ZKARNE_DONEM_AD=ZKARNE_DONEM==='2026_d2'?'2. DÖNEM':'1. DÖNEM';
+const ZKARNE_DERSLER=['Sınıf Öğretmeni (genel)','Robotik ve Kodlama','Satranç','Akıl ve Zekâ Oyunları','Yapay Zekâ','Eğitim Koçluğu','Türkçe','Matematik','Fen Bilimleri','Sosyal Bilgiler','Hayat Bilgisi','İngilizce','Din Kültürü','Görsel Sanatlar','Müzik','Beden Eğitimi','Rehberlik'];
+function zKarneVeri(o, ctx){ const {odevler, teslimler, yoklama, degDoc}=ctx;
+  const od=(odevler||[]).filter(x=>x && !x.bilgi && !(typeof zPaylasimMi==='function'&&zPaylasimMi(x)) && x.sinif===o.sinif && (x.tur==='sinif'?(typeof zSubeUyar!=='function'||zSubeUyar(x,o)):x.ogrenciId===o.id));
+  const tsl=new Set((teslimler||[]).filter(t=>t&&t.ogrenciId===o.id).map(t=>t.odevId)); const yapilan=od.filter(x=>tsl.has(x.id)).length;
+  const yk=(yoklama||[]).filter(r=>r&&r.ogrenciId===o.id); const gelmedi=yk.filter(r=>r.durum==='gelmedi').length; const gec=yk.filter(r=>r.durum==='gec'||r.durum==='geç').length;
+  let degOrt=null, notlar=[]; try{ const ayar=(degDoc&&degDoc.ayar)||{}; const dersler=zDegDersler(ayar,o.sinif); const tum=zDegKayitlar(degDoc,o.id); const l=Object.keys(tum).map(h=>zDegOrtalama(tum[h],dersler)).filter(x=>x!==null); if(l.length) degOrt=Math.round(l.reduce((a,b)=>a+b,0)/l.length); notlar=Object.keys(tum).sort((a,b)=>b-a).map(h=>tum[h]&&tum[h].not).filter(Boolean).slice(0,3); }catch(e){}
+  const yg=(o.yildizGecmis||[]); const nedenSay={}; yg.forEach(y=>{ const n=String(y.neden||'').replace(/[:·].*$/,'').trim(); if(n) nedenSay[n]=(nedenSay[n]||0)+1; });
+  const enCok=Object.keys(nedenSay).sort((a,b)=>nedenSay[b]-nedenSay[a]).slice(0,3);
+  return { odevToplam:od.length, odevYapilan:yapilan, oran:od.length?Math.round(yapilan/od.length*100):null, gelmedi, gec, yoklamaGun:yk.length, yildiz:o.puan||0, kitap:(o.kitaplar||[]).length, degOrt, notlar, enCok }; }
+function zKarneTaslak(o, v, ders, uzun){ const ad=zIlkAd(o.ad); const c=[];
+  const dersCumle={'Robotik ve Kodlama':'algoritmik düşünme ve problem çözme etkinliklerine ilgiyle katılmakta, adım adım düşünme becerisini geliştirmektedir','Satranç':'satranç çalışmalarında dikkat, sabır ve plan yapma becerilerini geliştirmektedir','Akıl ve Zekâ Oyunları':'akıl ve zekâ oyunlarında farklı çözüm yolları denemekte, dikkat ve mantık becerilerini güçlendirmektedir','Yapay Zekâ':'yapay zekâ derslerinde teknolojiyi bilinçli ve güvenli kullanmayı öğrenmektedir','Eğitim Koçluğu':'hedef belirleme ve planlı çalışma alışkanlıkları kazanma yolunda emin adımlarla ilerlemektedir'}[ders];
+  c.push(ad+(dersCumle?(', '+dersCumle+'.'):' derslere istekle katılan, öğrenmeye açık bir öğrencimizdir.'));
+  if(v.oran!==null){ if(v.oran>=85) c.push('Ödev ve görevlerini düzenli olarak yerine getirmekte, sorumluluk bilinci yüksektir.'); else if(v.oran>=60) c.push('Ödevlerinin büyük bölümünü tamamlamaktadır; düzenliliğini sürdürmesi gelişimine önemli katkı sağlayacaktır.'); else c.push('Ödev ve görev takibinde desteğe ihtiyaç duymaktadır; evde kısa ve düzenli bir çalışma rutini oluşturulması önerilir.'); }
+  if(v.degOrt!==null){ if(v.degOrt>=85) c.push('Haftalık değerlendirmelerde başarılı bir performans sergilemektedir.'); else if(v.degOrt>=65) c.push('Haftalık değerlendirmelerde istikrarlı bir gelişim göstermektedir.'); else c.push('Haftalık değerlendirmelerde gelişime açık alanları bulunmakta olup bireysel destekle ilerleme kaydedecektir.'); }
+  if(uzun){ if(v.yildiz>=50) c.push('Gösterdiği çaba ve olumlu davranışlarla sınıfında örnek olmakta, pek çok kez takdir toplamaktadır.'); else if(v.yildiz>=15) c.push('Olumlu davranışları ve katılımıyla takdir kazanmaktadır.');
+    if(v.kitap>=3) c.push('Kitap okumaya ilgisi takdire değerdir.'); if(v.gelmedi>=5) c.push('Devamlılığına özen göstermesi öğrenme sürecini olumlu etkileyecektir.'); }
+  c.push('Gelişimini memnuniyetle takip ediyor, başarılarının artarak devam etmesini diliyoruz.');
+  return c.join(' '); }
+
+const ZKarneGorus = ({ db, user, ogrenciler, odevler, teslimler }) => {
+  const ben=(user&&user.name)||'Öğretmen'; const benK=zAnahtar(ben);
+  const yd=useOkulDoc(db,'k12_yoklama'); const degDoc=useOkulDoc(db,'k12_degerlendirme');
+  const siniflar=Array.from(new Set((ogrenciler||[]).map(o=>o&&o.sinif).filter(Boolean))).sort((a,b)=>(typeof zSinifNo==='function'?zSinifNo(a)-zSinifNo(b):0));
+  const [sinif,setSinif]=useState(()=>{ try{ return localStorage.getItem('zkarne_sinif')||''; }catch(e){ return ''; } });
+  const [ders,setDers]=useState(()=>{ try{ return localStorage.getItem('zkarne_ders')||ZKARNE_DERSLER[0]; }catch(e){ return ZKARNE_DERSLER[0]; } });
+  const [uzun,setUzun]=useState(true); const [metin,setMetin]=useState({}); const [is,setIs]=useState(null); const durRef=React.useRef(false); const [herkes,setHerkes]=useState(false);
+  const docAd='k12_karne_'+ZKARNE_DONEM+'_'+zAnahtar(sinif||'yok'); const kd=useOkulDoc(db, sinif?docAd:'k12_karne__yok')||{};
+  useEffect(()=>{ try{ localStorage.setItem('zkarne_sinif',sinif); localStorage.setItem('zkarne_ders',ders); }catch(e){} },[sinif,ders]);
+  const liste=(ogrenciler||[]).filter(o=>o&&o.sinif===sinif).sort((a,b)=>String(a.ad).localeCompare(String(b.ad),'tr'));
+  const ctx={odevler, teslimler, yoklama:(yd&&yd.liste)||[], degDoc};
+  const anahtar=o=>o.id+'__'+benK; const kayitli=o=>kd[anahtar(o)];
+  const deger=o=> metin[o.id]!==undefined ? metin[o.id] : ((kayitli(o)&&kayitli(o).metin)||'');
+  const kaydet=async(o, m)=>{ const k=anahtar(o); const ok=await okulYaz(db,docAd,{[k]:{ders, metin:m, ogretmen:ben, ogrId:o.id, ad:o.ad, ts:Date.now()}}); return ok; };
+  const taslakHepsi=async()=>{ const yeni={}; liste.forEach(o=>{ if(!deger(o).trim()) yeni[o.id]=zKarneTaslak(o, zKarneVeri(o,ctx), ders, uzun); }); setMetin(m=>Object.assign({},m,yeni)); toast('⚡ '+Object.keys(yeni).length+' öğrenciye taslak yazıldı — okuyup düzenleyin, sonra kaydedin.','green'); };
+  const aiYaz=async(o)=>{ const v=zKarneVeri(o,ctx); const anah=(typeof cozKey==='function'?cozKey():''); if(!anah||anah.length<10) throw new Error('Yapay zekâ anahtarı yok');
+    const p='Sen Değişim Koleji\'nde deneyimli bir öğretmensin. "Değişim Karnesi" için '+zIlkAd(o.ad)+' adlı '+o.sinif+' öğrencisi hakkında '+(ders.indexOf('Sınıf')===0?'sınıf öğretmeni':ders+' branş öğretmeni')+' olarak velinin okuyacağı bir öğretmen görüşü yaz. '
+      +(uzun?'4-5 cümle':'2-3 cümle')+', Türkçe, sıcak ama resmî karne dili, olumlu ve yapıcı; varsa gelişime açık alanı nazikçe ve öneriyle belirt. Abartma, uydurma bilgi ekleme, sadece verilen verilere dayan. Başlık, madde işareti, tırnak, emoji kullanma; sadece paragrafı yaz. Öğrencinin soyadını kullanma.\n'
+      +'Veriler: ödev '+v.odevYapilan+'/'+v.odevToplam+(v.oran!==null?(' (%'+v.oran+')'):'')+'; devamsızlık '+v.gelmedi+' gün, geç kalma '+v.gec+'; yıldız '+v.yildiz+(v.enCok.length?(' (en çok: '+v.enCok.join(', ')+')'):'')+'; okuduğu kitap '+v.kitap+(v.degOrt!==null?('; haftalık değerlendirme ortalaması %'+v.degOrt):'')+(v.notlar.length?('; öğretmen notları: '+v.notlar.join(' | ')):'')+'.';
+    const c=await geminiMetin(anah,(typeof cozModel==='function'?cozModel():''),p); const t=String(c||'').replace(/[*#>`]/g,'').replace(/\s+\n/g,'\n').trim(); if(!t) throw new Error('boş cevap'); return t; };
+  const aiHepsi=async(sadeceBos)=>{ const l=liste.filter(o=>!sadeceBos||!deger(o).trim()); if(!l.length) return toast('Yazılacak öğrenci kalmadı.','green'); durRef.current=false; let ok=0, hata=0;
+    for(let i=0;i<l.length;i++){ if(durRef.current) break; setIs({i:i+1,n:l.length,ad:l[i].ad}); try{ const t=await aiYaz(l[i]); setMetin(m=>Object.assign({},m,{[l[i].id]:t})); ok++; }catch(e){ hata++; if(hata>=3 && ok===0){ alert('Yapay zekâ şu an yanıt vermiyor. “⚡ Hızlı taslak” ile devam edebilirsiniz.'); break; } } }
+    setIs(null); toast('✨ '+ok+' görüş yazıldı'+(hata?(' · '+hata+' öğrencide yazılamadı'):'')+' — kontrol edip kaydedin.','green'); };
+  const hepsiniKaydet=async()=>{ const l=liste.filter(o=>metin[o.id]!==undefined); if(!l.length) return toast('Kaydedilecek değişiklik yok.','green'); const veri={}; l.forEach(o=>{ veri[anahtar(o)]={ders, metin:metin[o.id], ogretmen:ben, ogrId:o.id, ad:o.ad, ts:Date.now()}; });
+    const ok=await okulYaz(db,docAd,veri); if(ok){ setMetin({}); toast('💾 '+l.length+' görüş kaydedildi.','green'); } };
+  const kopyaHepsi=()=>{ const t=liste.map(o=>o.ad+':\n'+deger(o)).filter(x=>!/:\n$/.test(x)).join('\n\n'); try{ navigator.clipboard.writeText(t); toast('📋 Tüm görüşler kopyalandı — Gelişim Karnesi’ne yapıştırabilirsiniz.','green'); }catch(e){ alert(t); } };
+  const yazdir=()=>zYazdir({baslik:'📝 Karne Görüşleri · '+sinif, alt:ders+' · '+ben, kim:false, bolumler:liste.filter(o=>deger(o).trim()).map(o=>({baslik:o.ad, metin:deger(o)}))});
+  /* tüm öğretmenlerin görüşleri (öğrenci başına) */
+  const tumGorus=o=>Object.keys(kd).filter(k=>k.indexOf(o.id+'__')===0).map(k=>kd[k]).filter(x=>x&&x.metin).sort((a,b)=>String(a.ders).localeCompare(String(b.ders),'tr'));
+  const ogrYazdir=(o)=>zYazdir({baslik:'📝 Değişim Karnesi · Öğretmen Görüşleri', kim:{ad:o.ad,sinif:o.sinif}, bolumler:tumGorus(o).map(g=>({baslik:g.ders, meta:[g.ogretmen], metin:g.metin}))});
+  return (<div className="space-y-3">
+    <div className="rounded-[1.8rem] p-4 text-white bg-gradient-to-br from-emerald-600 via-teal-600 to-indigo-600 shadow-lg">
+      <p className="text-[11px] font-black tracking-[.2em] text-amber-200">DEĞİŞİM KARNESİ · {ZKARNE_DONEM_AD}</p>
+      <p className="text-[20px] font-black leading-tight mt-1">📝 Karne Görüşü Asistanı</p>
+      <p className="text-[12.5px] text-white/90 leading-snug mt-1">Sistemdeki ödev, teslim, yoklama, yıldız, kitap ve haftalık değerlendirme verilerinden her öğrenci için görüş taslağı hazırlar. Siz okuyup düzeltir, kaydeder, kopyalar ya da yazdırırsınız.</p>
+    </div>
+    <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <select value={sinif} onChange={e=>{ setSinif(e.target.value); setMetin({}); }} className="px-2 py-2.5 rounded-xl border-2 border-slate-200 text-[14px] font-bold"><option value="">— Sınıf seçin —</option>{siniflar.map(s=><option key={s} value={s}>{s}</option>)}</select>
+        <select value={ders} onChange={e=>setDers(e.target.value)} className="px-2 py-2.5 rounded-xl border-2 border-slate-200 text-[13px] font-bold">{ZKARNE_DERSLER.map(d=><option key={d}>{d}</option>)}</select>
+      </div>
+      <div className="flex gap-1.5 text-[12px] font-black"><button onClick={()=>setUzun(false)} className={'flex-1 py-2 rounded-xl border-2 '+(!uzun?'bg-slate-800 text-white border-slate-800':'border-slate-200 text-slate-600')}>Kısa (2-3 cümle)</button><button onClick={()=>setUzun(true)} className={'flex-1 py-2 rounded-xl border-2 '+(uzun?'bg-slate-800 text-white border-slate-800':'border-slate-200 text-slate-600')}>Orta (4-5 cümle)</button></div>
+      {sinif && <div className="grid grid-cols-2 gap-2">
+        <button onClick={taslakHepsi} className="py-2.5 rounded-xl bg-amber-100 text-amber-800 font-black text-[13px]">⚡ Hızlı taslak (boş olanlara)</button>
+        <button disabled={!!is} onClick={()=>aiHepsi(true)} className="py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-black text-[13px] disabled:opacity-60">✨ Yapay zekâ ile yaz</button>
+      </div>}
+      {is && <div className="bg-indigo-50 rounded-xl px-3 py-2 flex items-center gap-2"><span className="flex-1 text-[12.5px] font-bold text-indigo-700">✨ {is.i}/{is.n} · {is.ad} yazılıyor…</span><button onClick={()=>{ durRef.current=true; }} className="text-[12px] font-black text-rose-600">Durdur</button></div>}
+    </div>
+    {sinif && <div className="flex flex-wrap gap-1.5">
+      <button onClick={hepsiniKaydet} className="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white font-black text-[13px]">💾 Hepsini kaydet</button>
+      <button onClick={kopyaHepsi} className="py-2.5 px-3 rounded-xl bg-white border border-slate-200 font-black text-[13px] text-slate-700">📋 Hepsini kopyala</button>
+      <button onClick={yazdir} className="py-2.5 px-3 rounded-xl bg-white border border-slate-200 font-black text-[13px] text-slate-700">🖨️ Yazdır</button>
+      <button onClick={()=>setHerkes(!herkes)} className={'py-2.5 px-3 rounded-xl border font-black text-[13px] '+(herkes?'bg-indigo-600 text-white border-indigo-600':'bg-white border-slate-200 text-slate-700')}>👥 Tüm öğretmenlerin görüşleri</button>
+    </div>}
+    {sinif && liste.length===0 && <p className="text-center text-slate-400 text-[13px] py-4">Bu sınıfta öğrenci yok.</p>}
+    {sinif && liste.map(o=>{ const v=zKarneVeri(o,ctx); const m=deger(o); const deg=metin[o.id]!==undefined; const kayit=kayitli(o); return (
+      <div key={o.id} className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm">
+        <div className="flex items-start gap-2"><div className="flex-1 min-w-0"><p className="text-[15px] font-black text-slate-800">{o.ad}</p>
+          <div className="flex flex-wrap gap-1 mt-1 text-[10.5px] font-black">
+            <span className={'rounded-full px-2 py-0.5 '+(v.oran===null?'bg-slate-100 text-slate-500':v.oran>=85?'bg-emerald-100 text-emerald-700':v.oran>=60?'bg-sky-100 text-sky-700':'bg-amber-100 text-amber-700')}>📝 Ödev {v.odevYapilan}/{v.odevToplam}{v.oran!==null?(' · %'+v.oran):''}</span>
+            <span className="rounded-full px-2 py-0.5 bg-amber-50 text-amber-700">⭐ {v.yildiz}</span>
+            <span className={'rounded-full px-2 py-0.5 '+(v.gelmedi>=5?'bg-rose-100 text-rose-700':'bg-slate-100 text-slate-600')}>📅 Devamsız {v.gelmedi}{v.gec?(' · geç '+v.gec):''}</span>
+            <span className="rounded-full px-2 py-0.5 bg-slate-100 text-slate-600">📚 {v.kitap}</span>
+            {v.degOrt!==null && <span className="rounded-full px-2 py-0.5 bg-violet-100 text-violet-700">📊 %{v.degOrt}</span>}
+          </div></div>
+          <div className="flex flex-col gap-1 shrink-0">
+            <button title="Yapay zekâ ile yaz" onClick={async()=>{ setIs({i:1,n:1,ad:o.ad}); try{ const t=await aiYaz(o); setMetin(x=>Object.assign({},x,{[o.id]:t})); }catch(e){ alert('Yapay zekâ yazamadı; ⚡ taslağı kullanabilirsiniz.'); setMetin(x=>Object.assign({},x,{[o.id]:zKarneTaslak(o,v,ders,uzun)})); } setIs(null); }} className="text-[11.5px] font-black bg-violet-50 text-violet-700 rounded-lg px-2 py-1">✨</button>
+            <button title="Kopyala" onClick={()=>{ try{ navigator.clipboard.writeText(m); toast('📋 Kopyalandı','green'); }catch(e){} }} className="text-[11.5px] font-black bg-slate-100 text-slate-600 rounded-lg px-2 py-1">📋</button>
+          </div></div>
+        <textarea value={m} onChange={e=>setMetin(x=>Object.assign({},x,{[o.id]:e.target.value}))} rows={4} placeholder="Görüşünüzü yazın ya da ⚡ / ✨ ile taslak oluşturun…" className="mt-2 w-full px-3 py-2 rounded-xl border-2 border-slate-200 text-[13.5px] leading-relaxed outline-none focus:border-emerald-400"></textarea>
+        <div className="flex items-center gap-2 mt-1"><span className="flex-1 text-[10.5px] font-bold text-slate-400">{deg?'✏️ Kaydedilmedi':(kayit?('✅ Kaydedildi · '+new Date(kayit.ts).toLocaleDateString('tr-TR')):'')}{m?(' · '+m.length+' karakter'):''}</span>
+          {deg && <button onClick={async()=>{ if(await kaydet(o,metin[o.id])){ setMetin(x=>{ const y=Object.assign({},x); delete y[o.id]; return y; }); toast('💾 Kaydedildi','green'); } }} className="text-[12px] font-black bg-emerald-600 text-white rounded-lg px-3 py-1.5">💾 Kaydet</button>}</div>
+        {herkes && <div className="mt-2 bg-indigo-50 rounded-xl p-2.5"><div className="flex items-center gap-2"><p className="flex-1 text-[11.5px] font-black text-indigo-700">👥 Bu öğrenci için yazılan görüşler ({tumGorus(o).length})</p>{tumGorus(o).length>0 && <button onClick={()=>ogrYazdir(o)} className="text-[11px] font-black text-indigo-700">🖨️ Karne sayfası</button>}</div>
+          {tumGorus(o).map((g,i)=>(<p key={i} className="text-[12px] text-slate-700 mt-1"><b>{g.ders}</b> <span className="text-slate-400">({g.ogretmen})</span>: {g.metin}</p>))}</div>}
+      </div>); })}
+    <p className="text-[10.5px] text-slate-400 leading-snug px-1">🔒 Yapay zekâya öğrencinin yalnızca adı (soyadı değil) ve sayısal verileri gönderilir. Taslaklar yardımcıdır; son sözü her zaman öğretmen söyler.</p>
+  </div>); };
+
+/* v73 · Değişim Koleji resmî logosu (yazdırma sayfaları, yemek listesi, tatil kartı, afiş) */
+const DK_LOGO='data:image/jpeg;base64,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';
+/* ============================================================================
+   v73 · 🏖️ TATİL HAZIRLIĞI — MEB 2026-2027 çalışma takvimi
+   · Tatilden 7 gün önce geri sayım · tatilde "okula dönüşe X gün" + öneriler
+   · Karne günü tebrik · yarıyıl ve yaz tatilinde öğrenciye Dönem/Yıl Özeti + yazdırılabilir belge
+   · Öğretmene: tatil ödevi son teslim ipucu + karne görüşü hatırlatması
+   · Yönetimden düzenlenir: maas_config/k12_tatil {liste:[…]} (yoksa aşağıdaki takvim)
+   ============================================================================ */
+const ZTATIL_VARSAYILAN=[
+  {id:'ara1', ad:'1. Ara Tatil', ik:'🍂', bas:'2026-11-16', bit:'2026-11-20', donus:'2026-11-23'},
+  {id:'yariyil', ad:'Yarıyıl Tatili', ik:'❄️', bas:'2027-01-25', bit:'2027-02-05', donus:'2027-02-08', karne:'2027-01-22', ozet:'1. Dönem'},
+  {id:'ara2', ad:'2. Ara Tatil', ik:'🌷', bas:'2027-03-08', bit:'2027-03-12', donus:'2027-03-15', not:'Ramazan Bayramı ile aynı hafta'},
+  {id:'yaz', ad:'Yaz Tatili', ik:'☀️', bas:'2027-06-26', bit:'2027-09-12', donus:'', karne:'2027-06-25', ozet:'2026-2027 Eğitim Yılı'}];
+function zSimdi(){ try{ return window.__zTestSimdi||Date.now(); }catch(e){ return Date.now(); } }
+function zGunFark(a, b){ const x=new Date(a); x.setHours(12,0,0,0); const y=new Date(b); y.setHours(12,0,0,0); return Math.round((y-x)/86400000); }
+function zTrGun(s, gun){ if(!s) return ''; const d=new Date(s+'T12:00:00'); return d.toLocaleDateString('tr-TR',gun?{day:'numeric',month:'long',weekday:'long'}:{day:'numeric',month:'long'}); }
+function zTatilDurum(liste){ const n=zSimdi(); const bugun=zYemekTarih(new Date(n));
+  for(const t of liste){ if(t && t.karne===bugun) return {tur:'karne', t}; }
+  for(const t of liste){ if(!t||!t.bas) continue; const son=t.donus?zYemekTarih(new Date(new Date(t.donus+'T12:00:00').getTime()-86400000)):(t.bit||t.bas);
+    if(bugun>=t.bas && bugun<=son) return {tur:'icinde', t, kalan:t.donus?zGunFark(n,t.donus+'T12:00:00'):null}; }
+  for(const t of liste){ if(!t||!t.bas) continue; const f=zGunFark(n,t.bas+'T12:00:00'); if(f>0 && f<=7) return {tur:'once', t, kalan:f}; }
+  return null; }
+const ZTATIL_ONERI={
+  veli:['📚 Her gün birlikte 20 dakika kitap okuyun','♟️ Bir aile satranç / akıl oyunu saati yapın','🌳 Doğada yürüyüş, müze ya da kütüphane gezisi','📵 Ekran süresini birlikte planlayın','😴 Dönüşten 2 gün önce uyku saatini okul düzenine çekin','🎒 Çantayı ve eksik ödevleri dönüşten önce birlikte kontrol edin'],
+  ogrenci:['📚 Her gün bir kitap bölümü oku — bitirince “Okuduğum Kitaplar”a ekle (+5 ⭐)','♟️ Ailenle satranç ya da zekâ oyunu oyna','🎨 Tatil günlüğü tut: her gün bir resim, bir cümle','🧩 Uygulamadaki Haftalık 5 Soru ve Günün Kelimesi’ni kaçırma','🏃 Her gün biraz hareket et, bol su iç'] };
+const ZTatilOneri = ({ rol }) => { const [ac,setAc]=useState(false); const l=ZTATIL_ONERI[rol==='veli'?'veli':'ogrenci'];
+  return (<div className="mt-2"><button onClick={()=>setAc(!ac)} className="text-[12.5px] font-black bg-white/90 text-sky-800 rounded-xl px-3 py-2">{ac?'▲ Önerileri kapat':(rol==='veli'?'💡 Tatil için öneriler':'💡 Tatilde neler yapabilirim?')}</button>
+    {ac && <div className="mt-2 bg-white/95 rounded-2xl p-3 space-y-1.5">{l.map(x=>(<p key={x} className="text-[13px] text-slate-700 font-semibold leading-snug">{x}</p>))}</div>}</div>); };
+
+/* Dönem / Yıl özeti (öğrenci + veli) */
+const ZDonemOzeti = ({ db, ogr, baslik, rol }) => {
+  const od=useOkulDoc(db,'k12_odevler'), ts=useOkulDoc(db,'k12_teslim'), yk=useOkulDoc(db,'k12_yoklama');
+  if(!ogr) return null;
+  const v=zKarneVeri(ogr,{odevler:(od&&od.liste)||[], teslimler:(ts&&ts.liste)||[], yoklama:(yk&&yk.liste)||[], degDoc:null});
+  const yil=String(baslik||'').indexOf('Yıl')>=0; const katildi=Math.max(0,v.yoklamaGun-v.gelmedi);
+  const kutu=[['📝',v.odevYapilan,'ödev tamamladı'],['⭐',v.yildiz,'yıldız kazandı'],['📚',v.kitap,'kitap okudu']].concat(katildi>0?[['📅',katildi,'gün derse katıldı']]:[]);
+  const yazdir=()=>zYazdir({baslik:'🏆 '+baslik+' Özeti', alt:'Tebrikler! Bu '+(yil?'yıl':'dönem')+' gösterdiğin emek için seninle gurur duyuyoruz.', kim:{ad:ogr.ad, sinif:ogr.sinif},
+    bolumler:[{baslik:'Bu '+(yil?'yıl':'dönem')+' neler başardın?', html:'<table style="width:100%;border-collapse:collapse;text-align:center"><tr>'+kutu.map(k=>'<td style="border:2px solid #fde68a;border-radius:12px;padding:14px;text-align:center"><div style="font-size:30px">'+k[0]+'</div><div style="font-size:28px;font-weight:900;color:#b45309">'+k[1]+'</div><div style="font-size:12px;color:#64748b;font-weight:700">'+k[2]+'</div></td>').join('')+'</tr></table>'+(v.enCok.length?'<p style="margin-top:12px">⭐ En çok takdir aldığın konular: <b>'+v.enCok.map(zYzKac).join(', ')+'</b></p>':'')+'<p style="margin-top:12px;font-size:15px">'+(yil?'Yeni eğitim yılında':'Yeni dönemde')+' de merakını, çalışkanlığını ve güzel yüreğini kaybetme. Seninle gurur duyuyoruz! 🌟</p>'}]});
+  return (<div className="mt-3 bg-white rounded-2xl p-3 text-slate-800">
+    <p className="text-[13px] font-black text-amber-700">🏆 {rol==='veli'?(String(ogr.ad||'').split(' ')[0]+' için '+baslik+' özeti — tebrikler!'):(baslik+' özetin — tebrikler '+String(ogr.ad||'').split(' ')[0]+'!')}</p>
+    <div className={'grid gap-1.5 mt-2 '+(kutu.length===4?'grid-cols-4':'grid-cols-3')}>{kutu.map(k=>(<div key={k[2]} className="bg-amber-50 rounded-xl py-2 text-center"><div className="text-[18px] leading-none">{k[0]}</div><div className="text-[18px] font-black text-amber-700 leading-tight mt-0.5">{k[1]}</div><div className="text-[9.5px] font-bold text-slate-500 leading-tight px-0.5">{k[2]}</div></div>))}</div>
+    <button onClick={yazdir} className="mt-2 w-full text-[12.5px] font-black bg-amber-100 text-amber-800 rounded-xl py-2">🖨️ Başarı belgesini yazdır / PDF</button>
+  </div>); };
+
+const ZTatilKart = ({ db, rol, ogr, setSekme }) => {
+  const d=useOkulDoc(db,'k12_tatil'); if(d===null) return null;
+  const liste=(d&&Array.isArray(d.liste)&&d.liste.length)?d.liste:ZTATIL_VARSAYILAN; const s=zTatilDurum(liste); if(!s) return null; const t=s.t;
+  const ozetGoster=(rol==='ogrenci'||rol==='veli') && t.ozet && (s.tur==='karne'||s.tur==='icinde'||(s.tur==='once'&&s.kalan<=3));
+  let ana='', alt='';
+  if(s.tur==='once'){ ana=t.ik+' '+t.ad+(s.kalan===1?' yarın başlıyor!':(' '+s.kalan+' gün sonra başlıyor')); alt=zTrGun(t.bas)+(t.bit&&t.bit!==t.bas?(' – '+zTrGun(t.bit)):'')+(t.donus?(' · Okula dönüş: '+zTrGun(t.donus,true)):'')+(t.karne?(' · Karne: '+zTrGun(t.karne)):''); }
+  else if(s.tur==='icinde'){ ana='🏖️ İyi tatiller! '+t.ik+' '+t.ad; alt=t.donus?(s.kalan<=1?'Yarın okuldayız — çantanı hazırla! 🎒':('Okula dönüşe '+s.kalan+' gün · '+zTrGun(t.donus,true))):'Keyifli ve sağlıklı bir tatil dileriz.'; }
+  else { ana='🎓 Bugün karne günü!'; alt=(t.ozet||'Dönem')+' tamamlandı · '+t.ad+' '+zTrGun(t.bas)+' tarihinde başlıyor.'; }
+  if(rol==='ogretmen') return (<div className="mb-3 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 text-white px-3 py-2.5 shadow">
+    <p className="text-[13.5px] font-black leading-tight">{ana}</p><p className="text-[11.5px] font-bold text-white/90 mt-0.5">{alt}</p>
+    {s.tur==='once' && <p className="text-[11.5px] text-white/95 mt-1">📝 Tatil ödevi verecekseniz son teslimi {t.donus?zTrGun(t.donus):'dönüş günü'} seçin; teslim etmeyenlere son günden önceki akşam otomatik hatırlatma gider.</p>}
+    {t.ozet && s.tur!=='icinde' && setSekme && <button onClick={()=>setSekme('karnegorus')} className="mt-1.5 text-[12px] font-black bg-white text-indigo-700 rounded-xl px-3 py-1.5">📝 Karne görüşlerini tamamla ›</button>}
+  </div>);
+  return (<div className={'rounded-[1.8rem] p-4 text-white shadow-lg bg-gradient-to-br '+(s.tur==='karne'?'from-amber-500 via-orange-500 to-rose-500':(t.id==='yariyil'?'from-sky-500 via-indigo-500 to-violet-600':(t.id==='yaz'?'from-amber-400 via-orange-400 to-pink-500':'from-teal-500 via-sky-500 to-indigo-500')))}>
+    <div className="flex items-start gap-3"><img src={DK_LOGO} alt="" className="w-11 h-11 rounded-xl bg-white object-cover shrink-0" />
+      <div className="flex-1 min-w-0"><p className="text-[17px] font-black leading-tight">{ana}</p><p className="text-[12.5px] font-bold text-white/90 mt-1 leading-snug">{alt}</p>{t.not && <p className="text-[11.5px] text-white/85 mt-0.5">ℹ️ {t.not}</p>}</div></div>
+    {s.tur!=='karne' && <ZTatilOneri rol={rol} />}
+    {ozetGoster && <ZDonemOzeti db={db} ogr={ogr} baslik={t.ozet} rol={rol} />}
+  </div>); };
+
+/* Yönetim: tatil takvimi */
+const ZTatilYonetim = ({ db }) => {
+  const d=useOkulDoc(db,'k12_tatil'); const [L,setL]=useState(null); const [mesgul,setMesgul]=useState(false);
+  useEffect(()=>{ if(d!==null && !L) setL(JSON.parse(JSON.stringify((d&&Array.isArray(d.liste)&&d.liste.length)?d.liste:ZTATIL_VARSAYILAN))); },[d]);
+  if(!L) return <p className="text-[12px] text-slate-400">⏳ Yükleniyor…</p>;
+  const set=(i,k,v)=>setL(x=>x.map((t,j)=>j===i?Object.assign({},t,{[k]:v}):t));
+  const kaydet=async()=>{ setMesgul(true); const ok=await okulYaz(db,'k12_tatil',{liste:L}); setMesgul(false); if(ok) toast('🏖️ Tatil takvimi kaydedildi.','green'); };
+  const durum=zTatilDurum(L);
+  return (<div>
+    <p className="text-[12.5px] text-slate-600 leading-snug mb-2">MEB 2026-2027 takvimi hazır yüklü. Tatilden 7 gün önce herkesin <b>Bugün</b> ekranında geri sayım çıkar; tatilde “okula dönüşe X gün”, karne günü tebrik; yarıyıl ve yaz tatilinde öğrenciye <b>dönem özeti ve başarı belgesi</b> görünür.</p>
+    {durum && <p className="text-[12px] font-black text-indigo-700 bg-indigo-50 rounded-xl px-3 py-2 mb-2">Şu an gösterilen: {durum.t.ad} · {durum.tur==='once'?('başlamasına '+durum.kalan+' gün'):durum.tur==='icinde'?'tatil sürüyor':'karne günü'}</p>}
+    {L.map((t,i)=>(<div key={t.id||i} className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 mb-2">
+      <div className="flex gap-1.5"><input value={t.ik||''} onChange={e=>set(i,'ik',e.target.value)} className="w-12 text-center px-1 py-1.5 rounded-lg border border-slate-200" /><input value={t.ad||''} onChange={e=>set(i,'ad',e.target.value)} className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-slate-200 font-black text-[13px]" /><button onClick={()=>{ if(window.confirm('Bu tatil satırı kaldırılsın mı?')) setL(x=>x.filter((_,j)=>j!==i)); }} className="text-rose-500 font-black px-1">✕</button></div>
+      <div className="grid grid-cols-2 gap-1.5 mt-1.5 text-[11px] font-bold text-slate-500">
+        <label>Başlangıç<input type="date" value={t.bas||''} onChange={e=>set(i,'bas',e.target.value)} className="w-full px-2 py-1 rounded-lg border border-slate-200 text-[12.5px] text-slate-800" /></label>
+        <label>Bitiş<input type="date" value={t.bit||''} onChange={e=>set(i,'bit',e.target.value)} className="w-full px-2 py-1 rounded-lg border border-slate-200 text-[12.5px] text-slate-800" /></label>
+        <label>Okula dönüş<input type="date" value={t.donus||''} onChange={e=>set(i,'donus',e.target.value)} className="w-full px-2 py-1 rounded-lg border border-slate-200 text-[12.5px] text-slate-800" /></label>
+        <label>Karne günü<input type="date" value={t.karne||''} onChange={e=>set(i,'karne',e.target.value)} className="w-full px-2 py-1 rounded-lg border border-slate-200 text-[12.5px] text-slate-800" /></label>
+      </div>
+      <input value={t.not||''} onChange={e=>set(i,'not',e.target.value)} placeholder="Not (isteğe bağlı)" className="mt-1.5 w-full px-2 py-1.5 rounded-lg border border-slate-200 text-[12px]" />
+    </div>))}
+    <button onClick={()=>setL(x=>x.concat([{id:'t'+Date.now(), ad:'Yeni tatil', ik:'🎈', bas:'', bit:'', donus:''}]))} className="text-[12px] font-black text-indigo-600">+ tatil ekle</button>
+    <button disabled={mesgul} onClick={kaydet} className="mt-2 w-full py-3 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-black text-[15px] disabled:opacity-60">{mesgul?'Kaydediliyor…':'💾 Tatil takvimini kaydet'}</button>
+  </div>); };
+
+const LOCAL_SURUM = 73;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
@@ -12650,6 +12980,8 @@ const renderSharedUI = () => (
                                     <div className="space-y-4">
                                         <ZSekme ad="duyuru"><p className="text-[12px] font-black uppercase tracking-widest text-amber-600 px-1">📢 Duyuru & Haber</p></ZSekme>
                                         <div className="space-y-4">
+                                            <ZYKart ad="duyuru" baslik="🍽️ Aylık yemek listesi" alt="Öğretmen, öğrenci ve velide “Bugünün menüsü” · Kasım listesi yüklü · yeni ayı buradan girin"><ZYemekYonetim db={db} /></ZYKart>
+                                            <ZYKart ad="duyuru" baslik="🏖️ Tatil takvimi" alt="Ara tatil · yarıyıl · 2. ara tatil · yaz — geri sayım, karne günü, dönem özeti"><ZTatilYonetim db={db} /></ZYKart>
                                             <ZYKart ad="duyuru" baslik="🎬 Açılış ekranı (duyuru afişi)" alt="Uygulamayı açan herkese tam ekran afiş · 5 sn · süresi dolunca kendiliğinden kalkar"><ZAcilisYonetim db={db} /></ZYKart>
                                             <ZYKart ad="duyuru" baslik="📲 Bildirimli duyuru" alt="Tüm okula, bir sınıfa, sadece velilere ya da öğretmenlere — telefonlara anında bildirim"><ZYoneticiDuyuru db={db} user={{name:'Okul Yönetimi'}} /></ZYKart>
                                             <ZYKart ad="duyuru" baslik="📢 Kayan haber & acil duyuru" alt="Kayan bant herkesin ekranının üstünde görünür; pop-up açılışta bir kez çıkar.">
