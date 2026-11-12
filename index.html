@@ -2668,6 +2668,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
     { k:'dna',     ad:'Öğrenme DNA', ikon:'fa-dna', grup:'deger' },
     { k:'rozet',   ad:'Rozet & Sıralama', ikon:'fa-trophy', grup:'deger' },
     { k:'karnegorus', ad:'📝 Karne Görüşü (Değişim Karnesi)', ikon:'fa-pen-to-square', grup:'deger' },
+    { k:'yazili', ad:'📝 Yazılı Sınav Sonuçları', ikon:'fa-file-pen', grup:'deger' },
     { k:'degerlendirme', ad:'36 Haftalık Değerlendirme', ikon:'fa-chart-column', grup:'deger' },
     { k:'karne',   ad:'Sınıf Karnesi', ikon:'fa-file-lines', grup:'deger' },
     { k:'bulten',  ad:'Haftalık Bülten', ikon:'fa-newspaper', grup:'deger' },
@@ -2809,6 +2810,7 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
         {!yukleniyor && sekme==='hafta5' && <ZHaftaSoruOgretmen db={db} user={user} ogrenciler={ogrenciler} />}
         {!yukleniyor && sekme==='kitapkose' && <ZKitapKosesi db={db} rol="ogretmen" user={user} />}
         {!yukleniyor && sekme==='haftarapor' && <ZHaftaRaporOgretmen db={db} user={user} ogrenciler={ogrenciler} />}
+        {!yukleniyor && sekme==='yazili' && <ZBolumKalkani ad="yazili"><ZYaziliGiris db={db} user={user} ogrenciler={ogrenciler} /></ZBolumKalkani>}
         {!yukleniyor && sekme==='karnegorus' && <ZKarneGorus db={db} user={user} ogrenciler={ogrenciler} odevler={odevler} teslimler={teslimler} />}
         {!yukleniyor && sekme==='kapi' && <ZKapi db={db} user={user} ogrenciler={ogrenciler} />}
         {!yukleniyor && sekme==='anket'   && <VeliAnketi db={db} duzenlenebilir={true} user={user} />}
@@ -3635,6 +3637,7 @@ const OgrenciMerkezi = ({ db, user }) => {
 
       <ZSekme ad="ben"><Katla id="ob-takvim" baslik="Okul Takvimi" ikon="🗓️" renk="from-sky-500 to-blue-600"><OkulTakvimi db={db} duzenlenebilir={false} /></Katla></ZSekme>
 
+      <ZSekme ad="ben">{ben && <ZBolumKalkani ad="yazilikart" sessiz={true}><ZYaziliKart db={db} ogr={ben} /></ZBolumKalkani>}</ZSekme>
       <ZSekme ad="ben">{ben && <Katla id="ob-deger" baslik="Haftalık Değerlendirmem" ikon="📊" renk="from-indigo-500 to-fuchsia-600" alt="Deneme sonuçların ve gelişim grafiğin"><DegerlendirmeRapor db={db} ogrenci={ben} ogrenciler={ogrenciler} veliModu={true} /></Katla>}</ZSekme>
       <ZSekme ad="ben">{ben && <Katla id="ob-gelisim" baslik="Gelişim Karnem" ikon="📈" renk="from-violet-500 to-purple-600"><GelisimKarnesi db={db} ogrenci={ben} saltOkunur={true} /></Katla>}</ZSekme>
 
@@ -3849,6 +3852,7 @@ const VeliMerkezi = ({ db, user }) => {
           <ZSekme ad="cocuk">
           <Katla id="vb-egitici" baslik="Eğitici İçerikler" ikon="💡" renk="from-pink-500 to-rose-500"><EgiticiVeIletisim cocuk={cocuk} /></Katla>
           </ZSekme>
+          <ZSekme ad="cocuk"><ZBolumKalkani ad="yazilikart" sessiz={true}><ZYaziliKart db={db} ogr={cocuk} /></ZBolumKalkani></ZSekme>
           <ZSekme ad="cocuk">
           <Katla id="vb-deger" baslik="Haftalık Değerlendirme" ikon="📊" renk="from-indigo-500 to-fuchsia-600" alt="Deneme sonuçları, davranış ve gelişim grafiği"><DegerlendirmeRapor db={db} ogrenci={cocuk} ogrenciler={ogrenciler} veliModu={true} /></Katla>
           </ZSekme>
@@ -9424,7 +9428,111 @@ const ZYildizArsiv = ({ db, onKart }) => {
   );
 };
 
-const LOCAL_SURUM = 78;
+
+/* ===== v79 · Yazılı Sınav Sonuçları — öğretmen not girer, çıktı alır; öğrenci/veli kendi notunu görür =====
+   Kayıt: maas_config/k12_yazili_<sınıf>  →  { '<sınav>__<ders>': { sinav, ders, ogretmen, ts, goster, notlar:{ <öğrenciId>: puan | null } } } */
+const ZYAZILI_SINAVLAR=[{k:'2026_d1s1',ad:'1. Dönem 1. Ortak Yazılı'},{k:'2026_d1s2',ad:'1. Dönem 2. Ortak Yazılı'},{k:'2026_d2s1',ad:'2. Dönem 1. Ortak Yazılı'},{k:'2026_d2s2',ad:'2. Dönem 2. Ortak Yazılı'}];
+const ZYAZILI_DERSLER=['Türkçe','Matematik','Fen Bilimleri','Sosyal Bilgiler','T.C. İnkılap Tarihi ve Atatürkçülük','İngilizce','Din Kültürü ve Ahlak Bilgisi','Hayat Bilgisi','Almanca','Bilişim Teknolojileri'];
+function zYaziliPuan(v){ if(v===null||v===undefined||v==='') return null; const n=Number(String(v).replace(',','.')); if(!isFinite(n)||n<0||n>100) return null; return Math.round(n*100)/100; }
+function zYaziliRenk(p){ return p>=85?'bg-emerald-100 text-emerald-800':p>=70?'bg-sky-100 text-sky-800':p>=50?'bg-amber-100 text-amber-800':'bg-rose-100 text-rose-800'; }
+function zYaziliOzet(pl){ const l=pl.filter(function(x){ return x!==null; }); if(!l.length) return null; const t=l.reduce(function(a,b){ return a+b; },0); return {n:l.length, ort:Math.round(t/l.length*10)/10, max:Math.max.apply(null,l), min:Math.min.apply(null,l)}; }
+const ZYaziliGiris = ({ db, user, ogrenciler }) => {
+  const ben=(user&&user.name)||'Öğretmen';
+  const siniflar=Array.from(new Set((ogrenciler||[]).map(o=>o&&o.sinif).filter(Boolean))).sort((a,b)=>(zSinifNo(a)-zSinifNo(b))||String(a).localeCompare(String(b),'tr'));
+  const oku=(k,v)=>{ try{ return localStorage.getItem(k)||v; }catch(e){ return v; } };
+  const [sinif,setSinif]=useState(()=>oku('zyazili_sinif',''));
+  const [ders,setDers]=useState(()=>oku('zyazili_ders','Türkçe'));
+  const [sinav,setSinav]=useState(()=>{ const v=oku('zyazili_sinav',ZYAZILI_SINAVLAR[0].k); return ZYAZILI_SINAVLAR.some(x=>x.k===v)?v:ZYAZILI_SINAVLAR[0].k; });
+  /* Kaydedilmemiş notlar taslak olarak tutulur: sınıf/ders/sınav değişse, başka sekmeye geçilse ya da sayfa yenilense de kaybolmaz */
+  const [girisTum,setGirisTum]=useState(()=>{ try{ const t=JSON.parse(sessionStorage.getItem('zyazili_taslak')||'{}'); return (t && typeof t==='object' && !Array.isArray(t))?t:{}; }catch(e){ return {}; } });
+  const [yaziyor,setYaziyor]=useState(false);
+  useEffect(()=>{ try{ sessionStorage.setItem('zyazili_taslak',JSON.stringify(girisTum)); }catch(e){} },[girisTum]);
+  useEffect(()=>{ try{ localStorage.setItem('zyazili_sinif',sinif); localStorage.setItem('zyazili_ders',ders); localStorage.setItem('zyazili_sinav',sinav); }catch(e){} },[sinif,ders,sinav]);
+  const docAd='k12_yazili_'+zAnahtar(sinif||'yok'); const yd=useOkulDoc(db, sinif?docAd:'k12_yazili__yok')||{};
+  const dersAd=String(ders||'').trim(); const dersK=zAnahtar(dersAd); const anahtar=sinav+'__'+(dersK||'ders');
+  const ctxK=docAd+'|'+anahtar; const giris=(girisTum[ctxK] && typeof girisTum[ctxK]==='object')?girisTum[ctxK]:{};
+  const setGiris=(fn)=>setGirisTum(t=>{ const eski=(t[ctxK] && typeof t[ctxK]==='object')?t[ctxK]:{}; const yeni=(typeof fn==='function')?fn(eski):fn; const y=Object.assign({},t); if(yeni && Object.keys(yeni).length) y[ctxK]=yeni; else delete y[ctxK]; return y; });
+  const sinifVar=!!sinif && siniflar.indexOf(sinif)>=0;
+  const kayit=(yd[anahtar] && typeof yd[anahtar]==='object')?yd[anahtar]:{}; const kNot=(kayit.notlar && typeof kayit.notlar==='object')?kayit.notlar:{};
+  const sinavAd=(ZYAZILI_SINAVLAR.find(x=>x.k===sinav)||ZYAZILI_SINAVLAR[0]).ad;
+  const liste=(ogrenciler||[]).filter(o=>o&&o.id&&o.sinif===sinif).sort((a,b)=>String(a.ad).localeCompare(String(b.ad),'tr'));
+  const kStr=o=>{ const p=zYaziliPuan(kNot[o.id]); return p===null?'':String(p).replace('.',','); };
+  const ham=o=> giris[o.id]!==undefined ? giris[o.id] : kStr(o);
+  const puan=o=>zYaziliPuan(ham(o));
+  const hatali=o=>{ if(giris[o.id]===undefined) return false; const h=String(giris[o.id]).trim(); return h!=='' && zYaziliPuan(h)===null; };
+  const degisen=liste.filter(o=>giris[o.id]!==undefined && zYaziliPuan(giris[o.id])!==zYaziliPuan(kNot[o.id]));
+  const ozet=zYaziliOzet(liste.map(puan));
+  const goster=kayit.goster===true;
+  const kaydet=async()=>{ if(yaziyor) return; if(!sinifVar) return toast('Önce sınıf seçin.','red'); if(!dersAd || !dersK) return toast('Ders adını yazın (harf içermeli).','red'); if(liste.some(hatali)) return toast('Kırmızı işaretli notlar 0–100 arasında olmalı.','red'); if(!degisen.length) return toast('Kaydedilecek değişiklik yok.','green');
+    setYaziyor(true); const notlar={}; const yazilan={}; degisen.forEach(o=>{ notlar[o.id]=zYaziliPuan(giris[o.id]); yazilan[o.id]=giris[o.id]; });
+    const ok=await okulYaz(db,docAd,{[anahtar]:{sinav:sinav, sinavAd:sinavAd, ders:dersAd, ogretmen:ben, ts:Date.now(), notlar:notlar}}); setYaziyor(false);
+    if(ok){ setGiris(g=>{ const y=Object.assign({},g); Object.keys(yazilan).forEach(id=>{ if(y[id]===yazilan[id]) delete y[id]; }); Object.keys(y).forEach(id=>{ if(String(y[id]).trim()==='' ) delete y[id]; }); return y; }); toast('💾 '+degisen.length+' not kaydedildi.'+(goster?'':' Veliler henüz görmüyor; yayınlamak için alttaki kutuyu işaretleyin.'),'green'); } };
+  const gosterDegis=async(v)=>{ if(!sinifVar||!dersAd||!dersK) return toast('Önce sınıf ve ders seçin.','red'); const ok=await okulYaz(db,docAd,{[anahtar]:{sinav:sinav, sinavAd:sinavAd, ders:dersAd, goster:v}}); if(ok) toast(v?'👁️ Yayınlandı: veli ve öğrenci kendi notunu görür.':'🙈 Notlar veli ve öğrenci ekranından kaldırıldı.','green'); };
+  const yazdir=()=>{ try{ if(!liste.length) return toast('Bu sınıfta öğrenci yok.','red'); const t=new Date();
+    let h='<div class="sayfa"><div class="ust"><img class="logo" src="'+DK_LOGO+'" alt="Değişim Koleji"><div class="okul">DEĞİŞİM KOLEJİ<small>DİJİTAL EĞİTİM SİSTEMİ</small></div><div class="tarih">'+t.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})+'</div></div>';
+    h+='<h1>'+zYzKac(sinavAd+' Sonuçları')+'</h1><p class="alt">'+zYzKac(sinif+' · '+dersAd+' · '+ben)+'</p>';
+    h+='<table class="yzl"><thead><tr><th style="width:44px">No</th><th style="text-align:left">Ad Soyad</th><th style="width:90px">Puan</th></tr></thead><tbody>';
+    liste.forEach((o,i)=>{ const p=puan(o); h+='<tr><td>'+(i+1)+'</td><td style="text-align:left">'+zYzKac(o.ad)+'</td><td><b>'+(p===null?'—':zYzKac(String(p).replace('.',',')))+'</b></td></tr>'; });
+    h+='</tbody></table>';
+    if(ozet) h+='<p class="yzo">Notu girilen: <b>'+ozet.n+' / '+liste.length+'</b> &nbsp;·&nbsp; Sınıf ortalaması: <b>'+String(ozet.ort).replace('.',',')+'</b> &nbsp;·&nbsp; En yüksek: <b>'+String(ozet.max).replace('.',',')+'</b> &nbsp;·&nbsp; En düşük: <b>'+String(ozet.min).replace('.',',')+'</b></p>';
+    h+='<p class="yzi">Ders öğretmeni: '+zYzKac(ben)+' &nbsp;&nbsp;&nbsp; İmza: ……………………</p>';
+    h+='<div class="alt-imza">Değişim Koleji · MEGA Dijital Eğitim Sistemi'+(typeof LOCAL_SURUM!=='undefined'?' · Sürüm '+LOCAL_SURUM:'')+' · Barış Öğretmen tarafından hazırlandı</div></div>';
+    zYazdirAc(h, sinavAd+' · '+sinif+' · '+dersAd, '<style>table.yzl{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}table.yzl th,table.yzl td{border:1px solid #cbd5e1;padding:6px 8px;text-align:center}table.yzl th{background:#e8f5e9;color:#14532d}table.yzl tr:nth-child(even) td{background:#f8fafc}.yzo{margin-top:12px;font-size:13px}.yzi{margin-top:26px;font-size:13px;text-align:right}</style>');
+  }catch(e){ alert('Yazdırma hazırlanamadı.'); } };
+  const ozelDers=ZYAZILI_DERSLER.indexOf(ders)<0;
+  return (
+    <div id="z-yazili" className="space-y-3">
+      <div className="rounded-2xl p-4 bg-gradient-to-br from-emerald-600 to-green-500 text-white shadow"><p className="font-black text-[17px]">📝 Yazılı Sınav Sonuçları</p><p className="text-[12px] font-bold text-white/90 mt-0.5">Sınıfı, dersi ve sınavı seçin · notları girin · kaydedin · çıktı alın</p></div>
+      <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2">
+        <div className="flex flex-wrap gap-1.5">{siniflar.length===0? <p className="text-[12px] text-slate-400">Henüz kayıtlı öğrenci yok.</p> : siniflar.map(x=>(<button key={x} onClick={()=>setSinif(x)} className={'px-3 py-1.5 rounded-xl text-[13px] font-black '+(sinif===x?'bg-emerald-600 text-white shadow':'bg-slate-100 text-slate-600')}>{x}</button>))}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <select value={sinav} onChange={e=>setSinav(e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-[13px] font-bold bg-white">{ZYAZILI_SINAVLAR.map(x=>(<option key={x.k} value={x.k}>{x.ad}</option>))}</select>
+          <select value={ozelDers?'__diger':ders} onChange={e=>setDers(e.target.value==='__diger'?'':e.target.value)} className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-[13px] font-bold bg-white">{ZYAZILI_DERSLER.map(x=>(<option key={x} value={x}>{x}</option>))}<option value="__diger">Diğer ders…</option></select>
+        </div>
+        {ozelDers && <input value={ders} onChange={e=>setDers(e.target.value.slice(0,40))} placeholder="Ders adını yazın" className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-[13px] outline-none" />}
+      </div>
+      {!sinifVar ? <p className="text-center text-[13px] text-slate-400 font-bold py-6">Not girmek için yukarıdan bir sınıf seçin.</p> : (<>
+        {ozet && <div className="grid grid-cols-4 gap-1.5 text-center">{[['Girilen',ozet.n+'/'+liste.length],['Ortalama',ozet.ort],['En yüksek',ozet.max],['En düşük',ozet.min]].map(x=>(<div key={x[0]} className="bg-white border border-slate-200 rounded-xl py-2"><p className="text-[15px] font-black text-slate-800">{String(x[1]).replace('.',',')}</p><p className="text-[10px] font-bold text-slate-400">{x[0]}</p></div>))}</div>}
+        {degisen.length>0 && <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2"><p className="flex-1 text-[12px] font-bold text-amber-800">✏️ {degisen.length} kaydedilmemiş not var (sarı kutular).</p><button onClick={kaydet} disabled={yaziyor} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[12px] font-black disabled:opacity-50">💾 Kaydet</button></div>}
+        <div className="bg-white border border-slate-200 rounded-2xl divide-y divide-slate-100">
+          {liste.length===0? <p className="p-4 text-[13px] text-slate-400">Bu sınıfta öğrenci yok.</p> : liste.map((o,i)=>{ const p=puan(o), ht=hatali(o); return (
+            <div key={o.id} className="flex items-center gap-2 px-3 py-2">
+              <span className="w-6 text-[11px] font-black text-slate-400">{i+1}</span>
+              <span className="flex-1 min-w-0 text-[13.5px] font-bold text-slate-800 truncate">{o.ad}</span>
+              {p!==null && !ht && <span className={'px-2 py-0.5 rounded-full text-[10.5px] font-black '+zYaziliRenk(p)}>{p>=85?'Pekiyi':p>=70?'İyi':p>=50?'Orta':'Gelişmeli'}</span>}
+              <input value={ham(o)} onChange={e=>{ const v=e.target.value.replace(/[^0-9.,]/g,'').slice(0,5); setGiris(g=>Object.assign({},g,{[o.id]:v})); }} inputMode="decimal" placeholder="—" disabled={yaziyor} aria-label={o.ad+' puanı'} className={'z-yazili-puan w-16 text-center px-2 py-2 rounded-xl border text-[15px] font-black outline-none '+(ht?'border-rose-400 bg-rose-50 text-rose-700':giris[o.id]!==undefined?'border-amber-300 bg-amber-50':'border-slate-200')} />
+            </div>); })}
+        </div>
+        <label className="flex items-center gap-2 text-[12.5px] font-bold text-slate-600 px-1"><input id="z-yazili-goster" type="checkbox" checked={goster} onChange={e=>gosterDegis(e.target.checked)} /> Velilere ve öğrencilere yayınla (her biri kendi notunu görür)</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button id="z-yazili-kaydet" onClick={kaydet} disabled={yaziyor} className="py-3 rounded-2xl bg-emerald-600 text-white font-black text-[14px] shadow disabled:opacity-50">{yaziyor?'⏳ Kaydediliyor…':'💾 Kaydet'+(degisen.length?' ('+degisen.length+')':'')}</button>
+          <button id="z-yazili-yazdir" onClick={yazdir} className="py-3 rounded-2xl bg-slate-800 text-white font-black text-[14px] shadow">🖨️ Çıktı al</button>
+        </div>
+        <p className="text-[10.5px] text-slate-400 px-1">Puanlar 0–100 arasıdır (ör. 85 ya da 92,5). Notu silmek için kutuyu boşaltıp kaydedin. Notlar, siz “yayınla” kutusunu işaretleyene kadar veli ve öğrenci ekranında görünmez; yayınlanınca herkesin ekranında yalnız kendi notu çıkar. Kaydedilmemiş notlar taslak olarak saklanır.{kayit.ogretmen?(' Son kaydeden: '+kayit.ogretmen+'.'):''}</p>
+      </>)}
+    </div>
+  );
+};
+/* Öğrenci / veli: yalnız kendi yazılı notları (not yoksa hiç görünmez) */
+const ZYaziliKart = ({ db, ogr }) => {
+  const yd=useOkulDoc(db, (ogr&&ogr.sinif)?('k12_yazili_'+zAnahtar(ogr.sinif)):'k12_yazili__yok')||{};
+  if(!ogr || !ogr.id) return null;
+  const satir=[]; Object.keys(yd).forEach(function(k){ const v=yd[k]; if(!v || typeof v!=='object' || v.goster!==true || !v.notlar || typeof v.notlar!=='object') return; const p=zYaziliPuan(v.notlar[ogr.id]); if(p===null) return; const sk=String(v.sinav||k.split('__')[0]); const sa=(ZYAZILI_SINAVLAR.find(function(x){ return x.k===sk; })||{}).ad||String(v.sinavAd||'Yazılı Sınav'); satir.push({sk:sk, sinav:sa, ders:String(v.ders||'Ders'), p:p}); });
+  if(!satir.length) return null;
+  const gruplar=[]; satir.sort(function(a,b){ return a.sk.localeCompare(b.sk)||a.ders.localeCompare(b.ders,'tr'); }).forEach(function(x){ let g=gruplar.find(function(y){ return y.sk===x.sk; }); if(!g){ g={sk:x.sk, ad:x.sinav, l:[]}; gruplar.push(g); } g.l.push(x); });
+  return (
+    <div id="z-yazili-kart" className="mb-3 bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm">
+      <p className="font-black text-[15px] text-slate-800">📝 Yazılı Sınav Sonuçları</p>
+      {gruplar.slice().reverse().map(g=>{ const oz=zYaziliOzet(g.l.map(x=>x.p)); return (
+        <div key={g.sk} className="mt-2.5">
+          <div className="flex items-center justify-between"><p className="text-[12px] font-black text-emerald-700">{g.ad}</p>{oz && g.l.length>1 && <p className="text-[11px] font-bold text-slate-400">Ortalama {String(oz.ort).replace('.',',')}</p>}</div>
+          <div className="mt-1 divide-y divide-slate-100">{g.l.map((x,xi)=>(<div key={x.ders+'|'+xi} className="flex items-center gap-2 py-1.5"><span className="flex-1 min-w-0 text-[13.5px] font-bold text-slate-700 truncate">{x.ders}</span><span className={'px-2.5 py-0.5 rounded-full text-[13px] font-black '+zYaziliRenk(x.p)}>{String(x.p).replace('.',',')}</span></div>))}</div>
+        </div>); })}
+    </div>
+  );
+};
+
+const LOCAL_SURUM = 79;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
