@@ -2761,11 +2761,10 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
 
   return (
     <div id="ogr-merkez" className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden no-print">
-      <div className="bg-gradient-to-r from-indigo-600 to-violet-700 p-4 text-white flex items-center gap-3">
-        <i className="fa-solid fa-school-flag text-3xl"></i>
-        <div>
-          <h3 className="font-black text-lg leading-tight">Okul Yönetim Merkezi</h3>
-          <p className="text-indigo-200 text-xs font-medium">Kalıcı kayıt · Sınıf ve bireysel ödev · DNA · Rozet — tüm cihazlarda senkron</p>
+      <div className="bg-gradient-to-r from-indigo-600 to-violet-700 px-4 py-2.5 text-white flex items-center gap-3">
+        <i className="fa-solid fa-school-flag text-xl"></i>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-black text-[15px] leading-tight">Okul Yönetim Merkezi</h3>
         </div>
         <button onClick={()=>{ var ad=window.prompt("Yeni sınıf adı ekle (ör. Anaokulu Papatya, 5-A):"); if(ad&&ad.trim()){ try{ var ek=JSON.parse(localStorage.getItem("ozel_siniflar")||"[]"); if(!Array.isArray(ek))ek=[]; if(ek.indexOf(ad.trim())<0){ ek.push(ad.trim()); localStorage.setItem("ozel_siniflar",JSON.stringify(ek)); alert("Sınıf eklendi. Sayfa yenilenecek."); location.reload(); } else { alert("Bu sınıf zaten var."); } }catch(e){} } }} className="ml-auto bg-white/20 hover:bg-white/30 text-white text-xs font-black px-3 py-2 rounded-lg whitespace-nowrap"><i className="fa-solid fa-plus mr-1"></i>Sınıf Ekle</button>
       </div>
@@ -2794,12 +2793,12 @@ const OgretmenMerkezi = ({ db, user, apiKey, modelName }) => {
       </div>
 
       <div className="p-4 md:p-5">
-        {!yukleniyor && sekme==='ogrenci' && <div className="mb-3"><ZBildirimKarti rol="ogretmen" /></div>}
         {!yukleniyor && sekme==='ogrenci' && <div className="mb-4"><ZBugunKart baslik={'👋 Merhaba '+String((user&&user.name)||'Öğretmenim').split(' ')[0]+' Hocam'} alt="Bugün hızlıca ne yapmak istersin?" renk="from-rose-500 to-orange-500" ogeler={[
           {ik:'💬',ad:'Mesajlar',sayi:okunmamisMesaj,durum:okunmamisMesaj?(okunmamisMesaj+' okunmamış mesaj'):'Yeni mesaj yok',git:()=>altSec('mesaj')},
           {ik:'📝',ad:'Ödev / Hatırlatma',sayi:0,durum:'Sınıfa gönder',git:()=>altSec('odev')},
           {ik:'✅',ad:'Yoklama',sayi:0,durum:'Bugünün yoklaması',git:()=>altSec('yoklama')},
           {ik:'📰',ad:'Özet gönder',sayi:0,durum:'Günün / haftanın özeti',git:()=>altSec('sinifozet')}]} /></div>}
+        {!yukleniyor && sekme==='ogrenci' && <div className="mb-3"><ZBildirimKarti rol="ogretmen" /></div>}
         {!yukleniyor && <HizliOgrenciBul db={db} ogrenciler={ogrenciler} teslimler={teslimler} user={user} />}
         <BugunDerslerim db={db} user={user} />
         <ZMedyaBekci db={db} />
@@ -3630,7 +3629,6 @@ const OgrenciMerkezi = ({ db, user }) => {
       )}
 
       {ben && <ZBildirimBekci db={db} rol="ogrenci" ogr={ben} />}
-      {ben && <ZSekme ad="bugun"><ZBildirimKarti rol="ogrenci" /></ZSekme>}
       {ben && <ZSekme ad="bugun"><ZBugunKart baslik={'🌟 Merhaba '+String(ben.ad||'').split(' ')[0]+'!'} alt="Bugün seni neler bekliyor?" renk="from-indigo-500 to-blue-600" ogeler={[
         {ik:'📝',ad:'Ödevlerim',sayi:_oBekleyen,durum:_oBekleyen?(_oBekleyen+' ödev seni bekliyor'):'Hepsi tamam, aferin! ✓',git:()=>zBolumeGit('ob-odevler')},
         {ik:'📰',ad:'Özetler',sayi:_oOzet,durum:_oOzet?(_oOzet+' yeni özet'):'Dersin özeti burada',git:()=>{ zOzetGorIsaretle(ben&&ben.id, _oOzYeni.map(p=>p.id)); zBolumeGit('ob-dersozet'); }},
@@ -3663,6 +3661,7 @@ const OgrenciMerkezi = ({ db, user }) => {
         </div>
       </ZSekme>)}
 
+      {ben && <ZSekme ad="bugun"><ZBildirimKarti rol="ogrenci" /></ZSekme>}
       <ZSekme ad="bugun"><AiDurum db={db} user={user} rol="student" /></ZSekme>
       <ZSekme ad="bugun">{ben && <EvcilHayvan ben={ben} />}</ZSekme>
 
@@ -3841,7 +3840,6 @@ const VeliMerkezi = ({ db, user }) => {
       {cocuk && (
         <>
           <ZBildirimBekci db={db} rol="veli" ogr={cocuk} />
-          <ZSekme ad="bugun"><ZBildirimKarti rol="veli" /></ZSekme>
           <ZSekme ad="bugun"><ZDuyuruKart db={db} ogr={cocuk} rol="veli" /></ZSekme>
           <ZSekme ad="bugun"><ZHaftaRaporVeli db={db} cocuk={cocuk} /><ZAlmaVeli db={db} cocuk={cocuk} user={user} /><ZServisVeli db={db} cocuk={cocuk} /></ZSekme>
           <ZSekme ad="bugun"><ZBugunKart baslik={'👋 Bugün '+String(cocuk.ad||'').split(' ')[0]+' için'} alt={cocuk.sinif} renk="from-emerald-500 to-teal-600" ogeler={[
@@ -3849,6 +3847,7 @@ const VeliMerkezi = ({ db, user }) => {
             {ik:'🎒',ad:'Unutma!',sayi:cocukBilgiler.length,durum:cocukBilgiler.length?(cocukBilgiler.length+' hatırlatma'):'Hatırlatma yok ✓',git:()=>zBolumeGit('vb-hatirlat')},
             {ik:'💬',ad:'Mesajlar',sayi:_vOkunmayan,durum:_vOkunmayan?(_vOkunmayan+' yeni mesaj'):'Yeni mesaj yok',git:()=>zBolumeGit('vb-mesaj')},
             {ik:'📰',ad:'Özetler',sayi:_vOzet,durum:_vOzet?(_vOzet+' yeni özet'):'Özetler burada',git:()=>{ zOzetGorIsaretle(cocuk?('v_'+cocuk.id):'', _vOzYeni.map(p=>p.id)); zBolumeGit('vb-dersozet'); }}]} /></ZSekme>
+          <ZSekme ad="bugun"><ZBildirimKarti rol="veli" /></ZSekme>
           <ZSistemKim rol="veli" sinif={cocuk.sinif} ad={cocuk.ad} />
           <ZAcilisEkrani db={db} rol="veli" sinif={cocuk.sinif} />
           <ZSekme ad="bugun"><ZBolumKalkani ad="tatil" sessiz={true}><ZTatilKart db={db} rol="veli" ogr={cocuk} /></ZBolumKalkani></ZSekme>
@@ -7649,6 +7648,7 @@ const AiDurum = ({ db, user, rol }) => {
   const [tani, setTani] = useState(null);
   const [taniAcik, setTaniAcik] = useState(false);
   const [kopyalandi, setKopyalandi] = useState(false);
+  const [aiDetay, setAiDetay] = useState(false);
   const heartbeatYaz = async (d) => {
     try{ if(window.ZIRVE_admin===true) return; const {doc,getDoc,setDoc}=window.FirebaseSDK; if(!db) return; const ref=doc(db,"maas_config","k12_durum");
       const kimlik=(rol||'x')+'_'+String((user&&user.name)||'').toLocaleLowerCase('tr').replace(/\s+/g,'')+'_'+((user&&user.grade)||'');
@@ -7678,6 +7678,12 @@ const AiDurum = ({ db, user, rol }) => {
   useEffect(()=>{ try{ window.__zAiDurum=durum; window.dispatchEvent(new Event('zai-degisti')); }catch(e){} },[durum]);
   useEffect(()=>{ const f=()=>{ test(); }; window.addEventListener('zai-test',f); return ()=>window.removeEventListener('zai-test',f); });
   if(!kotu && !taniAcik && durum!=='test') return null; /* v62: sorun yoksa kart görünmez — yeşil "Bağlı" rozeti profilde */
+  /* v81: sorun varsa koca kırmızı kart yerine tek satır; ayrıntılar dokununca açılır */
+  if(kotu && !taniAcik && durum!=='test' && !aiDetay && document.querySelector('#z-karsilama-sade')) return null; /* sade karşılamadaki "Yapay zekâ bağlı değil · dokun" rozeti zaten gösteriyor */
+  if(kotu && !taniAcik && durum!=='test' && !aiDetay) return (
+    <button id="z-ai-ince" onClick={()=>setAiDetay(true)} className="w-full mt-3 mb-1 flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-3 py-2 text-left">
+      <span className="text-base">🤖</span><span className="flex-1 text-[12px] font-bold leading-snug">{rol==='student'?'Yapay zekâ şu an biraz yoğun — birazdan tekrar açılır.':'Yapay zekâ şu an yanıt vermiyor; diğer her şey çalışıyor.'}</span><span className="text-[11px] font-black text-amber-700 whitespace-nowrap">Ayrıntı ›</span>
+    </button>);
   const renk=iyi?'from-emerald-500 to-teal-600':kotu?'from-rose-500 to-red-600':'from-slate-500 to-slate-600';
   const ikon=iyi?'✅':kotu?'⚠️':'⏳';
   return (
@@ -9622,7 +9628,7 @@ const ZYaziliYonetim = ({ db }) => {
     <p className="text-[10.5px] text-slate-400 mt-2">Notu girilmiş ders yoksa liste boş görünür.</p></div>);
 };
 
-const LOCAL_SURUM = 80;
+const LOCAL_SURUM = 81;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
@@ -10596,7 +10602,7 @@ const ZKasaKarti = ({ db, globalConfig, setGlobalConfig }) => {
   useEffect(()=>{ setU((globalConfig&&globalConfig.kasaUrl)||''); },[globalConfig&&globalConfig.kasaUrl]);
   const temiz=()=>String(u||'').trim().replace(/\/+$/,'');
   const kaydet=async()=>{ const t=temiz(); if(t && !/^https:\/\/[^\s]+$/.test(t)) return alert('Adres https:// ile başlamalı.'); try{ const {doc,setDoc}=window.FirebaseSDK; await setDoc(doc(db,'maas_config','k12_global'),{kasaUrl:t},{merge:true}); try{ setGlobalConfig({...globalConfig,kasaUrl:t}); }catch(e){} window.ZKASA_URL=t; try{ localStorage.setItem('zkasa_url',t); }catch(e){} toast(t?'🔐 Kasa adresi kaydedildi — herkeste devrede':'Kasa kapatıldı','green'); }catch(e){ alert('Kaydedilemedi: '+(e.message||e)); } };
-  const test=async()=>{ const t=temiz(); if(!t) return; setYuk('test'); setD(null); try{ const r=await fetch(t+'/saglik'); const j=await r.json(); let ai='—'; try{ const a=await fetch(t+'/g/v1beta/models/gemini-2.5-flash:generateContent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:'Sadece "tamam" yaz.'}]}]})}); ai=a.ok?'✅ çalışıyor':('⛔ '+a.status); }catch(e){ ai='⛔ ulaşılamadı'; } setD({ok:!!j.ok, anahtar:j.anahtar||0, ai:ai, bildirim:!!j.bildirim}); }catch(e){ setD({ok:false}); } setYuk(''); };
+  const test=async()=>{ const t=temiz(); if(!t) return; setYuk('test'); setD(null); try{ const r=await fetch(t+'/saglik'); const j=await r.json(); let ai='—'; try{ const a=await fetch(t+'/g/v1beta/models/gemini-2.5-flash:generateContent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:'Sadece "tamam" yaz.'}]}]})}); ai=a.ok?'✅ çalışıyor':('⛔ '+a.status); }catch(e){ ai='⛔ ulaşılamadı'; } setD({ok:!!j.ok, anahtar:j.anahtar||0, ai:ai, bildirim:!!j.bildirim, surum:j.surum||0}); }catch(e){ setD({ok:false}); } setYuk(''); };
   const kendime=async()=>{ setYuk('bil'); try{ if(zBildirimDurum()!=='granted'){ const r=await zBildirimIzin(); if(r!=='granted'){ setYuk(''); return; } } const s=await zPushAbonelik(); if(!s){ alert(zIosMu()&&!zKurulu()?'iPhone’da önce uygulamayı ana ekrana ekleyip oradan açın.':'Bu cihazda bildirim aboneliği açılamadı. sw.js dosyasının okul sistemiyle aynı klasörde olduğundan emin olun.'); setYuk(''); return; } const r=await fetch(temiz()+'/bildir',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({abonelikler:[s],veri:{baslik:'🔔 Deneme bildirimi',govde:'Kasa sunucusu çalışıyor. Uygulama kapalıyken de bildirim gelecek.',url:location.href.split('#')[0],etiket:'zkasa-test'}})}); const j=await r.json().catch(()=>({})); toast(j.gonderilen?'📬 Deneme bildirimi gönderildi — uygulamayı kapatıp bekleyin':'Bildirim gönderilemedi','green'); }catch(e){ alert('Gönderilemedi: '+(e.message||e)); } setYuk(''); };
   return (<div>
     <p className="text-[12.5px] text-slate-600 leading-snug mb-2">Kasa sunucusu kurulunca: yapay zekâ anahtarları <b>hiçbir telefona gitmez</b> (çalınamaz) ve bildirimler <b>uygulama kapalıyken de</b> gelir. Kurulum rehberindeki Cloudflare adresini buraya yapıştırın.</p>
@@ -10606,7 +10612,7 @@ const ZKasaKarti = ({ db, globalConfig, setGlobalConfig }) => {
       <button onClick={test} disabled={!u||!!yuk} className="bg-slate-800 text-white font-black text-[13px] py-3 rounded-xl">{yuk==='test'?'⏳':'🩺 Test et'}</button>
       <button onClick={kendime} disabled={!u||!!yuk} className="bg-indigo-600 text-white font-black text-[13px] py-3 rounded-xl">{yuk==='bil'?'⏳':'🔔 Bana dene'}</button>
     </div>
-    {d && (d.ok ? <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-[12.5px] font-bold text-emerald-800 leading-relaxed">✅ Kasa çalışıyor · 🔑 kasada {d.anahtar} anahtar · 🤖 yapay zekâ: {d.ai} · 🔔 bildirim: {d.bildirim?'hazır':'—'}{d.anahtar===0 && <span className="block text-amber-700">⚠️ Kasaya henüz anahtar eklenmemiş (Cloudflare → GEMINI_KEYS).</span>}</div>
+    {d && (d.ok ? <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-[12.5px] font-bold text-emerald-800 leading-relaxed">✅ Kasa çalışıyor · 🔑 kasada {d.anahtar} anahtar · 🤖 yapay zekâ: {d.ai} · 🔔 bildirim: {d.bildirim?'hazır':'—'} · 📦 kasa sürümü: {d.surum||'?'}{d.surum && d.surum<13 ? <span className="block text-amber-700">ℹ️ Ödev hatırlatmalarında öğretmen adı ve teslim günü için kasa sürüm 13'e güncellenmeli.</span> : null}{d.anahtar===0 && <span className="block text-amber-700">⚠️ Kasaya henüz anahtar eklenmemiş (Cloudflare → GEMINI_KEYS).</span>}</div>
       : <div className="mt-2 bg-rose-50 border border-rose-200 rounded-xl p-2.5 text-[12.5px] font-bold text-rose-700">⛔ Kasaya ulaşılamadı. Adresi ve Cloudflare kurulumunu kontrol edin.</div>)}
     {(globalConfig&&globalConfig.kasaUrl) && <div className="mt-4 bg-amber-50 border-2 border-amber-200 rounded-2xl p-3.5">
       <p className="text-[15px] font-black text-amber-900">🗝️ Kasaya anahtar ekle</p>
@@ -10631,7 +10637,15 @@ const ZKasaKarti = ({ db, globalConfig, setGlobalConfig }) => {
   </div>);
 };
 const zPushOgrFiltre=(k)=>(e)=>(e.rol==='veli'||e.rol==='ogrenci') && (k.tur==='birey' ? e.ogrId===k.ogrenciId : zSubeUyar(k,{sube:e.sube}));
-function zPushOdevler(db, kayitlar){ try{ (kayitlar||[]).forEach(k=>{ zPushOlay(k.tur==='birey'?{rol:['veli','ogrenci'], ogrId:k.ogrenciId}:{rol:['veli','ogrenci'], sinif:k.sinif, ...(k.sube?{sube:k.sube}:{})}, {baslik:(k.bilgi?'📢 Yeni hatırlatma':'📝 Yeni ödev')+(k.ders?(' · '+k.ders):''), govde:k.detay||k.konu||'', etiket:'o'+k.id}); }); }catch(e){} }
+/* v81: bildirimde kimden, hangi ders, hangi ödev, ne zamana kadar — tek bakışta okunsun */
+function zOdevTarihYaz(s){ try{ if(!s) return ''; const d=new Date(String(s)+'T12:00:00'); if(isNaN(d.getTime())) return String(s); return d.toLocaleDateString('tr-TR',{day:'numeric',month:'long',weekday:'long'}); }catch(e){ return String(s||''); } }
+function zOdevBildirim(k){ const yz=v=>(typeof v==='string'||typeof v==='number')?String(v).trim():''; const ogr=yz(k.ekleyen); const ders=yz(k.ders); const konu=yz(k.konu); const detay=yz(k.detay);
+  const baslik=(k.bilgi?'📢 ':'📝 ')+(ders||'Ödev')+(ogr?(' · '+ogr):'');
+  const satir=[]; satir.push((k.bilgi?'Hatırlatma: ':'Yeni ödev: ')+(konu||detay.replace(/\s+/g,' ').slice(0,80)||'Ayrıntılar uygulamada'));
+  if(konu && detay) satir.push(detay.replace(/\s+/g,' ').slice(0,110));
+  if(!k.bilgi && k.sonTeslim) satir.push('⏰ Son teslim: '+zOdevTarihYaz(k.sonTeslim));
+  return {baslik:baslik, govde:satir.join('\n')}; }
+function zPushOdevler(db, kayitlar){ try{ (kayitlar||[]).forEach(k=>{ const b=zOdevBildirim(k); zPushOlay(k.tur==='birey'?{rol:['veli','ogrenci'], ogrId:k.ogrenciId}:{rol:['veli','ogrenci'], sinif:k.sinif, ...(k.sube?{sube:k.sube}:{})}, {baslik:b.baslik, govde:b.govde, etiket:'o'+k.id}); }); }catch(e){} }
 function zPushOzetler(db, yeni, siniflar){ try{ (yeni||[]).forEach(p=>{ zPushOlay({rol:['veli','ogrenci'], sinif:(p.sinif==='TÜM OKUL'?'*':p.sinif), ...(p.sube?{sube:p.sube}:{})}, {baslik:'📰 Yeni özet · '+(p.ogretmen||'Öğretmen'), govde:String(p.metin||'').split('\n').filter(x=>x.trim()).slice(0,2).join(' · '), etiket:'p'+p.id}); }); }catch(e){} }
 function zPushOgretmene(db, ogretmenAd, baslik, govde, etiket){ try{ if(!ogretmenAd) return; zPushOlay({rol:['ogretmen'], ogretmen:ogretmenAd}, {baslik, govde, etiket}); }catch(e){} }
 /* v54 📢 Duyuru hedefleri: kime gider? */
@@ -11024,7 +11038,7 @@ const Avatar = ({ db, p, ad, boyut }) => {
   return src ? <img src={src} alt="" className="rounded-full object-cover shrink-0 border-2 border-white shadow" style={{width:b,height:b}} />
              : <span className="rounded-full shrink-0 inline-flex items-center justify-center font-black text-white bg-gradient-to-br from-indigo-500 to-fuchsia-500 border-2 border-white shadow" style={{width:b,height:b,fontSize:Math.round(b*0.42)}}>{harf}</span>;
 };
-const ProfilKarti = ({ db, user, rol }) => {
+const ProfilKarti = ({ db, user, rol, sade }) => {
   const d=useOkulDoc(db,"k12_profil"); const kisiler=(d&&d.kisiler)||{};
   const ad=(user&&user.name)||''; const sinif=(user&&user.grade)||'';
   const key=zProfilKey(rol,ad,sinif);
@@ -11056,6 +11070,16 @@ const ProfilKarti = ({ db, user, rol }) => {
   const fotoGoster = foto==='__sil__'?null:(foto||null);
   return (
     <>
+      {sade ? (
+      <div id="z-profil-sade" className="flex items-center gap-3 w-full">
+        <button onClick={ac} aria-label="Profili düzenle" className="shrink-0 rounded-full ring-2 ring-white/70"><Avatar db={db} p={p} ad={ad} boyut={46} /></button>
+        <div className="flex-1 min-w-0">
+          <p className="text-[16px] font-black leading-tight truncate">{ad}</p>
+          <p className="text-[11px] font-bold opacity-80 truncate">{ROL_AD[rol]}{sinif&&rol!=='teacher'?(' · '+sinif):''}{p&&p.ek?(' · '+String(p.ek).split(/[•·,]/)[0].trim()):''}</p>
+        </div>
+        <button onClick={ac} className="shrink-0 bg-white/20 hover:bg-white/30 text-white font-black text-[11.5px] px-3 py-1.5 rounded-xl whitespace-nowrap">✏️ Profil</button>
+      </div>
+      ) : (
       <div className="mt-3 rounded-3xl overflow-hidden shadow-md border border-indigo-100 bg-white w-full">
         <div className="h-14 bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-amber-400"></div>
         <div className="px-4 pb-4 -mt-9">
@@ -11072,7 +11096,8 @@ const ProfilKarti = ({ db, user, rol }) => {
           {p&&p.bio && String(p.bio).length>90 && <button onClick={()=>setDevam(!devam)} className="text-[11px] font-black text-indigo-600 mt-0.5">{devam?'▲ Daha az':'▼ Devamını oku'}</button>}
         </div>
       </div>
-      {acik && <div className="fixed inset-0 z-[99995] bg-black/50 flex items-end sm:items-center justify-center p-3" onClick={()=>setAcik(false)}>
+      )}
+      {acik && <div className="fixed inset-0 z-[99995] bg-black/50 flex items-end sm:items-center justify-center p-3 text-slate-800" onClick={()=>setAcik(false)}>
         <div className="bg-white rounded-3xl w-full max-w-md max-h-[90vh] overflow-auto p-5 shadow-2xl" onClick={e=>e.stopPropagation()}>
           <div className="flex items-center justify-between mb-3"><p className="font-black text-indigo-700 text-lg">👤 Profilim</p><button onClick={()=>setAcik(false)} className="text-slate-400 text-xl">✕</button></div>
           <div className="flex flex-col items-center gap-2 mb-3">
@@ -11306,8 +11331,25 @@ const GunlukKarsilama = ({ db, user, rol, profil, onCikis }) => {
   const soz=EGITIM_SOZLERI[(zYilinGunu()-1+EGITIM_SOZLERI.length)%EGITIM_SOZLERI.length];
   const saat=t.getHours();
   const selam = saat<5?'İyi geceler':saat<12?'Günaydın':saat<18?'İyi günler':'İyi akşamlar';
+  const [genis,setGenis]=useState(()=>{ try{ return localStorage.getItem('z_karsilama_genis')==='1'; }catch(e){ return false; } });
+  const genisYap=(v)=>{ setGenis(v); try{ localStorage.setItem('z_karsilama_genis',v?'1':'0'); }catch(e){} };
+  /* v81: sade karşılama — profil, tarih/saat ve günün sözü TEK kartta. Eski geniş görünüm, söze dokununca ("› geniş") geri açılır (hiçbir şey kaldırılmadı). */
+  if(!genis) return (
+    <div id="z-karsilama-sade" className="mb-3 rounded-3xl overflow-hidden shadow-md bg-gradient-to-br from-indigo-700 via-violet-700 to-fuchsia-600 text-white">
+      <div className="px-4 pt-3 pb-2">
+        {profil && user && user.name ? <ProfilKarti db={db} user={user} rol={rol} sade={true} /> : <p className="text-[15px] font-black">{selam} 👋</p>}
+        <div className="flex items-center justify-between gap-2 mt-2.5">
+          <p className="text-[12px] font-bold text-white/85">{selam} · {t.toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long'})}</p>
+          <div className="flex items-center gap-1.5"><span className="text-[15px] font-black tabular-nums text-emerald-200">{t.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</span><ZQrPaylas kucuk={true} /><button onClick={zAyarAc} title="Ayarlar" aria-label="Ayarlar" className="bg-white/15 hover:bg-white/25 text-white font-black text-[13px] w-8 h-8 rounded-full">⚙️</button>{onCikis && <button onClick={onCikis} title="Çıkış" aria-label="Çıkış" className="bg-rose-500/90 hover:bg-rose-600 text-white font-black text-[11.5px] px-2.5 h-8 rounded-full whitespace-nowrap"><i className="fa-solid fa-right-from-bracket"></i></button>}</div>
+        </div>
+        <div className="mt-1.5 flex flex-wrap gap-1"><ZDurumRozetleri /></div>
+      </div>
+      <button onClick={()=>genisYap(true)} className="w-full text-left bg-black/15 px-4 py-2 text-[12px] font-bold text-white/90 leading-snug">✨ “{soz.s}”{soz.k?<span className="text-yellow-200 font-black"> — {soz.k}</span>:null}<span className="float-right text-[10.5px] font-black text-white/70 ml-2">› geniş</span></button>
+    </div>
+  );
   return (
     <div className="space-y-3 mb-4">
+      <div className="flex justify-end"><button onClick={()=>genisYap(false)} className="text-[11px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">▲ Sade görünüme dön</button></div>
       {profil && user && user.name ? <ProfilKarti db={db} user={user} rol={rol} /> : null}
       <div className="rounded-3xl overflow-hidden shadow-lg">
         <div className="bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900 text-white px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
@@ -13629,8 +13671,10 @@ if (systemRole === 'teacher') return <>{renderSharedUI()}
 </div>
 <div className="space-y-8">
 <GunlukKarsilama db={db} user={k12User} rol="teacher" profil={true} onCikis={handleLogout} />
-<TeacherPortal user={k12User} db={db} apiKey={apiKey} modelName={modelName} />
 <OgretmenMerkezi db={db} user={k12User} apiKey={apiKey} modelName={modelName} />
+<Katla id="ogr-klasik" baslik="Klasik araçlar" ikon="🧰" renk="from-slate-600 to-slate-800" alt="Eski “Sınıflara Görev Ata” formu ve yapay zekâ ile yoklama mesajı">
+<div className="space-y-6">
+<TeacherPortal user={k12User} db={db} apiKey={apiKey} modelName={modelName} />
 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
 <div className="bg-yellow-500 p-4 text-white flex items-center"><i className="fa-solid fa-clipboard-user text-3xl mr-3"></i><div><h3 className="font-bold text-lg text-yellow-900">Akıllı Yoklama Bildirimi</h3><p className="text-yellow-800 text-xs font-medium">Gelmeyen öğrenciler için kurumsal veli mesajı.</p></div></div>
 <div className="p-5 flex-1 flex flex-col gap-4">
@@ -13648,6 +13692,8 @@ if (systemRole === 'teacher') return <>{renderSharedUI()}
 )}
 </div>
 </div>
+</div>
+</Katla>
 </div>
 </div>
 <div className="flex justify-center py-8 no-print"><button onClick={handleLogout} className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-black px-8 py-4 rounded-full tracking-widest shadow"><i className="fa-solid fa-right-from-bracket mr-2"></i>GÜVENLİ ÇIKIŞ</button></div>
