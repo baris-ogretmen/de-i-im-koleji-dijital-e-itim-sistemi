@@ -8392,7 +8392,7 @@ const ZSISTEM = {
         slogan:'Anaokulundan 7. sınıfa · her gün bir adım daha', kim:'Anaokulu – 7. sınıf',
         renk:'from-[#0b1e3f] via-[#0f3d5e] to-emerald-600', vurgu:'text-emerald-300', dugme:'from-emerald-400 to-teal-500',
         ozellik:['🦉 Yapay zekâ öğretmen “Hoca”','🧭 Öğrenme profili','🏆 Gelişim ve başarı takibi','💌 Veliden öğretmene öneri'],
-        aciklama:'Her çocuğun kendi hızına ve öğrenme stiline göre çalıştığı kişisel gelişim alanı. Yapay zekâ öğretmen “Hoca” konuları sabırla anlatır, soruları birlikte çözer; öğrenme profili sayesinde çalışmalar çocuğa göre şekillenir, gelişim adım adım izlenir.' },
+        aciklama:'Her çocuğun kendi hızına, ilgisine ve seviyesine göre çalıştığı kişisel gelişim alanı. Yapay zekâ öğretmen “Hoca” konuları sabırla anlatır, soruları birlikte çözer; öğrenme profili sayesinde çalışmalar çocuğa göre şekillenir, gelişim adım adım izlenir.' },
   lgs:{ k:'lgs', ad:'LGS Zafer Sistemi', kisa:'LGS Zafer', url:'https://baris-ogretmen.github.io/degisim-lgs-zafer--sistemi/',
         slogan:'8. sınıf · LGS 2027 hedefine adım adım', kim:'8. sınıf',
         renk:'from-[#0b1e3f] via-[#3b2a0b] to-amber-500', vurgu:'text-amber-300', dugme:'from-amber-300 to-yellow-500',
@@ -9628,7 +9628,7 @@ const ZYaziliYonetim = ({ db }) => {
     <p className="text-[10.5px] text-slate-400 mt-2">Notu girilmiş ders yoksa liste boş görünür.</p></div>);
 };
 
-const LOCAL_SURUM = 82;
+const LOCAL_SURUM = 83;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
