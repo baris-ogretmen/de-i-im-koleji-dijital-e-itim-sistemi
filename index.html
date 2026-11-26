@@ -5957,7 +5957,7 @@ const BugunDerslerim = ({ db, user }) => {
 function zHaftaBasi(){ const d=new Date(); d.setHours(0,0,0,0); const g=d.getDay()||7; d.setDate(d.getDate()-g+1); return d.getTime(); }
 function zGunBasi(){ const d=new Date(); d.setHours(0,0,0,0); return d.getTime(); }
 function zTarihStr(ts){ const d=new Date(ts); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function zAktifMi(x){ return !(x && x.bitis && x.bitis < Date.now()); }
+function zAktifMi(x){ if(x && x.yayin && x.yayin > Date.now()) return false; /* v82: planlı yayın (Ders Planı tam otomatik, ör. 19:00) — saati gelene kadar gizli */ return !(x && x.bitis && x.bitis < Date.now()); }
 /* v67 · Ödev mi, dersten paylaşım mı? "Bugünkü dersimizden" + video gibi kısa paylaşımlar öğrenci/veliye ÖDEV olarak gösterilmez.
    Öğretmen "Ödev olarak gönder" dediyse (odevKesin) her zaman ödevdir. */
 function zPaylasimMi(o){
@@ -9628,7 +9628,7 @@ const ZYaziliYonetim = ({ db }) => {
     <p className="text-[10.5px] text-slate-400 mt-2">Notu girilmiş ders yoksa liste boş görünür.</p></div>);
 };
 
-const LOCAL_SURUM = 81;
+const LOCAL_SURUM = 82;
 /* v55: yeni sürüm dosyada görülünce kendiliğinden güncelle (yazı yazılmıyorsa; döngü korumalı) */
 function zOtoGuncelle(no){ try{ const k='zoto_'+no; if(sessionStorage.getItem(k)) return; const yap=()=>{ try{ const a=document.activeElement; if(a&&(/INPUT|TEXTAREA|SELECT/.test(a.tagName)||a.isContentEditable)) return false; if(window.ZKAYIT_SURUYOR) return false; sessionStorage.setItem(k,'1'); try{ toast('🔄 Yeni sürüm yükleniyor…','green'); }catch(e){} setTimeout(()=>{ try{ location.replace(location.pathname+'?v='+Date.now()+location.hash); }catch(e){ location.reload(); } },1200); return true; }catch(e){ return false; } };
   /* Çalışırken asla yenileme: yalnızca açılışın ilk 20 sn'sinde ya da uygulama arka plandan geri açılınca */
